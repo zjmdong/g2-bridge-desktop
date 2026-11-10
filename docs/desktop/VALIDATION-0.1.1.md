@@ -37,6 +37,15 @@ and [QueryDisplayConfig API](https://learn.microsoft.com/en-us/windows/win32/api
   reattachment. The virtual monitor received a new HMONITOR and the physical
   primary remained unchanged. Pre-existing non-VDD adapter and monitor identity,
   active and primary states matched the inventory taken before driver installation.
+- After that GUI reattachment, the installed application streamed the independent
+  moving test window for 33.51 seconds: 1,952 frames, steady intervals
+  59.76–60.01 fps, maximum frame 30,673 bytes, zero oversized frames and no
+  receive discard. The GUI stop released the encoder and USB connection cleanly.
+  This patch's final run is host-side regression evidence; the user's optical
+  confirmations were on 0.1.0 with the same unchanged video/USB implementation.
+
+Final local state: 0.1.1 installed, virtual desktop enabled at 1080p60, physical
+ultrawide primary unchanged, test window closed and streaming stopped.
 
 Driver removal, forced rollback on real hardware, actual simulator performance
 and other GPU models remain outside this acceptance run. Unit-test rollback
