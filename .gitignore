@@ -24,3 +24,11 @@ Thumbs.db
 # Local agent handoff notes
 /AGENTS.md
 /.agents/
+
+# Desktop build dependencies and release output.
+/vendor/
+/build/
+/dist/
+/.impeccable/review/
+/.impeccable/cache/
+/.impeccable/questions/

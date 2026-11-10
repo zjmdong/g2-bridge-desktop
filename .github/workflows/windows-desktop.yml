@@ -1,0 +1,48 @@
+name: Windows desktop
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'desktop_app/**'
+      - 'desktop_tests/**'
+      - 'packaging/windows/**'
+      - 'requirements-desktop.txt'
+      - 'requirements-build.txt'
+      - '.github/workflows/windows-desktop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+      - name: Install build dependencies
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install -r requirements-build.txt
+      - name: Prepare pinned Inno Setup compiler
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force work/downloads | Out-Null
+          $setup = Join-Path $PWD 'work/downloads/innosetup-6.7.4.exe'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe' -OutFile $setup
+          $expected = 'a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c'
+          if ((Get-FileHash $setup -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw 'Compiler checksum mismatch' }
+          $destination = Join-Path $PWD 'work/tools/InnoSetup'
+          $process = Start-Process $setup -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER','/NOICONS',('/DIR="'+$destination+'"')) -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Compiler installation failed' }
+      - name: Test and build installer
+        run: ./packaging/windows/build.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DJI-Goggles-Streamer-Windows
+          path: |
+            dist/*-Setup.exe
+            dist/*-Source.zip
