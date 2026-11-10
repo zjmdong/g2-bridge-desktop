@@ -1,5 +1,97 @@
 # Windows implementation history
 
+## 0.2.3 bound raw-frame backlog and repair native capture timing
+
+Keep all 70 SDK baseline files at `a34690a58d48f0cd9b43cdeddf39b5efaf024b9c`
+unchanged. The native modifications are a patch against bundled FFmpeg n9.0.2
+(`946fcce07b6dcd0331c8cc609192aeff5e1924f8`), configured as a minimal standalone
+LGPL build. USB framing, the session/heartbeat protocol, DJI driver handling,
+firmware policy and the SDK's encoded-frame protection remain in place.
+
+The production DDA source now runs at the selected target fps. Its single
+capture clock uses absolute QPC deadlines, a high-resolution waitable timer
+and a bounded 500 microsecond busy tail; acquisition is nonblocking. Expired
+deadlines are skipped after a stall. This replaces 240 Hz polling plus selection,
+which could turn a 100 fps target into alternating sampling intervals. It does
+not add a post-encode pacer or turn an unchanged desktop into new source images.
+Primary and virtual displays use the same implementation, distinguished by
+DXGI adapter/output identity and actual dimensions. Their source refresh rates,
+game rendering and Windows presentation timing can still differ.
+
+For NVIDIA-owned outputs, D3D11 textures remain on the GPU through aspect-fit
+scaling and full-range SDR RGB to limited BT.709 NV12 conversion. Explicit YCbCr
+background colour fixes black bars previously written at Y=0 instead of Y=16.
+Only an enlarged source uses two GPU passes: first BGRA scaling, then 1:1 NV12
+conversion. This avoids observed chroma contamination at the image boundaries
+when NVIDIA's VideoProcessor enlarged RGB and subsampled it in one operation.
+Equal-size and downscaled sources retain one pass. Foreign-vendor display
+adapters retain an explicit CPU transfer/conversion path followed by NVIDIA
+encoding; the desktop client has no software-encoder fallback.
+
+Windows NVENC opts into asynchronous encoding, per-surface completion events
+and system-memory bitstream output. It waits for the event before
+`nvEncLockBitstream(doNotWait=0)`, following NVIDIA's DirectX threading guidance.
+Input references remain owned until completion; EOS is awaited before event
+unregistration and resource destruction. A failed completion wait poisons the
+session. Resources that may still be in flight are retained until process exit
+after failed shutdown; a timeout is not GPU cancellation. The event wait limit
+does not bound arbitrary calls inside the display driver.
+
+The opt-in `-latest_frame 1` output uses a single-slot raw AVFrame mailbox before
+the encoder. A new producer frame replaces only the waiting frame's references,
+under the queue lock; it cannot overwrite a texture already held by the encoder.
+EOF follows the final pending frame. Compact timestamps are assigned after
+admission using the number of encoded input frames, preventing AVI gap-fill
+packets without fabricating images. The mode is restricted to one video encoder
+and one single-stream output, with explicit rate and passthrough frame mode;
+audio synchronization, `-frames`, `-shortest`, copyts and two-pass file encoding
+are rejected. The SDK's qres NVENC multipass is a separate rate-control setting
+and remains enabled. Overload can discard unencoded raw frames; it does not
+discard encoded P-frame references or promise zero drops.
+
+Keep the default target at 1080p100/20 Mbps/P4, ULL, Baseline, no B frames,
+one reference, no lookahead, and startup IDRs at 0, 1 and 2 seconds of admitted
+video. The long GOP and disabled periodic intra refresh are retained. Keep
+qres and the SDK's approximately two-frame VBV formula: 400,000 bits at the
+default 20 Mbps/100 fps. VBV is a rate-control model, not a fixed sender sleep;
+CBR does not make every frame or short measurement window the same size.
+
+Only the owned FFmpeg process receives ABOVE_NORMAL CPU priority and a
+best-effort HighQoS policy disabling execution-speed throttling and, where
+supported, timer-resolution ignoring. Unsupported flags are recorded and fall
+back without hiding encoder errors. No global power plan or REALTIME CPU policy
+is changed; the SDK's GPU scheduling request remains unchanged.
+
+Remove the streaming worker's redundant 250 ms SetupAPI enumeration. The
+independent GUI presence watcher remains, and an SDK USB/session failure triggers
+one presence check after SDK cleanup. Confirmed removal or user cancellation
+ends normally; an uncertain/connected result retains the original recovery or
+error semantics. Keep constant-work send counters, the 100 ms coalesced telemetry
+thread, bounded IPC and asynchronous session logging. The isolated background
+benchmark did not establish telemetry or the duplicate guard as the main cause
+of stutter; removal is not evidence of an end-to-end latency bound.
+
+`packaging/windows/check_gpu_pipeline.py` replaces capture with generated frames,
+retains production NVENC flags (including async), and disables the live mailbox
+for offline frame-order checks. The six-geometry development run checked 48
+frames per geometry: GPU and CPU reference paths each encoded and decoded 288
+frames, with matching SPS/PPS and no access unit exceeding 56,000 bytes. GPU raw
+and decoded sample errors, including pure-colour edges, were at most one 8-bit
+code value; black bars were exact. The previous CPU-encoded baseline's worst
+edge error of nine is retained as a non-gating colour diagnostic; its decoding,
+frame order, headers and size guard still gate. These checks are neither a
+live-cadence measurement nor optical/USB hardware acceptance.
+
+The installer and companion source archive include complete upstream FFmpeg
+source, the local patch, build recipe, pinned dependency manifest and license
+texts. Build and validate native inputs according to the
+[FFmpeg build guide](../../packaging/windows/ffmpeg/README.md) before running
+`prepare.py`; preparation requires matching release binary hashes and source
+archive identity. See [VALIDATION-0.2.3.md](VALIDATION-0.2.3.md) for final evidence
+and [PROTOCOL_LIMITS.md](PROTOCOL_LIMITS.md) for the theoretical constraints and
+Moonlight/Sunshine comparison. No new optical 12 ms result, universal 1% bound,
+constant bitrate, or lossless wired-display equivalence is claimed.
+
 ## 0.2.2 remove accumulating latency
 
 The previous post-encode pacer preserved timing regularity by retaining old

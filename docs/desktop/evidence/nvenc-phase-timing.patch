@@ -1,0 +1,362 @@
+--- a/libavcodec/nvenc.c
++++ b/libavcodec/nvenc.c
+@@ -46,6 +46,164 @@
+ 
+ #ifdef _WIN32
+ #include <windows.h>
++#include <inttypes.h>
++#include <stdlib.h>
++#endif
++
++#ifdef _WIN32
++/* Temporary research instrumentation. No allocations, clocks, locks or I/O
++ * when disabled. Raw QPC ticks are converted only during the close summary. */
++#define NVENC_PHASE_CAPACITY 8192
++enum NvencPhase {
++    PHASE_UPLOAD, PHASE_SUBMIT, PHASE_EVENT, PHASE_LOCK, PHASE_COPY,
++    PHASE_UNLOCK, PHASE_UNMAP, PHASE_TOTAL, PHASE_GAP, PHASE_COUNT
++};
++typedef struct NvencPhaseRow {
++    int64_t start, pts;
++    uint64_t frame;
++    int64_t elapsed[PHASE_COUNT];
++    unsigned mask, bytes, idr;
++} NvencPhaseRow;
++typedef struct NvencPhaseProfile {
++    int64_t frequency, previous_output;
++    uint64_t seen;
++    unsigned rows;
++    NvencPhaseRow row[NVENC_PHASE_CAPACITY];
++    int64_t scratch[NVENC_PHASE_CAPACITY];
++} NvencPhaseProfile;
++
++static inline int64_t nvenc_phase_clock(NvencContext *ctx)
++{
++    LARGE_INTEGER now;
++    if (!ctx->phase_profile)
++        return 0;
++    QueryPerformanceCounter(&now);
++    return now.QuadPart;
++}
++
++static void nvenc_phase_begin(NvencContext *ctx, NvencSurface *surface, const AVFrame *frame)
++{
++    NvencPhaseProfile *profile = ctx->phase_profile;
++    NvencPhaseRow *row;
++    surface->phase_index = -1;
++    if (!profile)
++        return;
++    profile->seen++;
++    if (profile->rows == NVENC_PHASE_CAPACITY)
++        return;
++    surface->phase_index = profile->rows++;
++    row = &profile->row[surface->phase_index];
++    row->start = nvenc_phase_clock(ctx);
++    row->frame = ctx->frame_idx_counter;
++    row->pts = frame->pts;
++}
++
++static void nvenc_phase_record(NvencContext *ctx, NvencSurface *surface,
++                               enum NvencPhase phase, int64_t start)
++{
++    NvencPhaseProfile *profile = ctx->phase_profile;
++    if (profile && surface->phase_index >= 0) {
++        NvencPhaseRow *row = &profile->row[surface->phase_index];
++        row->elapsed[phase] = nvenc_phase_clock(ctx) - start;
++        row->mask |= 1U << phase;
++    }
++}
++
++static void nvenc_phase_complete(NvencContext *ctx, NvencSurface *surface,
++                                 const NV_ENC_LOCK_BITSTREAM *bitstream)
++{
++    NvencPhaseProfile *profile = ctx->phase_profile;
++    if (profile && surface->phase_index >= 0) {
++        NvencPhaseRow *row = &profile->row[surface->phase_index];
++        int64_t now = nvenc_phase_clock(ctx);
++        row->elapsed[PHASE_TOTAL] = now - row->start;
++        row->mask |= 1U << PHASE_TOTAL;
++        row->bytes = bitstream->bitstreamSizeInBytes;
++        row->idr = bitstream->pictureType == NV_ENC_PIC_TYPE_IDR;
++        if (profile->previous_output) {
++            row->elapsed[PHASE_GAP] = now - profile->previous_output;
++            row->mask |= 1U << PHASE_GAP;
++        }
++        profile->previous_output = now;
++    }
++}
++
++static int nvenc_phase_compare(const void *left, const void *right)
++{
++    int64_t a = *(const int64_t *)left, b = *(const int64_t *)right;
++    return (a > b) - (a < b);
++}
++
++static void nvenc_phase_report(AVCodecContext *avctx)
++{
++    static const char *names[PHASE_COUNT] = {
++        "upload_map", "submit", "event_wait", "lock", "alloc_copy",
++        "unlock", "unmap", "total", "output_gap"
++    };
++    NvencContext *ctx = avctx->priv_data;
++    NvencPhaseProfile *p = ctx->phase_profile;
++    unsigned completed = 0;
++    int top[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
++    double us;
++
++    if (!p)
++        return;
++    us = 1000000.0 / p->frequency;
++    for (unsigned i = 0; i < p->rows; i++) {
++        if (!(p->row[i].mask & (1U << PHASE_TOTAL)))
++            continue;
++        completed++;
++        for (unsigned j = 0; j < FF_ARRAY_ELEMS(top); j++) {
++            if (top[j] < 0 || p->row[i].elapsed[PHASE_TOTAL] > p->row[top[j]].elapsed[PHASE_TOTAL]) {
++                for (unsigned k = FF_ARRAY_ELEMS(top) - 1; k > j; k--)
++                    top[k] = top[k - 1];
++                top[j] = i;
++                break;
++            }
++        }
++    }
++    av_log(avctx, AV_LOG_INFO,
++           "NVENC_PHASE_SUMMARY seen=%"PRIu64" stored=%u completed=%u capacity=%d unit=us async=%d\n",
++           p->seen, p->rows, completed, NVENC_PHASE_CAPACITY, ctx->async_encode);
++    for (unsigned warmup = 0; warmup <= 100; warmup += 100) {
++        for (unsigned phase = 0; phase < PHASE_COUNT; phase++) {
++            unsigned count = 0, over1 = 0, over5 = 0;
++            double sum = 0;
++            for (unsigned i = warmup; i < p->rows; i++) {
++                NvencPhaseRow *row = &p->row[i];
++                int64_t value;
++                if (!(row->mask & (1U << PHASE_TOTAL)) || !(row->mask & (1U << phase)))
++                    continue;
++                value = row->elapsed[phase];
++                p->scratch[count++] = value;
++                sum += value;
++                over1 += value * us > 1000;
++                over5 += value * us > 5000;
++            }
++            if (!count)
++                continue;
++            qsort(p->scratch, count, sizeof(*p->scratch), nvenc_phase_compare);
++            av_log(avctx, AV_LOG_INFO,
++                   "NVENC_PHASE skip=%u name=%s n=%u mean=%.3f p50=%.3f p95=%.3f p99=%.3f max=%.3f gt1ms=%u gt5ms=%u\n",
++                   warmup, names[phase], count, sum * us / count,
++                   p->scratch[(count * 50 + 99) / 100 - 1] * us,
++                   p->scratch[(count * 95 + 99) / 100 - 1] * us,
++                   p->scratch[(count * 99 + 99) / 100 - 1] * us,
++                   p->scratch[count - 1] * us, over1, over5);
++        }
++    }
++    for (unsigned j = 0; j < FF_ARRAY_ELEMS(top) && top[j] >= 0; j++) {
++        NvencPhaseRow *r = &p->row[top[j]];
++        av_log(avctx, AV_LOG_INFO,
++               "NVENC_PHASE_SLOW frame=%"PRIu64" pts=%"PRId64" idr=%u bytes=%u total=%.3f upload=%.3f submit=%.3f event=%.3f lock=%.3f copy=%.3f unlock=%.3f unmap=%.3f gap=%.3f\n",
++               r->frame, r->pts, r->idr, r->bytes, r->elapsed[PHASE_TOTAL] * us,
++               r->elapsed[PHASE_UPLOAD] * us, r->elapsed[PHASE_SUBMIT] * us,
++               r->elapsed[PHASE_EVENT] * us, r->elapsed[PHASE_LOCK] * us,
++               r->elapsed[PHASE_COPY] * us, r->elapsed[PHASE_UNLOCK] * us,
++               r->elapsed[PHASE_UNMAP] * us, r->elapsed[PHASE_GAP] * us);
++    }
++    av_freep(&ctx->phase_profile);
++}
+ #endif
+ 
+ #define CHECK_CU(x) FF_CUDA_CHECK_DL(avctx, dl_fn->cuda_dl, x)
+@@ -2154,6 +2312,10 @@
+     NV_ENCODE_API_FUNCTION_LIST *p_nvenc = &dl_fn->nvenc_funcs;
+     int i, res;
+ 
++#ifdef _WIN32
++    nvenc_phase_report(avctx);
++#endif
++
+     /* the encoder has to be flushed before it can be closed */
+     if (ctx->nvencoder) {
+         NV_ENC_PIC_PARAMS params        = { .version        = NV_ENC_PIC_PARAMS_VER,
+@@ -2274,6 +2436,18 @@
+ {
+     NvencContext *ctx = avctx->priv_data;
+     int ret;
++
++#ifdef _WIN32
++    if (ctx->phase_timing) {
++        LARGE_INTEGER frequency;
++        if (!QueryPerformanceFrequency(&frequency) || frequency.QuadPart <= 0)
++            return AVERROR_EXTERNAL;
++        ctx->phase_profile = av_mallocz(sizeof(*ctx->phase_profile));
++        if (!ctx->phase_profile)
++            return AVERROR(ENOMEM);
++        ctx->phase_profile->frequency = frequency.QuadPart;
++    }
++#endif
+ 
+     if (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11) {
+         AVHWFramesContext *frames_ctx;
+@@ -2766,6 +2940,9 @@
+     NV_ENC_LOCK_BITSTREAM lock_params = { 0 };
+     NVENCSTATUS nv_status;
+     int res = 0;
++#ifdef _WIN32
++    int64_t phase_start;
++#endif
+ 
+     enum AVPictureType pict_type;
+ 
+@@ -2773,7 +2950,9 @@
+ 
+ #ifdef _WIN32
+     if (ctx->async_encode) {
++        phase_start = nvenc_phase_clock(ctx);
+         res = nvenc_wait_completion_event(avctx, tmpoutsurf->completion_event);
++        nvenc_phase_record(ctx, tmpoutsurf, PHASE_EVENT, phase_start);
+         if (res < 0) {
+             ctx->async_error = res;
+             goto error;
+@@ -2786,12 +2965,21 @@
+     lock_params.doNotWait = 0;
+     lock_params.outputBitstream = tmpoutsurf->output_surface;
+ 
++#ifdef _WIN32
++    phase_start = nvenc_phase_clock(ctx);
++#endif
+     nv_status = p_nvenc->nvEncLockBitstream(ctx->nvencoder, &lock_params);
++#ifdef _WIN32
++    nvenc_phase_record(ctx, tmpoutsurf, PHASE_LOCK, phase_start);
++#endif
+     if (nv_status != NV_ENC_SUCCESS) {
+         res = nvenc_print_error(avctx, nv_status, "Failed locking bitstream buffer");
+         goto error;
+     }
+ 
++#ifdef _WIN32
++    phase_start = nvenc_phase_clock(ctx);
++#endif
+     res = ff_get_encode_buffer(avctx, pkt, lock_params.bitstreamSizeInBytes, 0);
+ 
+     if (res < 0) {
+@@ -2800,8 +2988,15 @@
+     }
+ 
+     memcpy(pkt->data, lock_params.bitstreamBufferPtr, lock_params.bitstreamSizeInBytes);
++#ifdef _WIN32
++    nvenc_phase_record(ctx, tmpoutsurf, PHASE_COPY, phase_start);
++    phase_start = nvenc_phase_clock(ctx);
++#endif
+ 
+     nv_status = p_nvenc->nvEncUnlockBitstream(ctx->nvencoder, tmpoutsurf->output_surface);
++#ifdef _WIN32
++    nvenc_phase_record(ctx, tmpoutsurf, PHASE_UNLOCK, phase_start);
++#endif
+     if (nv_status != NV_ENC_SUCCESS) {
+         res = nvenc_print_error(avctx, nv_status, "Failed unlocking bitstream buffer, expect the gates of mordor to open");
+         goto error;
+@@ -2809,6 +3004,9 @@
+ 
+ 
+     if (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11) {
++#ifdef _WIN32
++        phase_start = nvenc_phase_clock(ctx);
++#endif
+         ctx->registered_frames[tmpoutsurf->reg_idx].mapped -= 1;
+         if (ctx->registered_frames[tmpoutsurf->reg_idx].mapped == 0) {
+             nv_status = p_nvenc->nvEncUnmapInputResource(ctx->nvencoder, ctx->registered_frames[tmpoutsurf->reg_idx].in_map.mappedResource);
+@@ -2824,6 +3022,9 @@
+         av_frame_unref(tmpoutsurf->in_ref);
+ 
+         tmpoutsurf->input_surface = NULL;
++#ifdef _WIN32
++        nvenc_phase_record(ctx, tmpoutsurf, PHASE_UNMAP, phase_start);
++#endif
+     }
+ 
+     switch (lock_params.pictureType) {
+@@ -2860,6 +3061,9 @@
+     if (res < 0)
+         goto error2;
+ 
++#ifdef _WIN32
++    nvenc_phase_complete(ctx, tmpoutsurf, &lock_params);
++#endif
+     return 0;
+ 
+ error:
+@@ -3188,6 +3392,9 @@
+     NV_ENCODE_API_FUNCTION_LIST *p_nvenc = &dl_fn->nvenc_funcs;
+ 
+     NV_ENC_PIC_PARAMS pic_params = { 0 };
++#ifdef _WIN32
++    int64_t phase_start;
++#endif
+     pic_params.version = NV_ENC_PIC_PARAMS_VER;
+ 
+     if ((!ctx->cu_context && !ctx->d3d11_device) || !ctx->nvencoder)
+@@ -3212,13 +3419,22 @@
+         if (!in_surf)
+             return AVERROR(EAGAIN);
+ 
++#ifdef _WIN32
++        nvenc_phase_begin(ctx, in_surf, frame);
++#endif
+         res = nvenc_push_context(avctx);
+         if (res < 0)
+             return res;
+ 
+         reconfig_encoder(avctx, frame);
+ 
++#ifdef _WIN32
++        phase_start = nvenc_phase_clock(ctx);
++#endif
+         res = nvenc_upload_frame(avctx, frame, in_surf);
++#ifdef _WIN32
++        nvenc_phase_record(ctx, in_surf, PHASE_UPLOAD, phase_start);
++#endif
+ 
+         res2 = nvenc_pop_context(avctx);
+         if (res2 < 0)
+@@ -3349,10 +3565,13 @@
+      * establish EOS completion before releasing this session's resources. */
+     if (ctx->async_encode && frame && frame->buf[0])
+         ctx->async_has_work = 1;
++    phase_start = nvenc_phase_clock(ctx);
+ #endif
+     nv_status = p_nvenc->nvEncEncodePicture(ctx->nvencoder, &pic_params);
+ 
+ #ifdef _WIN32
++    if (frame && frame->buf[0])
++        nvenc_phase_record(ctx, in_surf, PHASE_SUBMIT, phase_start);
+     if (ctx->async_encode && (!frame || !frame->buf[0]) && nv_status == NV_ENC_SUCCESS)
+         ctx->async_eos_pending = 1;
+ #endif
+--- a/libavcodec/nvenc.h
++++ b/libavcodec/nvenc.h
+@@ -93,6 +93,7 @@
+     NV_ENC_BUFFER_FORMAT format;
+ #ifdef _WIN32
+     void *completion_event;
++    int phase_index;
+ #endif
+ } NvencSurface;
+ 
+@@ -239,6 +240,8 @@
+     void *async_eos_event;
+     AVBufferRef *async_hw_device_ref;
+     AVBufferRef *async_hw_frames_ref;
++    int phase_timing;
++    struct NvencPhaseProfile *phase_profile;
+ #endif
+     int rc_lookahead;
+     int aq;
+--- a/libavcodec/nvenc_h264.c
++++ b/libavcodec/nvenc_h264.c
+@@ -102,6 +102,8 @@
+ #ifdef _WIN32
+     { "async_encode", "Wait for Windows NVENC completion events before retrieving output",
+                                                             OFFSET(async_encode), AV_OPT_TYPE_BOOL,  { .i64 = 0 }, 0, 1, VE },
++    { "phase_timing", "Research only: aggregate NVENC stage timings at close",
++                                                            OFFSET(phase_timing), AV_OPT_TYPE_BOOL,  { .i64 = 0 }, 0, 1, VE },
+ #endif
+     { "no-scenecut",  "When lookahead is enabled, set this to 1 to disable adaptive I-frame insertion at scene cuts",
+                                                             OFFSET(no_scenecut),  AV_OPT_TYPE_BOOL,  { .i64 = 0 }, 0,  1, VE },
