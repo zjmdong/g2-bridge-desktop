@@ -1,0 +1,648 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-10T11:10:02+00:00",
+  "title": "Design System: DJI Goggles Streamer",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Primary",
+        "tonalRamp": [
+          "oklch(15.00% 0.07792 186.60)",
+          "oklch(26.43% 0.07792 186.60)",
+          "oklch(37.86% 0.07792 186.60)",
+          "oklch(49.29% 0.07792 186.60)",
+          "oklch(60.71% 0.07792 186.60)",
+          "oklch(72.14% 0.07792 186.60)",
+          "oklch(83.57% 0.07792 186.60)",
+          "oklch(95.00% 0.07792 186.60)"
+        ]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Primary Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.06824 186.49)",
+          "oklch(26.43% 0.06824 186.49)",
+          "oklch(37.86% 0.06824 186.49)",
+          "oklch(49.29% 0.06824 186.49)",
+          "oklch(60.71% 0.06824 186.49)",
+          "oklch(72.14% 0.06824 186.49)",
+          "oklch(83.57% 0.06824 186.49)",
+          "oklch(95.00% 0.06824 186.49)"
+        ]
+      },
+      "primary-disabled": {
+        "role": "neutral",
+        "displayName": "Primary Disabled",
+        "tonalRamp": [
+          "oklch(15.00% 0.01264 164.77)",
+          "oklch(26.43% 0.01264 164.77)",
+          "oklch(37.86% 0.01264 164.77)",
+          "oklch(49.29% 0.01264 164.77)",
+          "oklch(60.71% 0.01264 164.77)",
+          "oklch(72.14% 0.01264 164.77)",
+          "oklch(83.57% 0.01264 164.77)",
+          "oklch(95.00% 0.01264 164.77)"
+        ]
+      },
+      "primary-disabled-text": {
+        "role": "neutral",
+        "displayName": "Primary Disabled Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.03061 181.42)",
+          "oklch(26.43% 0.03061 181.42)",
+          "oklch(37.86% 0.03061 181.42)",
+          "oklch(49.29% 0.03061 181.42)",
+          "oklch(60.71% 0.03061 181.42)",
+          "oklch(72.14% 0.03061 181.42)",
+          "oklch(83.57% 0.03061 181.42)",
+          "oklch(95.00% 0.03061 181.42)"
+        ]
+      },
+      "rail": {
+        "role": "primary",
+        "displayName": "Rail",
+        "tonalRamp": [
+          "oklch(15.00% 0.04731 210.26)",
+          "oklch(26.43% 0.04731 210.26)",
+          "oklch(37.86% 0.04731 210.26)",
+          "oklch(49.29% 0.04731 210.26)",
+          "oklch(60.71% 0.04731 210.26)",
+          "oklch(72.14% 0.04731 210.26)",
+          "oklch(83.57% 0.04731 210.26)",
+          "oklch(95.00% 0.04731 210.26)"
+        ]
+      },
+      "rail-hover": {
+        "role": "primary",
+        "displayName": "Rail Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.05137 212.48)",
+          "oklch(26.43% 0.05137 212.48)",
+          "oklch(37.86% 0.05137 212.48)",
+          "oklch(49.29% 0.05137 212.48)",
+          "oklch(60.71% 0.05137 212.48)",
+          "oklch(72.14% 0.05137 212.48)",
+          "oklch(83.57% 0.05137 212.48)",
+          "oklch(95.00% 0.05137 212.48)"
+        ]
+      },
+      "rail-selected": {
+        "role": "primary",
+        "displayName": "Rail Selected",
+        "tonalRamp": [
+          "oklch(15.00% 0.05464 205.69)",
+          "oklch(26.43% 0.05464 205.69)",
+          "oklch(37.86% 0.05464 205.69)",
+          "oklch(49.29% 0.05464 205.69)",
+          "oklch(60.71% 0.05464 205.69)",
+          "oklch(72.14% 0.05464 205.69)",
+          "oklch(83.57% 0.05464 205.69)",
+          "oklch(95.00% 0.05464 205.69)"
+        ]
+      },
+      "rail-text": {
+        "role": "neutral",
+        "displayName": "Rail Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.01713 192.33)",
+          "oklch(26.43% 0.01713 192.33)",
+          "oklch(37.86% 0.01713 192.33)",
+          "oklch(49.29% 0.01713 192.33)",
+          "oklch(60.71% 0.01713 192.33)",
+          "oklch(72.14% 0.01713 192.33)",
+          "oklch(83.57% 0.01713 192.33)",
+          "oklch(95.00% 0.01713 192.33)"
+        ]
+      },
+      "rail-note": {
+        "role": "neutral",
+        "displayName": "Rail Note",
+        "tonalRamp": [
+          "oklch(15.00% 0.02251 196.75)",
+          "oklch(26.43% 0.02251 196.75)",
+          "oklch(37.86% 0.02251 196.75)",
+          "oklch(49.29% 0.02251 196.75)",
+          "oklch(60.71% 0.02251 196.75)",
+          "oklch(72.14% 0.02251 196.75)",
+          "oklch(83.57% 0.02251 196.75)",
+          "oklch(95.00% 0.02251 196.75)"
+        ]
+      },
+      "workspace": {
+        "role": "neutral",
+        "displayName": "Workspace",
+        "tonalRamp": [
+          "oklch(15.00% 0.00538 117.92)",
+          "oklch(26.43% 0.00538 117.92)",
+          "oklch(37.86% 0.00538 117.92)",
+          "oklch(49.29% 0.00538 117.92)",
+          "oklch(60.71% 0.00538 117.92)",
+          "oklch(72.14% 0.00538 117.92)",
+          "oklch(83.57% 0.00538 117.92)",
+          "oklch(95.00% 0.00538 117.92)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.00000 0.00)",
+          "oklch(26.43% 0.00000 0.00)",
+          "oklch(37.86% 0.00000 0.00)",
+          "oklch(49.29% 0.00000 0.00)",
+          "oklch(60.71% 0.00000 0.00)",
+          "oklch(72.14% 0.00000 0.00)",
+          "oklch(83.57% 0.00000 0.00)",
+          "oklch(95.00% 0.00000 0.00)"
+        ]
+      },
+      "surface-border": {
+        "role": "neutral",
+        "displayName": "Surface Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.01147 176.28)",
+          "oklch(26.43% 0.01147 176.28)",
+          "oklch(37.86% 0.01147 176.28)",
+          "oklch(49.29% 0.01147 176.28)",
+          "oklch(60.71% 0.01147 176.28)",
+          "oklch(72.14% 0.01147 176.28)",
+          "oklch(83.57% 0.01147 176.28)",
+          "oklch(95.00% 0.01147 176.28)"
+        ]
+      },
+      "readiness-surface": {
+        "role": "neutral",
+        "displayName": "Readiness Surface",
+        "tonalRamp": [
+          "oklch(15.00% 0.01001 164.87)",
+          "oklch(26.43% 0.01001 164.87)",
+          "oklch(37.86% 0.01001 164.87)",
+          "oklch(49.29% 0.01001 164.87)",
+          "oklch(60.71% 0.01001 164.87)",
+          "oklch(72.14% 0.01001 164.87)",
+          "oklch(83.57% 0.01001 164.87)",
+          "oklch(95.00% 0.01001 164.87)"
+        ]
+      },
+      "readiness-border": {
+        "role": "neutral",
+        "displayName": "Readiness Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.02210 167.41)",
+          "oklch(26.43% 0.02210 167.41)",
+          "oklch(37.86% 0.02210 167.41)",
+          "oklch(49.29% 0.02210 167.41)",
+          "oklch(60.71% 0.02210 167.41)",
+          "oklch(72.14% 0.02210 167.41)",
+          "oklch(83.57% 0.02210 167.41)",
+          "oklch(95.00% 0.02210 167.41)"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.02976 216.88)",
+          "oklch(26.43% 0.02976 216.88)",
+          "oklch(37.86% 0.02976 216.88)",
+          "oklch(49.29% 0.02976 216.88)",
+          "oklch(60.71% 0.02976 216.88)",
+          "oklch(72.14% 0.02976 216.88)",
+          "oklch(83.57% 0.02976 216.88)",
+          "oklch(95.00% 0.02976 216.88)"
+        ]
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Text Muted",
+        "tonalRamp": [
+          "oklch(15.00% 0.02996 214.70)",
+          "oklch(26.43% 0.02996 214.70)",
+          "oklch(37.86% 0.02996 214.70)",
+          "oklch(49.29% 0.02996 214.70)",
+          "oklch(60.71% 0.02996 214.70)",
+          "oklch(72.14% 0.02996 214.70)",
+          "oklch(83.57% 0.02996 214.70)",
+          "oklch(95.00% 0.02996 214.70)"
+        ]
+      },
+      "heading": {
+        "role": "neutral",
+        "displayName": "Heading",
+        "tonalRamp": [
+          "oklch(15.00% 0.04280 212.13)",
+          "oklch(26.43% 0.04280 212.13)",
+          "oklch(37.86% 0.04280 212.13)",
+          "oklch(49.29% 0.04280 212.13)",
+          "oklch(60.71% 0.04280 212.13)",
+          "oklch(72.14% 0.04280 212.13)",
+          "oklch(83.57% 0.04280 212.13)",
+          "oklch(95.00% 0.04280 212.13)"
+        ]
+      },
+      "statistic": {
+        "role": "neutral",
+        "displayName": "Statistic",
+        "tonalRamp": [
+          "oklch(15.00% 0.05801 208.60)",
+          "oklch(26.43% 0.05801 208.60)",
+          "oklch(37.86% 0.05801 208.60)",
+          "oklch(49.29% 0.05801 208.60)",
+          "oklch(60.71% 0.05801 208.60)",
+          "oklch(72.14% 0.05801 208.60)",
+          "oklch(83.57% 0.05801 208.60)",
+          "oklch(95.00% 0.05801 208.60)"
+        ]
+      },
+      "control-border": {
+        "role": "neutral",
+        "displayName": "Control Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.01856 192.52)",
+          "oklch(26.43% 0.01856 192.52)",
+          "oklch(37.86% 0.01856 192.52)",
+          "oklch(49.29% 0.01856 192.52)",
+          "oklch(60.71% 0.01856 192.52)",
+          "oklch(72.14% 0.01856 192.52)",
+          "oklch(83.57% 0.01856 192.52)",
+          "oklch(95.00% 0.01856 192.52)"
+        ]
+      },
+      "control-hover": {
+        "role": "neutral",
+        "displayName": "Control Hover",
+        "tonalRamp": [
+          "oklch(15.00% 0.00841 168.75)",
+          "oklch(26.43% 0.00841 168.75)",
+          "oklch(37.86% 0.00841 168.75)",
+          "oklch(49.29% 0.00841 168.75)",
+          "oklch(60.71% 0.00841 168.75)",
+          "oklch(72.14% 0.00841 168.75)",
+          "oklch(83.57% 0.00841 168.75)",
+          "oklch(95.00% 0.00841 168.75)"
+        ]
+      },
+      "control-hover-border": {
+        "role": "neutral",
+        "displayName": "Control Hover Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.06072 193.91)",
+          "oklch(26.43% 0.06072 193.91)",
+          "oklch(37.86% 0.06072 193.91)",
+          "oklch(49.29% 0.06072 193.91)",
+          "oklch(60.71% 0.06072 193.91)",
+          "oklch(72.14% 0.06072 193.91)",
+          "oklch(83.57% 0.06072 193.91)",
+          "oklch(95.00% 0.06072 193.91)"
+        ]
+      },
+      "control-pressed": {
+        "role": "neutral",
+        "displayName": "Control Pressed",
+        "tonalRamp": [
+          "oklch(15.00% 0.01879 171.48)",
+          "oklch(26.43% 0.01879 171.48)",
+          "oklch(37.86% 0.01879 171.48)",
+          "oklch(49.29% 0.01879 171.48)",
+          "oklch(60.71% 0.01879 171.48)",
+          "oklch(72.14% 0.01879 171.48)",
+          "oklch(83.57% 0.01879 171.48)",
+          "oklch(95.00% 0.01879 171.48)"
+        ]
+      },
+      "control-disabled": {
+        "role": "neutral",
+        "displayName": "Control Disabled",
+        "tonalRamp": [
+          "oklch(15.00% 0.00618 137.77)",
+          "oklch(26.43% 0.00618 137.77)",
+          "oklch(37.86% 0.00618 137.77)",
+          "oklch(49.29% 0.00618 137.77)",
+          "oklch(60.71% 0.00618 137.77)",
+          "oklch(72.14% 0.00618 137.77)",
+          "oklch(83.57% 0.00618 137.77)",
+          "oklch(95.00% 0.00618 137.77)"
+        ]
+      },
+      "control-disabled-text": {
+        "role": "neutral",
+        "displayName": "Control Disabled Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.01549 207.85)",
+          "oklch(26.43% 0.01549 207.85)",
+          "oklch(37.86% 0.01549 207.85)",
+          "oklch(49.29% 0.01549 207.85)",
+          "oklch(60.71% 0.01549 207.85)",
+          "oklch(72.14% 0.01549 207.85)",
+          "oklch(83.57% 0.01549 207.85)",
+          "oklch(95.00% 0.01549 207.85)"
+        ]
+      },
+      "control-disabled-border": {
+        "role": "neutral",
+        "displayName": "Control Disabled Border",
+        "tonalRamp": [
+          "oklch(15.00% 0.01092 158.82)",
+          "oklch(26.43% 0.01092 158.82)",
+          "oklch(37.86% 0.01092 158.82)",
+          "oklch(49.29% 0.01092 158.82)",
+          "oklch(60.71% 0.01092 158.82)",
+          "oklch(72.14% 0.01092 158.82)",
+          "oklch(83.57% 0.01092 158.82)",
+          "oklch(95.00% 0.01092 158.82)"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus",
+        "tonalRamp": [
+          "oklch(15.00% 0.07927 195.04)",
+          "oklch(26.43% 0.07927 195.04)",
+          "oklch(37.86% 0.07927 195.04)",
+          "oklch(49.29% 0.07927 195.04)",
+          "oklch(60.71% 0.07927 195.04)",
+          "oklch(72.14% 0.07927 195.04)",
+          "oklch(83.57% 0.07927 195.04)",
+          "oklch(95.00% 0.07927 195.04)"
+        ]
+      },
+      "selection": {
+        "role": "neutral",
+        "displayName": "Selection",
+        "tonalRamp": [
+          "oklch(15.00% 0.02467 170.94)",
+          "oklch(26.43% 0.02467 170.94)",
+          "oklch(37.86% 0.02467 170.94)",
+          "oklch(49.29% 0.02467 170.94)",
+          "oklch(60.71% 0.02467 170.94)",
+          "oklch(72.14% 0.02467 170.94)",
+          "oklch(83.57% 0.02467 170.94)",
+          "oklch(95.00% 0.02467 170.94)"
+        ]
+      },
+      "selection-text": {
+        "role": "neutral",
+        "displayName": "Selection Text",
+        "tonalRamp": [
+          "oklch(15.00% 0.04437 206.70)",
+          "oklch(26.43% 0.04437 206.70)",
+          "oklch(37.86% 0.04437 206.70)",
+          "oklch(49.29% 0.04437 206.70)",
+          "oklch(60.71% 0.04437 206.70)",
+          "oklch(72.14% 0.04437 206.70)",
+          "oklch(83.57% 0.04437 206.70)",
+          "oklch(95.00% 0.04437 206.70)"
+        ]
+      },
+      "positive": {
+        "role": "secondary",
+        "displayName": "Positive",
+        "tonalRamp": [
+          "oklch(15.00% 0.07771 179.19)",
+          "oklch(26.43% 0.07771 179.19)",
+          "oklch(37.86% 0.07771 179.19)",
+          "oklch(49.29% 0.07771 179.19)",
+          "oklch(60.71% 0.07771 179.19)",
+          "oklch(72.14% 0.07771 179.19)",
+          "oklch(83.57% 0.07771 179.19)",
+          "oklch(95.00% 0.07771 179.19)"
+        ]
+      },
+      "attention": {
+        "role": "secondary",
+        "displayName": "Attention",
+        "tonalRamp": [
+          "oklch(15.00% 0.09599 70.15)",
+          "oklch(26.43% 0.09599 70.15)",
+          "oklch(37.86% 0.09599 70.15)",
+          "oklch(49.29% 0.09599 70.15)",
+          "oklch(60.71% 0.09599 70.15)",
+          "oklch(72.14% 0.09599 70.15)",
+          "oklch(83.57% 0.09599 70.15)",
+          "oklch(95.00% 0.09599 70.15)"
+        ]
+      },
+      "failure": {
+        "role": "secondary",
+        "displayName": "Failure",
+        "tonalRamp": [
+          "oklch(15.00% 0.13623 28.59)",
+          "oklch(26.43% 0.13623 28.59)",
+          "oklch(37.86% 0.13623 28.59)",
+          "oklch(49.29% 0.13623 28.59)",
+          "oklch(60.71% 0.13623 28.59)",
+          "oklch(72.14% 0.13623 28.59)",
+          "oklch(83.57% 0.13623 28.59)",
+          "oklch(95.00% 0.13623 28.59)"
+        ]
+      },
+      "idle": {
+        "role": "secondary",
+        "displayName": "Idle",
+        "tonalRamp": [
+          "oklch(15.00% 0.03729 211.95)",
+          "oklch(26.43% 0.03729 211.95)",
+          "oklch(37.86% 0.03729 211.95)",
+          "oklch(49.29% 0.03729 211.95)",
+          "oklch(60.71% 0.03729 211.95)",
+          "oklch(72.14% 0.03729 211.95)",
+          "oklch(83.57% 0.03729 211.95)",
+          "oklch(95.00% 0.03729 211.95)"
+        ]
+      },
+      "progress-track": {
+        "role": "neutral",
+        "displayName": "Progress Track",
+        "tonalRamp": [
+          "oklch(15.00% 0.00922 150.69)",
+          "oklch(26.43% 0.00922 150.69)",
+          "oklch(37.86% 0.00922 150.69)",
+          "oklch(49.29% 0.00922 150.69)",
+          "oklch(60.71% 0.00922 150.69)",
+          "oklch(72.14% 0.00922 150.69)",
+          "oklch(83.57% 0.00922 150.69)",
+          "oklch(95.00% 0.00922 150.69)"
+        ]
+      },
+      "progress-fill": {
+        "role": "secondary",
+        "displayName": "Progress Fill",
+        "tonalRamp": [
+          "oklch(15.00% 0.08485 185.30)",
+          "oklch(26.43% 0.08485 185.30)",
+          "oklch(37.86% 0.08485 185.30)",
+          "oklch(49.29% 0.08485 185.30)",
+          "oklch(60.71% 0.08485 185.30)",
+          "oklch(72.14% 0.08485 185.30)",
+          "oklch(83.57% 0.08485 185.30)",
+          "oklch(95.00% 0.08485 185.30)"
+        ]
+      },
+      "icon-line": {
+        "role": "neutral",
+        "displayName": "Icon Line",
+        "tonalRamp": [
+          "oklch(15.00% 0.01421 128.63)",
+          "oklch(26.43% 0.01421 128.63)",
+          "oklch(37.86% 0.01421 128.63)",
+          "oklch(49.29% 0.01421 128.63)",
+          "oklch(60.71% 0.01421 128.63)",
+          "oklch(72.14% 0.01421 128.63)",
+          "oklch(83.57% 0.01421 128.63)",
+          "oklch(95.00% 0.01421 128.63)"
+        ]
+      },
+      "icon-accent": {
+        "role": "secondary",
+        "displayName": "Icon Accent",
+        "tonalRamp": [
+          "oklch(15.00% 0.08409 170.09)",
+          "oklch(26.43% 0.08409 170.09)",
+          "oklch(37.86% 0.08409 170.09)",
+          "oklch(49.29% 0.08409 170.09)",
+          "oklch(60.71% 0.08409 170.09)",
+          "oklch(72.14% 0.08409 170.09)",
+          "oklch(83.57% 0.08409 170.09)",
+          "oklch(95.00% 0.08409 170.09)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Page title",
+        "purpose": "Native Chinese page heading; system-family Operate-mode exception."
+      },
+      "section": {
+        "displayName": "Section heading",
+        "purpose": "Titles inside bordered content panels."
+      },
+      "status": {
+        "displayName": "Readiness title",
+        "purpose": "Controller-driven status with semantic title color."
+      },
+      "statistic": {
+        "displayName": "PC transport value",
+        "purpose": "Measured fps and timing values, or a dash before evidence exists."
+      },
+      "brand": {
+        "displayName": "App name",
+        "purpose": "Two-line product name in the petrol rail."
+      },
+      "body": {
+        "displayName": "Native body",
+        "purpose": "System-family controls and explanatory copy; Qt controls resolve font metrics."
+      },
+      "navigation": {
+        "displayName": "Navigation",
+        "purpose": "Three checkable page buttons; selected weight is 600."
+      },
+      "action": {
+        "displayName": "Persistent action",
+        "purpose": "Contextual recovery/start/stop action in the fixed footer."
+      },
+      "label": {
+        "displayName": "Supporting label",
+        "purpose": "Field labels, checkpoints, notes, and metric captions."
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Contextual Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Persistent Qt footer action. This sample shows the missing-driver state; its label and enabled state must follow actual controller readiness.",
+      "html": "<button class=\"ds-primary\" type=\"button\">安装 USB 驱动</button>",
+      "css": ".ds-primary {font-family:\"Microsoft YaHei UI\",\"Segoe UI\",sans-serif;background:#146b64;color:#fff;border:1px solid #146b64;border-radius:6px;padding:12px 28px;font-size:15px;font-weight:600;min-width:150px;cursor:pointer}.ds-primary:hover {background:#0e5852}.ds-primary:focus-visible {outline:2px solid #257b7b;outline-offset:2px}.ds-primary:disabled {background:#d9e3de;color:#526b66;border-color:#d9e3de;cursor:default}"
+    },
+    {
+      "name": "Secondary Action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Native recovery or utility action with hover, pressed, disabled, and focus treatments.",
+      "html": "<button class=\"ds-secondary\" type=\"button\">重新检测设备与环境</button>",
+      "css": ".ds-secondary {font-family:\"Microsoft YaHei UI\",\"Segoe UI\",sans-serif;font-size:13px;color:#20363c;background:#fff;border:1px solid #b9cac9;border-radius:6px;padding:8px 14px;min-height:20px;cursor:pointer}.ds-secondary:hover {background:#edf4f1;border-color:#36706f}.ds-secondary:active {background:#daeae4}.ds-secondary:focus-visible {outline:2px solid #257b7b;outline-offset:2px}.ds-secondary:disabled {color:#7c898b;background:#edf0ec;border-color:#d7dfda;cursor:default}"
+    },
+    {
+      "name": "Labeled Native Selector",
+      "kind": "input",
+      "refersTo": "combobox",
+      "description": "HTML approximation of QComboBox with the exact original SVG chevron geometry. Four basic selectors have matching visible and accessible names; resolution stays disabled.",
+      "html": "<label class=\"ds-field\">画质预设<span class=\"ds-select-wrap\"><select class=\"ds-select\" aria-label=\"画质预设\"><option>均衡 · 推荐</option><option>画质优先</option><option>节省带宽</option><option>自定义</option></select><svg class=\"ds-chevron\" aria-hidden=\"true\" width=\"14\" height=\"10\" viewBox=\"0 0 14 10\"><path d=\"M2 3l5 5 5-5\" fill=\"none\" stroke=\"#36706f\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg></span></label>",
+      "css": ".ds-field {font-family:\"Microsoft YaHei UI\",\"Segoe UI\",sans-serif;display:block;color:#526a70;font-size:12px;max-width:392px}.ds-select-wrap {position:relative;display:block;margin-top:9px}.ds-select {font-family:\"Microsoft YaHei UI\",\"Segoe UI\",sans-serif;font-size:13px;color:#20363c;appearance:none;width:100%;background:#fff;border:1px solid #b9cac9;border-radius:6px;padding:9px 38px 9px 12px;min-height:38px}.ds-select:focus-visible {outline:2px solid #257b7b;outline-offset:1px}.ds-select:disabled {color:#53666a;background:#f0f3ef}.ds-chevron {position:absolute;right:13px;top:50%;transform:translateY(-50%);pointer-events:none}"
+    },
+    {
+      "name": "Petrol Navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "The fixed native rail contains three checkable page buttons. Selection uses stronger teal, white text, and semibold weight.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"主要导航\"><button class=\"ds-nav-item ds-nav-selected\" aria-current=\"page\" type=\"button\">桌面串流</button><button class=\"ds-nav-item\" type=\"button\">设备与驱动</button><button class=\"ds-nav-item\" type=\"button\">帮助与诊断</button></nav>",
+      "css": ".ds-nav {background:#153f46;padding:20px;width:160px;display:grid;gap:8px}.ds-nav-item {font-family:\"Microsoft YaHei UI\",\"Segoe UI\",sans-serif;background:transparent;color:#d4e4e3;text-align:left;border:0;border-radius:6px;font-size:14px;padding:12px 16px;cursor:pointer}.ds-nav-item:hover {background:#24515a}.ds-nav-item.ds-nav-selected {background:#32646a;color:#fff;font-weight:600}.ds-nav-item:focus-visible {outline:2px solid #257b7b;outline-offset:2px}"
+    },
+    {
+      "name": "Content Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat bordered native panel with 22px horizontal and 18px vertical inset. Static content has no fabricated hover behavior.",
+      "html": "<section class=\"ds-panel\"><h3 class=\"ds-panel-heading\">电脑桌面</h3><p class=\"ds-panel-copy\">串流 SDK 默认显示器（索引 0）的完整画面。</p><p class=\"ds-panel-small\">本版仅支持桌面来源；窗口选择与独立扩展桌面将在后续版本提供。</p></section>",
+      "css": ".ds-panel {font-family:\"Microsoft YaHei UI\",\"Segoe UI\",sans-serif;font-size:13px;color:#20363c;background:#fff;border:1px solid #d7e1de;border-radius:10px;padding:18px 22px;display:grid;gap:12px}.ds-panel-heading {font-size:16px;font-weight:600;margin:0}.ds-panel-copy {color:#526a70;margin:0}.ds-panel-small {color:#526a70;font-size:12px;margin:0}"
+    },
+    {
+      "name": "Readiness Summary",
+      "kind": "custom",
+      "refersTo": "readiness",
+      "description": "Evidence-backed title and explanatory text above three muted checkpoint labels. Amber title reflects a missing setup step; checkpoints do not change color in this build.",
+      "html": "<section class=\"ds-readiness\" aria-label=\"连接状态\"><h3 class=\"ds-status\">还需要准备 USB 驱动</h3><p class=\"ds-detail\">前往「设备与驱动」，安装 SDK 已验证的 DJI USB 驱动。</p><div class=\"ds-checkpoints\"><span>环境需要设置</span><span>眼镜未连接</span><span>视频未开始</span></div></section>",
+      "css": ".ds-readiness {font-family:\"Microsoft YaHei UI\",\"Segoe UI\",sans-serif;font-size:13px;color:#20363c;background:#e9f1ed;border:1px solid #ccded6;border-radius:10px;padding:18px 22px;display:grid;gap:12px}.ds-status {color:#815414;font-size:20px;font-weight:600;margin:0}.ds-detail {color:#526a70;margin:0}.ds-checkpoints {display:grid;grid-template-columns:repeat(3,1fr);color:#526a70;font-size:12px;gap:12px}"
+    },
+    {
+      "name": "Transport Statistics",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Three equally sized columns show PC-side metrics. Dashes are placeholders until worker events arrive; this is not end-to-end latency.",
+      "html": "<section class=\"ds-stat-panel\"><h3 class=\"ds-stat-heading\">当前串流</h3><div class=\"ds-stat-grid\"><div><div class=\"ds-stat-value\">— fps</div><div class=\"ds-stat-label\">发送速率</div></div><div><div class=\"ds-stat-value\">— ms</div><div class=\"ds-stat-label\">USB 发送 p95</div></div><div><div class=\"ds-stat-value\">— ms</div><div class=\"ds-stat-label\">队列等待 p95</div></div></div><p class=\"ds-stat-note\">以上为电脑端统计，并非端到端显示延迟。每 5 秒更新。</p></section>",
+      "css": ".ds-stat-panel {font-family:\"Microsoft YaHei UI\",\"Segoe UI\",sans-serif;font-size:13px;color:#20363c;background:#fff;border:1px solid #d7e1de;border-radius:10px;padding:18px 22px;display:grid;gap:12px}.ds-stat-heading {font-size:16px;font-weight:600;margin:0}.ds-stat-grid {display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.ds-stat-value {color:#174f57;font-size:21px;font-weight:600}.ds-stat-label,.ds-stat-note {color:#526a70;font-size:12px}.ds-stat-label {margin-top:8px}.ds-stat-note {margin:0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Connection Field Guide",
+    "overview": "A calm connection workspace pairs a deep petrol navigation rail with warm white\nworking surfaces. The field-guide character comes from aligned information,\nclear route markers, restrained color, and readable Chinese copy. Device\nreadiness leads to one useful action; status is evidence rather than decoration.\n\nThis documents the built Windows/PySide6 0.0.1 interface in Operate mode. The\nvisual language is an implementation decision made under the user's delegated\nauthority, not a claim that the user selected a brand identity. The direction\ncontract is `.impeccable/surfaces/desktop.md`; source values and behavior come\nfrom `desktop_app/ui.py` and `desktop_app/assets/help.html`. The token frontmatter\nis normative for new screens; native Qt behavior remains authoritative.",
+    "keyCharacteristics": [
+      "Deep petrol navigation and a quiet, light workspace.",
+      "Native controls, Chinese-first copy, and visible keyboard focus.",
+      "Flat bordered panels, aligned settings, and persistent transport actions.",
+      "Evidence-backed status text with semantic title colors."
+    ],
+    "rules": [
+      {
+        "name": "The Evidence Rule",
+        "body": "Change readiness copy only in response to real controller results. The shipped three checkpoints use muted text; semantic color is applied to the status title. Do not describe the checkpoints as colored indicators.",
+        "section": "colors"
+      },
+      {
+        "name": "The Native Legibility Rule",
+        "body": "Retain system font fallback and text wrapping; never use display typography that makes device details or recovery steps harder to read.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do keep the footer action aligned with the next executable recovery or streaming step.",
+      "Do preserve native keyboard operation, visible focus, label associations, and readable disabled values.",
+      "Do keep status and metrics tied to controller evidence and explain their measurement limits.",
+      "Do retain the original icon and chevron provenance when packaging or reusing them.",
+      "Do verify additions at the minimum window size and allow page content to scroll above the persistent footer."
+    ],
+    "donts": [
+      "Don't imply successful hardware checks through decorative success colors or fabricated values.",
+      "Don't show unsupported resolutions, window capture, or an extended desktop as available choices.",
+      "Don't introduce a decorative font, shadow system, or animated elevation into the native Operate interface without a new design decision.",
+      "Don't replace informative disabled controls with unexplained empty areas or remove their labels.",
+      "Don't present the original goggles mark as DJI branding or remove the independent-project notice."
+    ]
+  }
+}

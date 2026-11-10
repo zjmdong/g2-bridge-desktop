@@ -2,6 +2,20 @@
 
 Stream your Windows or Mac desktop to DJI Goggles 2 or DJI Goggles Integra over USB. The goggles use Virtual Flight mode with stock firmware. The simulator and controller run on the computer.
 
+## DJI Goggles Streamer desktop client
+
+This fork adds **DJI Goggles Streamer 0.0.1**, a Windows x64 graphical client.
+It wraps the unchanged SDK with environment and firmware checks, integrated
+driver setup, streaming controls, persistent settings and offline help.
+The first version streams the SDK's default desktop at 1080p using NVIDIA NVENC;
+window selection, an independent extended desktop and a macOS GUI are planned.
+
+See the [Windows user and build guide](docs/desktop/USER_GUIDE.md),
+[validation record](docs/desktop/VALIDATION.md) and
+[third-party notices](docs/desktop/THIRD_PARTY.md). The command-line SDK described
+below remains available unchanged. Upstream latency measurements below describe
+the SDK's original hardware tests, not a new measurement of the desktop client.
+
 The bridge detects the model when it connects:
 
 | Goggles | Identity | Tested firmware |
