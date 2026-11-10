@@ -1,19 +1,22 @@
 """Windows capture compatibility adapter at the SDK's public process boundary.
 
 The SDK and its USB packet framing remain unchanged. Capture uses DXGI and an
-explicit RGB -> limited-range NV12 conversion. NVIDIA NVENC is the only encoder;
+explicit GPU RGB -> limited-range NV12 conversion. NVIDIA NVENC is the only encoder;
 failure is reported without a software fallback. The SDK frame-size guard stays.
 """
 import subprocess
 import re
 
 from .system import run_cancellable
+from .scheduling import configure_encoder_process
+
+ENCODER_PRIORITY = getattr(subprocess, 'ABOVE_NORMAL_PRIORITY_CLASS', 0)
 
 
 def frame_selection(fps):
-    """Select before encoding, without waiting for a later frame or filling gaps.
+    """Legacy SDK WGC admission rule, retained for the 0.2.2 research checks.
 
-    This is the SDK's WGC admission rule, applied equally to both DDA displays.
+    Current desktop DDA capture uses its own native deadline clock instead.
     Compact timestamps prevent CFR/AVI from replaying old images after a stall.
     A slow source stays slow; inventing frames cannot reduce picture age.
     """
@@ -37,28 +40,39 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     width, height = dimensions
     if dimensions not in ((1280, 720), (1920, 1080)):
         raise ValueError('Unsupported stream dimensions')
-    if source.startswith('gfxcapture='):
-        if hmonitor is not None:
-            # Use the actual monitor handle; enumeration order can change on hotplug.
-            source = source.replace(source.split(':', 1)[0], f'gfxcapture=hmonitor={int(hmonitor)}', 1)
-            result[source_index] = source
-        result[source_index] = result[source_index].replace('width=1920:height=1080', f'width={width}:height={height}') + ':display_border=0:output_fmt=bgra'
-        filter_index = result.index('-vf')+1
-        result[filter_index] += (',hwdownload,format=bgra,'
-                                'scale=iw:ih:in_range=pc:out_color_matrix=bt709:out_range=tv,format=nv12')
-    elif source.startswith('ddagrab='):
+    if source.startswith('ddagrab='):
         if hmonitor is not None:
             raise ValueError('Desktop Duplication requires a DXGI adapter/output identity')
         if output is not None:
             result[source_index] = re.sub(r'output_idx=\d+', f"output_idx={output['output']}", source)
             result[1:1] = ['-init_hw_device', f"d3d11va=cap:{output['adapter']}", '-filter_hw_device', 'cap']
         source_index = result.index('-i')+1
-        result[source_index] = re.sub(r'framerate=\d+', 'framerate=240', result[source_index])
-        result[source_index] += ':output_fmt=bgra:dup_frames=1'
+        result[source_index] += (':output_fmt=bgra:dup_frames=1:precise_clock=1:'
+                                 'acquire_timeout=0:clock_spin_us=500')
         filter_index = result.index('-vf')+1
-        result[filter_index] = result[filter_index].replace(
-            'flags=fast_bilinear', 'flags=bilinear:in_range=pc:out_color_matrix=bt709:out_range=tv')
-        result[filter_index] = result[filter_index].replace('1920:1080', f'{width}:{height}')
+        # The pinned FFmpeg patch fixes D3D11 texture views and explicitly
+        # converts full-range SDR RGB to limited BT.709, with aspect-fit padding.
+        # No per-frame GPU download, CPU scale or upload on the NVIDIA path.
+        if output is None or output.get('vendor_id', 0x10de) == 0x10de:
+            result[filter_index] = (f'scale_d3d11=width={width}:height={height}:'
+                                    'format=nv12:desktop_sdr=1')
+            if output and 0 < output.get('width', 0) < width and 0 < output.get('height', 0) < height:
+                # This NVIDIA processor colours chroma edges when RGB is
+                # enlarged and subsampled in the same blit. Enlarge RGB first;
+                # perform NV12 conversion at 1:1. Normal/downscale use one blit.
+                result[filter_index] = (f'scale_d3d11=width={width}:height={height}:'
+                                       'format=bgra:desktop_sdr=1,' + result[filter_index])
+        else:
+            # NVENC cannot register another vendor's D3D11 device. A hybrid
+            # laptop still uses NVIDIA encoding, with an explicit CPU transfer.
+            # With software NV12 input, FFmpeg picks CUDA before D3D11 for
+            # NVENC. Supply a separate NVIDIA context so it cannot accidentally
+            # reuse the foreign capture device. Filters remain bound to cap.
+            result[1:1] = ['-init_hw_device', 'cuda=enc:0']
+            filter_index = result.index('-vf')+1
+            result[filter_index] = (f'hwdownload,format=bgra,scale={width}:{height}:'
+                'force_original_aspect_ratio=decrease:flags=bilinear:in_range=pc:'
+                f'out_color_matrix=bt709:out_range=tv,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=nv12')
     else:
         raise ValueError('Unsupported desktop capture source')
 
@@ -69,11 +83,17 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     if source.startswith('ddagrab='):
         # The SDK's GOP is fps * keyframe_seconds; source carries the actual rate.
         fps = re.search(r'framerate=(\d+)', source).group(1)
-        # The fps filter buffers a future frame and fills capture gaps with old
-        # pictures. Admission must happen before conversion/encoding, without a
-        # second rate limiter at USB that would retain those encoded pictures.
-        result[filter_index] = frame_selection(int(fps)) + ',' + result[filter_index]
-        result[-3:-3] = ['-r', fps, '-fps_mode', 'cfr']
+        # DDA owns the only cadence clock. Re-sampling a 240 Hz polling source
+        # created 8.33/12.5 ms intervals at 100 fps. Compact PTS still prevent CFR
+        # from replaying past pictures after a missed deadline.
+        result[filter_index] = f'setpts=N/({fps}*TB):strip_fps=1,' + result[filter_index]
+        live = '-frames:v' not in result
+        result[-3:-3] = ['-r', fps, '-fps_mode', 'passthrough' if live else 'cfr']
+        if live:
+            # A single raw-frame mailbox replaces stale unencoded pictures.
+            # The encoder compacts admitted PTS; encoded reference frames are
+            # never discarded and no pacer is inserted after compression.
+            result[-3:-3] = ['-latest_frame', '1']
     # Keep the SDK's NVIDIA encoder, P1/P4 preset, ULL tuning and CBR/VBV budget.
     # Quarter-resolution multipass is needed for the SDK's tight frame budget.
     # Keep periodic intra refresh disabled to avoid the observed display pulses.
@@ -84,7 +104,7 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     # Repeat headers during decoder startup, then avoid periodic full-IDR pulses.
     # USB is ordered/reliable; SDK recovery restarts this bootstrap on link loss.
     result[result.index('-g')+1] = '1000000'
-    result[-3:-3] = ['-force_key_frames', '0,1,2', '-refs', '1',
+    result[-3:-3] = ['-async_encode', '1', '-force_key_frames', '0,1,2', '-refs', '1',
                      '-rc-lookahead', '0', '-no-scenecut', '1',
                      '-color_range', 'tv', '-color_primaries', 'unknown',
                      '-color_trc', 'unknown', '-colorspace', 'unknown']
@@ -106,7 +126,10 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
 
 
 def start_encoder(command, *, hmonitor=None, output=None, dimensions=(1920, 1080), **kwargs):
-    return subprocess.Popen(compatible_command(command, hmonitor=hmonitor, output=output, dimensions=dimensions), **kwargs)
+    kwargs['creationflags'] = kwargs.get('creationflags', 0) | ENCODER_PRIORITY
+    process = subprocess.Popen(compatible_command(command, hmonitor=hmonitor, output=output, dimensions=dimensions), **kwargs)
+    process.desktop_scheduling = configure_encoder_process(process)
+    return process
 
 
 def check_capture(command, *, stop, hmonitor=None, output=None, dimensions=(1920, 1080), **kwargs):

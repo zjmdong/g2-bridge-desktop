@@ -7,6 +7,8 @@ import threading
 import time
 
 from goggles_bridge.engine import BridgeEngine
+from goggles_bridge.session import SessionLost
+from goggles_bridge.usb_transport import UsbTransportError
 
 
 class AsyncSessionLog:
@@ -19,7 +21,7 @@ class AsyncSessionLog:
     """
     STATE_KINDS = frozenset(('starting', 'connected', 'ready', 'streaming',
         'waiting', 'oversize_frame', 'encoder_restart', 'stats', 'error',
-        'session_ended', 'stopped'))
+        'usb_disconnected', 'session_ended', 'stopped'))
 
     def __init__(self, path, *, capacity=128, close_timeout=2., open_file=None):
         if type(capacity) is not int or capacity < 1:
@@ -100,11 +102,43 @@ class DesktopBridgeEngine(BridgeEngine):
     A blocked disk can lose diagnostic history on process exit, never block video
     or postpone device cleanup indefinitely. State callbacks stay on the caller.
     """
-    def __init__(self, *args, log_factory=AsyncSessionLog, **kwargs):
+    def __init__(self, *args, log_factory=AsyncSessionLog, presence_probe=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.log_factory = log_factory
+        self.presence_probe = presence_probe
         self.journal = None
         self.log_complete = False
+
+    def _session(self, attempt):
+        try:
+            return super()._session(attempt)
+        except (UsbTransportError, SessionLost):
+            # The SDK has already stopped this encoder and released its handle.
+            # Only the fault path may enumerate PnP in the streaming process;
+            # normal hotplug observation runs in the GUI's separate worker.
+            # Stop reconnecting on confirmed removal so capture_target's finally
+            # releases the virtual screen even if the GUI cannot process events.
+            if self.stop_event.is_set():
+                return
+            try:
+                if self.presence_probe is None:
+                    from .usb_presence import present_interfaces
+                    connected = bool(present_interfaces())
+                else:
+                    connected = self.presence_probe()
+            except OSError:
+                # A failed presence query is not evidence of removal. Keep
+                # the original transport error and SDK recovery policy.
+                pass
+            else:
+                if not connected:
+                    self.stop_event.set()
+                    self.emit('usb_disconnected')
+                    return
+            # Cancellation can also arrive during the native presence query.
+            if self.stop_event.is_set():
+                return
+            raise
 
     def emit(self, event, **fields):
         if event in ('control_send', 'control_receive'):

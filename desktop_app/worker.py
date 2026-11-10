@@ -36,7 +36,10 @@ def stream(settings, stop, emit):
              color='8-bit limited NV12 / BT.709', profile='baseline', encoder='h264_nvenc',
              capture='Desktop Duplication', output_resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}',
              bootstrap_idr_seconds=[0,1,2], periodic_idr=False, reference_frames=1,
-             capture_sampling_fps=240, frame_selection='immediate raw-frame admission',
+             capture_sampling_fps=settings.fps, frame_selection='native deadline / latest desktop',
+             capture_clock='QPC / high-resolution timer', clock_spin_us=500,
+             raw_frame_policy='latest waiting frame', nvenc_completion='Windows async event',
+             color_pipeline='D3D11 GPU' if output['vendor_id'] == 0x10de else 'CPU transfer to NVIDIA',
              sender_pacing=False, capture_gpu=output.get('gpu_name'),
              capture_adapter_luid=output.get('adapter_luid'))
         emit('checking_capture')
@@ -55,39 +58,30 @@ def stream(settings, stop, emit):
                     # DesktopBridgeEngine journals this same row after callback.
                     # Persist the adapter policy, not the SDK's unchanged defaults.
                     row.update(intra_refresh=False, multipass='qres', encoder='h264_nvenc',
-                               adapter='desktop-nvenc-immediate-v3',
+                               adapter='desktop-native-latest-v4',
+                               nvenc_async=True, raw_frame_queue='latest single slot',
                                sender_pacing=False, input_graph='direct',
                                resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}')
                 emit(**row)
 
         telemetry = SenderTelemetry(emit)
-        guard_done = threading.Event()
-
-        def guard():
-            from .usb_presence import present_interfaces
-            while not guard_done.wait(.25):
-                try:
-                    if not present_interfaces():
-                        stop.set()
-                        emit('usb_disconnected')
-                        break
-                except OSError:
-                    pass  # SDK transport errors and GUI presence watcher remain active.
-
-        guard_thread = threading.Thread(target=guard, daemon=True, name='usb-disconnect-guard')
-        guard_thread.start()
+        def encoder_factory(command, **kwargs):
+            process = start_encoder(command, **options, **kwargs)
+            emit('encoder_scheduling', encoder_pid=process.pid,
+                 cpu_priority='above_normal', **process.desktop_scheduling)
+            return process
+        # The GUI has a separate presence worker. A failed SDK session also
+        # checks presence once, so streaming does not enumerate PnP every 250 ms.
         telemetry.start()
         try:
             engine = DesktopBridgeEngine(bridge, log, stop_event=stop, on_event=on_event,
                 reconnect=settings.reconnect, retry_delay=2,
-                process_factory=partial(start_encoder, **options),
+                process_factory=encoder_factory,
                 transport_factory=partial(VerifiedTransport, stop=stop, emit=emit,
                                           write_size=bridge.usb_write_size, telemetry=telemetry))
             engine.run()
         finally:
             telemetry.close()
-            guard_done.set()
-            guard_thread.join(timeout=1)
     return 0
 
 

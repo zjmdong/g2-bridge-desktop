@@ -30,13 +30,15 @@ class VideoTests(unittest.TestCase):
                 compatible_command(command)
 
     def test_capture_check_and_stream_use_same_conversion(self):
-        for capture in ('gfxcapture','ddagrab'):
+        for capture in ('ddagrab',):
             settings=Settings(capture=capture).bridge()
             for frames in (0,1):
                 command=compatible_command(encoder_command(settings,frames=frames))
                 vf=command[command.index('-filter_complex')+1]
                 self.assertIn('format=nv12',vf)
-                self.assertIn('out_color_matrix=bt709:out_range=tv',vf)
+                self.assertIn('scale_d3d11=',vf)
+                self.assertIn('desktop_sdr=1',vf)
+                self.assertNotIn('hwdownload',vf)
                 self.assertIn('setsar=1',vf)
                 self.assertIn('color_trc=unknown',vf)
                 self.assertEqual(command[command.index('-intra-refresh')+1], '0')
@@ -44,6 +46,13 @@ class VideoTests(unittest.TestCase):
                 self.assertEqual(command[command.index('-tune')+1], 'ull')
                 self.assertEqual(command[command.index('-rc-lookahead')+1], '0')
                 self.assertEqual(command[command.index('-multipass')+1], 'qres')
+                self.assertEqual(command[command.index('-async_encode')+1], '1')
+                if frames:
+                    self.assertNotIn('-latest_frame', command)
+                    self.assertEqual(command[command.index('-fps_mode')+1], 'cfr')
+                else:
+                    self.assertEqual(command[command.index('-latest_frame')+1], '1')
+                    self.assertEqual(command[command.index('-fps_mode')+1], 'passthrough')
                 self.assertNotIn('-x264-params', command)
                 self.assertNotIn('-i', command)  # No lavfi demux/decoder queues.
                 self.assertEqual(command[command.index('-map')+1], '[desktop]')
@@ -51,13 +60,11 @@ class VideoTests(unittest.TestCase):
                 self.assertEqual(command[command.index('-g')+1], '1000000')
                 self.assertEqual(command[-3:], ['-f','null' if frames else 'avi','-' if frames else 'pipe:1'])
 
-    def test_monitor_handle_replaces_index_without_mutating_sdk_command(self):
+    def test_wgc_and_hmonitor_are_not_silently_accepted_by_borderless_client(self):
         original=encoder_command(Settings(capture='gfxcapture').bridge())
-        adapted=compatible_command(original,hmonitor=9876)
         self.assertIn('monitor_idx=0',original[original.index('-i')+1])
-        source=adapted[adapted.index('-filter_complex')+1]
-        self.assertTrue(source.startswith('gfxcapture=hmonitor=9876:'))
-        self.assertNotIn('monitor_idx',source)
+        with self.assertRaisesRegex(ValueError, 'Unsupported desktop capture'):
+            compatible_command(original,hmonitor=9876)
         with self.assertRaises(ValueError):
             compatible_command(encoder_command(Settings(capture='ddagrab').bridge()),hmonitor=9876)
 
@@ -72,11 +79,11 @@ class VideoTests(unittest.TestCase):
         adapted = compatible_command(original, output=dict(adapter=1, output=2), dimensions=(1280,720))
         self.assertIn('d3d11va=cap:1', adapted)
         self.assertIn('output_idx=2', adapted[adapted.index('-filter_complex')+1])
-        self.assertIn('pad=1280:720', adapted[adapted.index('-filter_complex')+1])
+        self.assertIn('width=1280:height=720', adapted[adapted.index('-filter_complex')+1])
         self.assertIn('pad=1920:1080', original[original.index('-vf')+1])
         self.assertNotIn('gfxcapture', ' '.join(adapted))
 
-    def test_both_sources_use_identical_immediate_selection_and_no_catchup_filter(self):
+    def test_both_sources_share_one_native_clock_without_resampling_or_cpu_transfer(self):
         for fps in (60, 75, 90, 100):
             settings = Settings(fps=fps).bridge()
             graphs = []
@@ -85,9 +92,36 @@ class VideoTests(unittest.TestCase):
                                              output=dict(adapter=0, output=output))
                 graph = command[command.index('-filter_complex')+1]
                 self.assertNotIn(',fps=', graph)
-                self.assertIn(','+frame_selection(fps)+',hwdownload', graph)
+                self.assertIn(f'framerate={fps}:', graph)
+                self.assertIn('precise_clock=1:acquire_timeout=0:clock_spin_us=500', graph)
+                self.assertNotIn('select=', graph)
+                self.assertNotIn('framerate=240', graph)
+                self.assertNotIn('hwdownload', graph)
                 graphs.append(graph.replace(f'output_idx={output}', 'output_idx=TARGET'))
             self.assertEqual(graphs[0], graphs[1])
+
+    def test_other_vendor_capture_uses_explicit_transfer_but_still_nvenc(self):
+        command = compatible_command(encoder_command(Settings().bridge()),
+                                     output=dict(adapter=1, output=0, vendor_id=0x1002))
+        graph = command[command.index('-filter_complex')+1]
+        self.assertIn('hwdownload,format=bgra', graph)
+        self.assertIn('out_color_matrix=bt709:out_range=tv', graph)
+        self.assertNotIn('scale_d3d11=', graph)
+        self.assertIn('cuda=enc:0', command)
+        self.assertIn('d3d11va=cap:1', command)
+        self.assertEqual(command[command.index('-filter_hw_device')+1], 'cap')
+        self.assertEqual(command[command.index('-c:v')+1], 'h264_nvenc')
+
+    def test_only_upscaling_separates_rgb_resize_from_chroma_conversion(self):
+        for dimensions, passes in (((1280,720),2), ((1920,1080),1), ((3440,1440),1), ((1080,1920),1)):
+            with self.subTest(source=dimensions):
+                command = compatible_command(encoder_command(Settings().bridge()),
+                    output=dict(adapter=0, output=0, vendor_id=0x10de,
+                                width=dimensions[0], height=dimensions[1]))
+                graph = command[command.index('-filter_complex')+1]
+                self.assertEqual(graph.count('scale_d3d11='), passes)
+                self.assertEqual('format=bgra:desktop_sdr=1' in graph, passes == 2)
+                self.assertNotIn('hwdownload', graph)
 
     def test_selection_matches_the_sdk_no_wait_rule(self):
         for fps in (60, 75, 90, 100):

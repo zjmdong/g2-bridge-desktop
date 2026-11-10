@@ -3,3 +3,10 @@
 /tests/fixtures/*.json text eol=lf
 /docs/research/evidence/*.h264 binary
 /docs/research/evidence/*.bin binary
+/packaging/windows/ffmpeg/** text eol=lf
+/docs/desktop/evidence/** text eol=lf
+# Unified diff context lines intentionally contain a single space.
+/packaging/windows/ffmpeg/*.patch -whitespace
+/docs/desktop/evidence/*.patch -whitespace
+# Preserve upstream license whitespace.
+/packaging/windows/ffmpeg/licenses/** -whitespace

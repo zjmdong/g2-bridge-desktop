@@ -70,7 +70,9 @@ def outputs():
                             raise RuntimeError(f'无法读取显示输出（DXGI {code:#x}）。')
                         if value.attached:
                             rows.append(dict(device=value.name, adapter=adapter_index,
-                                             output=output_index, hmonitor=value.monitor, **metadata))
+                                             output=output_index, hmonitor=value.monitor,
+                                             width=value.rect.right-value.rect.left,
+                                             height=value.rect.bottom-value.rect.top, **metadata))
                     finally:
                         method(output, 2, W.ULONG)(output)
             finally:

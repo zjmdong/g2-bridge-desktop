@@ -1,0 +1,25 @@
+This directory provides the source patch and build recipe for the modified
+FFmpeg used by DJI Goggles Streamer.
+
+FFmpeg n9.0.2 is copyright its respective contributors and is configured here
+under GNU LGPL version 2.1 or later. Preserve all source copyright notices.
+The local DDA clock, D3D11 scaler, asynchronous NVENC and raw-frame scheduling
+changes use the same license as the corresponding FFmpeg components.
+
+The NVIDIA ff nvcodec API headers carry the NVIDIA permissive license in
+licenses/NVENC-headers-LICENSE. The NVIDIA driver itself is not redistributed.
+
+The MinGW-w64 winpthreads notice is in licenses/winpthreads-COPYING.
+GCC runtime components are covered by GPLv3 with the GCC Runtime Library
+Exception 3.1; both texts are retained in licenses/.
+
+When distributing the executable, include these notices and provide its
+complete corresponding FFmpeg source archive, this patch, build script and
+dependency manifest. The full source archive is distributed beside the app's
+source package at vendor/ffmpeg/source/ffmpeg-upstream-n9.0.2.tar.gz; vendor is
+not tracked by Git. The README explains how to reconstruct that archive from
+the pinned public upstream repository.
+
+This recipe builds a standalone FFmpeg executable. It does not link FFmpeg
+libraries into the desktop application. The desktop application's own license
+and the separate licenses of any other bundled FFmpeg build still apply.
