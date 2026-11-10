@@ -7,13 +7,11 @@ import shutil
 import sys
 import urllib.request
 import zipfile
+from ffmpeg_inputs import verify_ffmpeg_sources
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 INPUTS = {
-    'ffmpeg-9.0.2.zip': (
-        'https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip',
-        '60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba'),
     'innoextract-1.9-windows.zip': (
         'https://constexpr.org/innoextract/files/innoextract-1.9-windows.zip',
         '6989342c9b026a00a72a38f23b62a8e6a22cc5de69805cf47d68ac2fec993065'),
@@ -23,7 +21,33 @@ INPUTS = {
 }
 
 
+def prepare_ffmpeg():
+    """Use only the locally reproducible, release-hashed capture build."""
+    recipe = ROOT/'packaging/windows/ffmpeg'
+    manifest = json.loads((recipe/'manifest.json').read_text(encoding='utf-8'))
+    verify_ffmpeg_sources(ROOT, manifest)
+    release = manifest.get('release_binaries', {})
+    target = ROOT/'vendor/ffmpeg'
+    if set(release) != {'ffmpeg.exe', 'ffprobe.exe'}:
+        raise RuntimeError('Missing FFmpeg release hashes. Build the pinned sources; see packaging/windows/ffmpeg/README.md')
+    for name, entry in release.items():
+        path = target/name
+        if (not path.is_file() or path.stat().st_size != entry['bytes'] or
+                hashlib.sha256(path.read_bytes()).hexdigest() != entry['sha256']):
+            raise RuntimeError(f'FFmpeg release binary mismatch: {name}. Build and verify the pinned source recipe first.')
+    # Ship complete source + local patches/build instructions with the program.
+    # Do not silently restore the former stock FFmpeg and lose the native fixes.
+    (target/'source').mkdir(parents=True, exist_ok=True)
+    for path in recipe.iterdir():
+        if path.is_file():
+            shutil.copyfile(path, target/'source'/path.name)
+    shutil.copytree(recipe/'licenses', target/'source/licenses', dirs_exist_ok=True)
+    shutil.copyfile(recipe/'NOTICE.txt', target/'README.txt')
+    shutil.copyfile(recipe/'licenses/FFmpeg-COPYING.LGPLv2.1', target/'LICENSE')
+
+
 def main():
+    prepare_ffmpeg()
     downloads = ROOT / 'work/downloads'
     downloads.mkdir(parents=True, exist_ok=True)
     for name, (url, checksum) in INPUTS.items():
