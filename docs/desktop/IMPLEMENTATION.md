@@ -1,5 +1,18 @@
 # Windows implementation history
 
+## 0.1.1 reattachment fix
+
+On the acceptance host, legacy ChangeDisplaySettingsEx rejected a detached IDD
+with status -1, even though its enumerated 1080p60 mode was supported. Detached
+attachment now uses QueryDisplayConfig and SetDisplayConfig. It preserves the
+exact active paths and mode bytes, adds only the unique requested virtual target,
+validates before applying and never sets SDC_ALLOW_CHANGES or a global extend
+topology. Original paths are retained for rollback. Physical refresh rate joins
+resolution, position and primary status in post-change verification. The video
+adapter, USB protocol, driver binaries and settings schema are unchanged.
+
+See VALIDATION-0.1.1.md for regression and installed-build checks.
+
 ## 0.1.0 extension
 
 Add a Windows encoder-command adapter through SDK injection points, with

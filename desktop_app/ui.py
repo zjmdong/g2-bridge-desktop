@@ -181,7 +181,7 @@ class MainWindow(QMainWindow):
             nav.addWidget(button)
             self.nav_buttons.append(button)
         nav.addStretch()
-        nav.addWidget(label('WINDOWS  ·  0.1.0', 'railNote'))
+        nav.addWidget(label('WINDOWS  ·  0.1.1', 'railNote'))
         nav.addWidget(label('基于开源 G2 Bridge\n独立项目，非 DJI 官方软件', 'railNote', True))
         root.addWidget(rail)
 

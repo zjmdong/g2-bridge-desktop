@@ -9,8 +9,10 @@ a34690a58d48f0cd9b43cdeddf39b5efaf024b9c, 70 protected files unchanged.
 The user confirmed that the upstream fixed colour pattern and a separately
 generated 10-second moving 1080p/60 clip were visible in the goggles. Original
 desktop capture, Baseline-only, 2 KB USB writes, and intra-refresh=0 alone did
-not produce a visible desktop. The user then left; subsequent results below
-are host-side evidence, not optical confirmation.
+not produce a visible desktop. After installing 0.1.0, on 2026-11-10 the user
+confirmed that the primary desktop was visible at 60 fps / 8 Mbps. The user
+also confirmed the independent extended-display test below. Other measurements
+are host-side evidence and do not establish capture-to-display latency.
 
 ## Compatibility adapter
 
@@ -72,19 +74,45 @@ The pinned source's SETDISPLAYCOUNT calls ReloadDriver with a pipe handle
 where a WDF object is expected; the client never calls either command.
 
 The host already has GameViewer, Oray and Virtual Desktop drivers. These were
-left untouched. VDD is not installed on this host, and creating a display
-device requires Windows administrator authorization. Thus actual VDD device
-creation, capture from it, disconnect and rollback remain hardware acceptance
-items. The app exposes normal Windows elevation and marks this source experimental.
+left untouched. The user completed Windows administrator authorization for the
+installed 0.1.0 worker. Driver installation returned success / code 0 without a
+reboot. Windows enumerated the owned VDD monitor as a separate, non-primary
+1920×1080 / 60 Hz desktop at (3440, 0). The physical primary retained
+3440×1440 / 60 Hz at (0, 0), with its primary and active flags unchanged.
+
+Using the installed GUI, the extended source was selected and streamed at
+60 fps / 8 Mbps through its actual HMONITOR. A temporary native window on only
+that desktop displayed `EXTENDED DISPLAY - 1080p`, an advancing timer and a
+moving green square. The user confirmed all three were visible in the goggles.
+This validates independent desktop selection, capture, encoding, USB delivery
+and optical output; it is not a simulator performance benchmark.
+
+The 56.33-second GUI run sent 3,266 frames, with steady 5-second intervals at
+58.19–59.62 fps, zero oversized frames, no receive discard and a clean stop.
+Maximum observed frame size was 30,664 bytes. USB send p95 was 0.40–0.45 ms;
+this does not measure end-to-end latency. The SDK log's raw `starting` record
+describes SDK defaults; the desktop adapter disables intra-refresh and the
+actual encoder command and GUI-worker event reflect that override.
+
+After closing the test window and stopping the stream, the installed GUI's
+disconnect control left only the physical primary active and gated streaming.
+However, re-enabling failed with Windows status -1. This is a confirmed 0.1.0
+bug, fixed separately in 0.1.1 using explicit CCD paths; see VALIDATION-0.1.1.md.
+Primary resolution, refresh rate, position and primary/active flags remained
+unchanged. Driver removal and forced rollback were not exercised on this
+working installation.
 
 ## Remaining acceptance
 
-- User confirms adapted live desktop is visible after entering Virtual Flight.
-- Complete Windows driver authorization, enable 1080p extended desktop, verify
-  physical primary layout is unchanged, and launch a simulator on that desktop.
-- Verify visible goggles output, move/close simulator, disconnect and remove the
-  owned virtual device; confirm existing third-party displays remain untouched.
-- Broader supported-GPU and 75/90/100 fps tests; macOS is outside this release.
+- Test an actual simulator and its input/fullscreen behaviour on that desktop.
+- Exercise driver removal and failure rollback on a dedicated test installation.
+  The working driver is retained on this user's computer.
+- Broader supported-GPU and optical 75/90/100 fps tests; macOS is outside this
+  release. The existing host capture matrix passed all 16 combinations of
+  capture path, 60/75/90/100 fps and p1/p4 (1,380 decoded frames); those are not
+  optical tests of higher frame rates.
 
-Do not describe this build as an optically verified black-screen fix until those
-observations are recorded. Private local captures and USB dumps are not committed.
+The primary black-screen fix and independent 1080p output are optically verified
+on this host and firmware. The compatibility changes were tested together, so
+the evidence does not isolate a single encoder flag as the sole root cause.
+Private local captures and USB dumps are not committed.

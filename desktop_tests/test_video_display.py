@@ -89,6 +89,46 @@ class DisplayTests(unittest.TestCase):
                 with self.assertRaises(ValueError): verify_package(directory)
                 query.assert_not_called()
 
+    def test_detached_monitor_uses_ccd_and_verifies_new_handle(self):
+        from unittest.mock import Mock
+        physical = screen()
+        virtual = screen('virtual', True)
+        virtual.update(active=False, hmonitor=None, width=0, height=0, hz=0)
+        desired = DEVMODE(dmSize=ctypes.sizeof(DEVMODE), dmPelsWidth=1920,
+                          dmPelsHeight=1080, dmDisplayFrequency=60)
+
+        def attach(device, width, height, hz, x, y):
+            self.assertEqual(device, 'virtual')
+            self.assertEqual((width, height, hz, x, y), (1920, 1080, 60, 3440, 0))
+            virtual.update(active=True, hmonitor=789, width=width, height=height, hz=hz)
+            return Mock()
+
+        api = Mock()
+        api.ChangeDisplaySettingsExW.return_value = -1  # Real host rejects legacy reattachment.
+        with patch('desktop_app.displays.inventory', return_value=[physical, virtual]), \
+             patch('desktop_app.displays.mode', return_value=desired), \
+             patch('desktop_app.displays.api', return_value=api), \
+             patch('desktop_app.display_config.attach', side_effect=attach):
+            self.assertEqual(enable_extended()['hmonitor'], 789)
+            self.assertEqual(select_source('primary'), screen())
+        api.ChangeDisplaySettingsExW.assert_not_called()
+
+    def test_reattach_rolls_back_if_primary_refresh_changes(self):
+        from unittest.mock import Mock
+        physical = screen()
+        virtual = screen('virtual', True)
+        virtual.update(active=False, hmonitor=None)
+        changed = dict(physical, hz=120)
+        desired = DEVMODE(dmSize=ctypes.sizeof(DEVMODE), dmPelsWidth=1920,
+                          dmPelsHeight=1080, dmDisplayFrequency=60)
+        rollback = Mock()
+        with patch('desktop_app.displays.inventory', side_effect=[[physical, virtual], [changed, virtual]]), \
+             patch('desktop_app.displays.mode', return_value=desired), \
+             patch('desktop_app.display_config.attach', return_value=rollback):
+            with self.assertRaises(DisplayError):
+                enable_extended()
+        rollback.assert_called_once_with()
+
 
 if __name__ == '__main__':
     unittest.main()

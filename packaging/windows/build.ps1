@@ -19,5 +19,5 @@ try {
     if ($LASTEXITCODE) { throw 'Installer build failed' }
     & $python packaging/windows/source_bundle.py
     if ($LASTEXITCODE) { throw 'Source bundle failed' }
-    Get-FileHash 'dist\DJI-Goggles-Streamer-0.1.0-Setup.exe' -Algorithm SHA256
+    Get-FileHash 'dist\DJI-Goggles-Streamer-0.1.1-Setup.exe' -Algorithm SHA256
 } finally { Pop-Location }

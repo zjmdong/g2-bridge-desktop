@@ -126,19 +126,26 @@ def enable_extended():
     desired.x = max(r['x']+r['width'] for r in active)
     desired.y = next(r['y'] for r in active if r['primary'])
     desired.dmFields |= 0x20 | 0x80000 | 0x100000 | 0x400000  # position, width, height, frequency
-    status = api().ChangeDisplaySettingsExW(target['device'], C.byref(desired), None, 2, None)  # CDS_TEST
-    if status != 0:
-        raise DisplayError(f'Windows 拒绝扩展屏模式（{status}）。')
-    status = api().ChangeDisplaySettingsExW(target['device'], C.byref(desired), None, 0, None)
-    if status != 0:
-        raise DisplayError(f'Windows 无法启用扩展屏（{status}）。')
-    deadline = time.monotonic()+8
+    rollback = None
+    legacy_changed = False
     try:
+        if target['active']:
+            status = api().ChangeDisplaySettingsExW(target['device'], C.byref(desired), None, 3, None)
+            if status != 0:
+                raise DisplayError(f'Windows 拒绝扩展屏模式（{status}）。')
+            legacy_changed = True
+            status = api().ChangeDisplaySettingsExW(target['device'], C.byref(desired), None, 1, None)
+            if status != 0:
+                raise DisplayError(f'Windows 无法启用扩展屏（{status}）。')
+        else:
+            from .display_config import attach
+            rollback = attach(target['device'], 1920, 1080, 60, desired.x, desired.y)
+        deadline = time.monotonic()+8
         while time.monotonic() < deadline:
             after = inventory()
             for original in active:
                 now = next((r for r in after if r['device'] == original['device']), {})
-                if any(now.get(k) != original[k] for k in ('width','height','x','y','primary','active')):
+                if any(now.get(k) != original[k] for k in ('width','height','hz','x','y','primary','active')):
                     raise DisplayError('Windows 改变了原有显示布局，已尝试恢复；请在显示设置中检查。')
             current = next((r for r in after if r['device'] == target['device']), {})
             if not current.get('active') or not current.get('hmonitor'):
@@ -148,6 +155,11 @@ def enable_extended():
             return result
         raise DisplayError('扩展屏未能按预期启用，请打开 Windows 显示设置检查。')
     except Exception:
+        if rollback is not None:
+            rollback()
+            raise
+        if not legacy_changed:
+            raise
         # Stage a rollback of the exact pre-change modes, then apply together.
         for device, original in original_modes.items():
             if original:
@@ -166,6 +178,6 @@ def disable_extended():
     if not target['active']:
         return
     value = DEVMODE(dmSize=C.sizeof(DEVMODE), dmFields=0x20 | 0x80000 | 0x100000)
-    status = api().ChangeDisplaySettingsExW(target['device'], C.byref(value), None, 0, None)
+    status = api().ChangeDisplaySettingsExW(target['device'], C.byref(value), None, 1, None)
     if status != 0:
         raise DisplayError(f'Windows 无法断开扩展屏（{status}）。')

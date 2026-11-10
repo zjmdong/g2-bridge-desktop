@@ -1,4 +1,4 @@
-# Third-party components — 0.1.0
+# Third-party components — 0.1.1
 
 DJI Goggles Streamer and the unchanged G2 Bridge SDK are GPL-3.0-only. The
 application installer includes LICENSE and this notice. A source archive is
