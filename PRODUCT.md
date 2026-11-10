@@ -25,8 +25,10 @@ and starts/stops desktop video over USB. The initial Windows installer is 0.0.1.
 ## Capabilities and Constraints
 
 - Existing SDK files, CLI, protocol and encoder defaults remain unchanged.
-- Version 0.0.1 has only the computer desktop as a source.
-- A future second display means an independent extended desktop, allowing a
+- Version 0.0.1 has only the computer desktop as a source. Version 0.1.0 adds an
+  experimental independent 1080p/60 Hz Windows virtual extended desktop, using
+  an optional signed driver and the unchanged SDK video transport.
+- The second display means an independent extended desktop, allowing a
   simulator to appear in the goggles while the primary monitor remains usable.
 - The SDK's verified stream is 1920x1080; unsupported modes must never be
   presented as verified capabilities.

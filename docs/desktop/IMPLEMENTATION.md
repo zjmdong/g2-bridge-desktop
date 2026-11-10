@@ -1,4 +1,16 @@
-# Windows 0.0.1 implementation plan
+# Windows implementation history
+
+## 0.1.0 extension
+
+Add a Windows encoder-command adapter through SDK injection points, with
+explicit desktop RGB-to-NV12 conversion, square pixels and recurring IDRs.
+Resolve primary/virtual monitor handles at capture setup. Bundle a pinned,
+signed MIT VDD package with a dedicated elevated driver operation; normal
+display layout and streaming stay unprivileged. Protect existing VDD settings
+and unrelated display drivers. Add source/setup controls and targeted tests.
+See VALIDATION-0.1.0.md for hardware evidence and remaining acceptance items.
+
+## 0.0.1 original implementation
 
 Baseline SDK: a34690a58d48f0cd9b43cdeddf39b5efaf024b9c.
 
@@ -25,7 +37,7 @@ must describe this constraint instead of exposing unverified decoder modes.
 Third-party driver binaries are not committed or redistributed without permission.
 An integrated official installer workflow replaces manual terminal setup.
 
-## Validation record
+## Original 0.0.1 validation record
 
 Before development: 89 upstream tests, 87 passed, 1 failed (environment-dependent
 GPU scheduling assertion), 1 macOS-only test skipped. No goggles hardware has

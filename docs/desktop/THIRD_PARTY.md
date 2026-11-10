@@ -1,4 +1,4 @@
-# Third-party components — 0.0.1
+# Third-party components — 0.1.0
 
 DJI Goggles Streamer and the unchanged G2 Bridge SDK are GPL-3.0-only. The
 application installer includes LICENSE and this notice. A source archive is
@@ -15,6 +15,7 @@ redistributed in the installer or project source.
 | innoextract | 1.9 | zlib, Boost Software License, LGPL runtime exception; bundled upstream license files, https://constexpr.org/innoextract/ and https://github.com/dscharrer/innoextract/tree/1.9 |
 | PyInstaller bootloader | 6.22.3 | GPL with bootloader exception, https://github.com/pyinstaller/pyinstaller |
 | Inno Setup installer engine | 6.7.4 | Inno Setup license, https://github.com/jrsoftware/issrc/tree/is-6_7_4 |
+| Virtual Display Driver | 25.7.23 package, driver 11.30.4.434 | MIT, https://github.com/VirtualDrivers/Virtual-Display-Driver/tree/25.7.23 ; bundled VDD-LICENSE.txt |
 
 FFmpeg is an unmodified standalone executable, invoked as a separate process.
 Its original LICENSE and README, including build provenance, are retained in
@@ -34,3 +35,10 @@ signature, extracts the original signed 5.0.0.7 driver, verifies each driver
 file, and invokes Windows PnPUtil. The package and driver remain subject to
 their original vendor terms. Windows elevation is requested only for driver
 installation, never for normal video streaming. No firmware is flashed.
+
+The optional virtual display driver is redistributed under MIT in
+`_internal/vendor/vdd`, with its original INF/DLL/catalog and SignPath signature.
+The release archive is pinned by SHA-256. The app writes its own 1080p/60 Hz SDR
+configuration only on a new installation, registers its own root display device,
+and never uses VDD's unsafe `RELOAD_DRIVER`/`SETDISPLAYCOUNT` pipe paths.
+No certificate-store or signature-enforcement settings are changed.
