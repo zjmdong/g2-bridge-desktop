@@ -74,7 +74,7 @@ def download_assistant(stop, emit):
         return target
     partial = target.with_suffix('.partial')
     request = urllib.request.Request(urllib.parse.quote(ASSISTANT_URL, safe=':/'),
-                                     headers={'User-Agent': 'DJI-Goggles-Streamer/0.0.1'})
+                                     headers={'User-Agent': 'DJI-Goggles-Streamer/0.1.0'})
     try:
         with urllib.request.urlopen(request, timeout=20) as response, partial.open('wb') as output:
             parsed = urllib.parse.urlparse(response.url)
@@ -110,6 +110,10 @@ class InstallerProcess:
     """Install the signed vendor INF with Windows PnPUtil and retain its handle."""
     def __init__(self, path):
         path = verify_driver(path)
+        self._launch(str(Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32/pnputil.exe'),
+                     f'/add-driver "{path}" /install')
+
+    def _launch(self, program, arguments):
 
         class SHELLEXECUTEINFO(ctypes.Structure):
             _fields_ = [('cbSize', wintypes.DWORD), ('fMask', wintypes.ULONG), ('hwnd', wintypes.HWND),
@@ -124,8 +128,8 @@ class InstallerProcess:
         info.cbSize = ctypes.sizeof(info)
         info.fMask = 0x40 | 0x400  # NOCLOSEPROCESS, FLAG_NO_UI
         info.lpVerb = 'runas'
-        info.lpFile = str(Path(os.environ.get('SystemRoot', r'C:\Windows')) / 'System32/pnputil.exe')
-        info.lpParameters = f'/add-driver "{path}" /install'
+        info.lpFile = program
+        info.lpParameters = arguments
         info.nShow = 0
         execute = ctypes.WinDLL('shell32', use_last_error=True).ShellExecuteExW
         execute.argtypes = [ctypes.POINTER(SHELLEXECUTEINFO)]

@@ -125,6 +125,9 @@ class MainWindow(QMainWindow):
         self.had_problem = False
         self.installer = None
         self.pending_installer = None
+        self.virtual_state = dict(owned=False, installed=False, displays=[])
+        self.virtual_installer = None
+        self.virtual_removing = False
         self.history = deque(maxlen=200)
         self.log_path = None
         self.controller = Controller(self)
@@ -140,6 +143,9 @@ class MainWindow(QMainWindow):
         self.install_timer = QTimer(self)
         self.install_timer.setInterval(1000)
         self.install_timer.timeout.connect(self.poll_installer)
+        self.virtual_timer = QTimer(self)
+        self.virtual_timer.setInterval(1000)
+        self.virtual_timer.timeout.connect(self.poll_virtual_installer)
         self.set_status('正在检查运行环境', '检查内置组件、NVIDIA 编码和 DJI USB 驱动。', 'busy')
         if config_warning:
             self.notice.setText(config_warning)
@@ -175,7 +181,7 @@ class MainWindow(QMainWindow):
             nav.addWidget(button)
             self.nav_buttons.append(button)
         nav.addStretch()
-        nav.addWidget(label('WINDOWS  ·  0.0.1', 'railNote'))
+        nav.addWidget(label('WINDOWS  ·  0.1.0', 'railNote'))
         nav.addWidget(label('基于开源 G2 Bridge\n独立项目，非 DJI 官方软件', 'railNote', True))
         root.addWidget(rail)
 
@@ -233,9 +239,34 @@ class MainWindow(QMainWindow):
         layout.addWidget(status_panel)
 
         source, source_layout = panel()
-        source_layout.addWidget(label('电脑桌面', 'section'))
-        source_layout.addWidget(label('串流 SDK 默认显示器（索引 0）的完整画面。', 'muted', True))
-        source_layout.addWidget(label('本版仅支持桌面来源；窗口选择与独立扩展桌面将在后续版本提供。', 'small', True))
+        source_layout.addWidget(label('画面来源', 'section'))
+        self.source = QComboBox()
+        self.source.setAccessibleName('画面来源')
+        self.source.addItem('电脑主屏 · 完整桌面', 'primary')
+        self.source.addItem('独立扩展屏 · 1080p · 实验性', 'extended')
+        source_layout.addWidget(self.source)
+        self.source_note = label('带鱼屏会等比缩放并补黑边，主屏分辨率保持不变。', 'muted', True)
+        source_layout.addWidget(self.source_note)
+        self.display_controls = QWidget()
+        display_layout = QVBoxLayout(self.display_controls)
+        display_layout.setContentsMargins(0, 0, 0, 0)
+        self.display_status = label('首次使用需要安装内置的虚拟显示驱动。', 'small', True)
+        display_layout.addWidget(self.display_status)
+        display_buttons = QHBoxLayout()
+        self.display_install = QPushButton('安装扩展屏驱动')
+        self.display_enable = QPushButton('启用 1080p 扩展屏')
+        self.display_disable = QPushButton('断开扩展屏')
+        self.display_install.clicked.connect(self.install_virtual_driver)
+        self.display_enable.clicked.connect(lambda: self.display_task('enable_display'))
+        self.display_disable.clicked.connect(lambda: self.display_task('disable_display'))
+        for button in (self.display_install,self.display_enable,self.display_disable):
+            display_buttons.addWidget(button)
+        display_layout.addLayout(display_buttons)
+        settings_link = QPushButton('打开 Windows 显示设置')
+        settings_link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl('ms-settings:display')))
+        display_layout.addWidget(settings_link, alignment=Qt.AlignmentFlag.AlignLeft)
+        display_layout.addWidget(label('扩展屏在主屏右侧。把模拟器窗口拖过去，或按 Win + Shift + → 移动窗口。停止串流后仍保留扩展屏；不用时点击断开。', 'small', True))
+        source_layout.addWidget(self.display_controls)
         layout.addWidget(source)
 
         settings_panel, settings_layout = panel()
@@ -310,7 +341,8 @@ class MainWindow(QMainWindow):
         stats_layout.addWidget(label('以上为电脑端统计，并非端到端显示延迟。每 5 秒更新。', 'small', True))
         layout.addWidget(statistics)
         layout.addStretch()
-        self.inputs = [self.quality, self.fps, self.bitrate, self.cursor, self.reconnect, self.capture, self.encoder_preset]
+        self.inputs = [self.source, self.quality, self.fps, self.bitrate, self.cursor, self.reconnect, self.capture, self.encoder_preset]
+        self.source.currentIndexChanged.connect(self.source_changed)
         self.quality.currentIndexChanged.connect(self.apply_preset)
         self.fps.currentIndexChanged.connect(self.rate_changed)
         self.bitrate.currentIndexChanged.connect(self.custom_changed)
@@ -421,6 +453,77 @@ class MainWindow(QMainWindow):
         self.help.scrollToAnchor(anchor)
         self.help.setFocus()
 
+    def source_changed(self, *_):
+        if self.source.currentData() == 'extended':
+            self.capture.setCurrentIndex(self.capture.findData('gfxcapture'))
+        self.save_settings()
+        self.refresh_controls()
+
+    def update_source_controls(self):
+        extended = self.source.currentData() == 'extended'
+        self.display_controls.setVisible(extended)
+        self.source_note.setText('模拟器使用独立的 1920 × 1080 桌面，不占用电脑主屏。首次安装需 Windows 管理员授权。'
+            if extended else '带鱼屏会等比缩放并补黑边，主屏分辨率保持不变。')
+        available = not self.controller.busy and not self.virtual_installer and not self.installer
+        owned = self.virtual_state.get('owned', False)
+        screens = self.virtual_state.get('displays', [])
+        active = any(r['active'] for r in screens)
+        self.display_install.setText('移除扩展屏驱动' if owned else '安装扩展屏驱动')
+        self.display_install.setEnabled(available)
+        self.display_enable.setEnabled(available and owned)
+        self.display_disable.setEnabled(available and owned and active)
+        self.capture.setEnabled(not extended and self.controller.task != 'stream' and not self.virtual_installer)
+        if not self.virtual_installer:
+            active_screen = next((r for r in screens if r['active']), None)
+            self.display_status.setText(f"扩展屏已启用 · {active_screen['width']} × {active_screen['height']} / {active_screen['hz']} Hz" if active_screen else
+                '驱动已安装，请启用 1080p 扩展屏。' if owned else
+                '检测到其他软件安装的 VDD；请在 Windows 中配置，客户端不会覆盖其设置。' if screens else
+                '驱动尚未安装。内置 VDD 25.7.23，已签名；不需要开启测试模式。')
+
+    def display_task(self, command):
+        if self.controller.busy or self.virtual_installer or self.installer:
+            return
+        self.had_problem = False
+        self.display_status.setText('正在更新 Windows 显示布局…')
+        self.controller.start(command)
+
+    def install_virtual_driver(self):
+        if self.controller.busy or self.virtual_installer or self.installer:
+            return
+        try:
+            from .virtual_driver import VirtualInstaller
+            self.virtual_removing = self.virtual_state.get('owned', False)
+            self.virtual_installer = VirtualInstaller(remove=self.virtual_removing)
+            self.display_status.setText('等待 Windows 管理员授权，完成后将自动检测。')
+            self.virtual_timer.start()
+        except (OSError,ValueError,RuntimeError) as exc:
+            self.notice.setText(str(exc))
+        self.refresh_controls()
+
+    def poll_virtual_installer(self):
+        try:
+            code = self.virtual_installer.poll()
+        except OSError:
+            code = -1
+        if code is None:
+            return
+        self.virtual_timer.stop()
+        self.virtual_installer = None
+        if code not in (0,3010):
+            import os
+            try:
+                report = json.loads((Path(os.environ['ProgramData'])/'DJI Goggles Streamer/display-install.json').read_text(encoding='utf-8'))
+                message = report.get('error', f'扩展屏安装退出（{code}）。')
+            except (OSError,ValueError):
+                message = f'扩展屏安装退出（{code}），请重新安装或查看帮助。'
+            self.notice.setText(message)
+        elif code == 3010:
+            self.notice.setText('Windows 要求重启以完成扩展屏驱动安装，请保存工作后重启。')
+        else:
+            self.notice.setText('扩展屏驱动已移除。可选择电脑主屏继续串流，或重新安装扩展屏驱动。'
+                if self.virtual_removing else '扩展屏驱动安装完成。点击启用后，Windows 会出现独立的 1080p 显示器。')
+        self.display_task('display_status')
+
     def next_action(self):
         if not self.environment:
             return 'environment', '检测运行环境'
@@ -428,6 +531,13 @@ class MainWindow(QMainWindow):
             return 'driver', '安装 USB 驱动'
         if not self.environment.get('encoder_ok') or not self.environment.get('supported_os'):
             return 'encoder', '查看编码帮助'
+        if self.source.currentData() == 'extended':
+            screens = self.virtual_state.get('displays', [])
+            if not self.virtual_state.get('installed'):
+                return 'display_driver', '安装扩展屏驱动'
+            if len(screens) != 1 or not screens[0]['active'] or screens[0]['primary'] or (
+                    screens[0]['width'],screens[0]['height'],screens[0]['hz']) != (1920,1080,60):
+                return ('display_enable', '启用 1080p 扩展屏') if self.virtual_state.get('owned') else ('display_settings', '配置现有扩展屏')
         if not self.device:
             return 'probe', '重新检测设备'
         if not self.device['compatibility']['allowed']:
@@ -445,17 +555,20 @@ class MainWindow(QMainWindow):
         self.bitrate.setCurrentIndex(self.bitrate.findData(self.settings.bitrate_mbps))
         self.encoder_preset.setCurrentIndex(self.encoder_preset.findData(self.settings.preset))
         self.capture.setCurrentIndex(self.capture.findData(self.settings.capture))
+        self.source.setCurrentIndex(self.source.findData(self.settings.source))
         self.cursor.setChecked(self.settings.show_cursor)
         self.reconnect.setChecked(self.settings.reconnect)
         for widget in self.inputs:
             widget.blockSignals(False)
+        self.update_source_controls()
 
     def save_settings(self, *_):
         if self.fps.currentData() is None or self.bitrate.currentData() is None:
             return
         self.settings = Settings(fps=self.fps.currentData(), bitrate_mbps=self.bitrate.currentData(),
             preset=self.encoder_preset.currentData(), capture=self.capture.currentData(),
-            show_cursor=self.cursor.isChecked(), reconnect=self.reconnect.isChecked(), quality=self.quality.currentData())
+            show_cursor=self.cursor.isChecked(), reconnect=self.reconnect.isChecked(), quality=self.quality.currentData(),
+            source=self.source.currentData())
         try:
             self.settings.save()
         except (ValueError, OSError) as exc:
@@ -505,26 +618,25 @@ class MainWindow(QMainWindow):
         self.status_title.setStyleSheet(f'color: {color};')
 
     def check_environment(self):
-        if self.controller.busy or self.installer:
+        if self.controller.busy or self.installer or self.virtual_installer:
             return
         self.had_problem = False
         self.set_status('正在检查运行环境', '正在测试硬件编码，并检查 USB 驱动组件。', 'busy')
         self.controller.start('environment')
 
     def auto_probe(self):
-        if not self.closing and not self.controller.busy and not self.installer and self.environment and self.environment['driver']['status'] == 'verified':
+        if not self.closing and not self.controller.busy and not self.installer and not self.virtual_installer and self.environment and self.environment['driver']['status'] == 'verified':
             self.controller.start('probe')
 
     def ready(self):
-        return bool(self.environment and self.environment.get('encoder_ok') and self.environment.get('supported_os')
-                    and self.environment['driver']['status'] == 'verified' and self.device
-                    and self.device['compatibility']['allowed'])
+        return self.next_action()[0] == 'stream'
 
     def refresh_controls(self, *_):
         busy = self.controller.busy
         streaming = self.controller.task == 'stream'
         for control in self.inputs:
-            control.setEnabled(not streaming)
+            control.setEnabled(not streaming and not self.virtual_installer)
+        self.update_source_controls()
         for control in (self.recheck_button, self.driver_button, self.import_button, self.reset_button):
             control.setEnabled(not busy and not self.installer)
         if hasattr(self, 'tray_stop'):
@@ -537,7 +649,9 @@ class MainWindow(QMainWindow):
             self.start_button.setEnabled(not self.controller.stopping)
         else:
             self.start_button.setText('正在安装驱动…' if self.installer else self.next_action()[1])
-            self.start_button.setEnabled(not busy and not self.installer)
+            self.start_button.setEnabled(not busy and not self.installer and not self.virtual_installer)
+            if not busy and not self.had_problem and self.next_action()[0].startswith('display_'):
+                self.set_status('扩展屏尚未准备好', '完成驱动安装并启用 1080p 扩展屏后，即可开始串流。', 'busy')
 
     def toggle_stream(self):
         if self.controller.task in ('stream', 'download_driver', 'import_driver'):
@@ -550,6 +664,13 @@ class MainWindow(QMainWindow):
                 self.navigate(1)
                 self.pages.widget(1).ensureWidgetVisible(self.driver_button)
                 self.install_driver()
+            elif action == 'display_driver':
+                self.navigate(0)
+                self.install_virtual_driver()
+            elif action == 'display_enable':
+                self.display_task('enable_display')
+            elif action == 'display_settings':
+                QDesktopServices.openUrl(QUrl('ms-settings:display'))
             elif action in ('firmware', 'encoder'):
                 self.open_help('firmware' if action == 'firmware' else 'capture')
             else:
@@ -568,6 +689,7 @@ class MainWindow(QMainWindow):
         self.history.append(dict(at=datetime.now().isoformat(timespec='seconds'), **row))
         if event == 'environment':
             self.environment = row
+            self.virtual_state = row.get('virtual_display', self.virtual_state)
             gpu = ' / '.join(g.get('Name', '') for g in row['gpu']) or '无法读取显卡名称'
             self.env_detail.setText(f"{row['os']}\n{gpu}\n{row['encoder_message']}")
             driver = row['driver']
@@ -580,6 +702,10 @@ class MainWindow(QMainWindow):
                 self.set_status('硬件编码尚未就绪', row['encoder_message'], 'busy')
             else:
                 self.set_status('等待眼镜连接', '连接 USB 数据线，并在眼镜中打开「更多 → DJI Virtual Flight」。')
+        elif event == 'display_status':
+            self.virtual_state = row
+            if self.controller.task in ('enable_display','disable_display'):
+                self.notice.setText('扩展屏状态已更新。选择画面来源后即可开始串流。')
         elif event == 'device':
             self.device = row
             for key, item in self.device_fields.items():
@@ -737,6 +863,10 @@ class MainWindow(QMainWindow):
             self.diagnostic_status.setText(f'导出失败：{exc}')
 
     def closeEvent(self, event):
+        if self.virtual_installer:
+            self.notice.setText('Windows 正在处理扩展屏驱动，请完成或取消系统授权后再退出。')
+            event.ignore()
+            return
         if self.controller.busy:
             self.closing = True
             self.controller.stop()

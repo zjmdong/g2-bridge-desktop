@@ -13,9 +13,13 @@ from .device import probe, VerifiedTransport, CompatibilityError
 from .paths import data_dir
 from .settings import Settings
 from .system import Cancelled, driver_status, environment, run_cancellable
+from .video import start_encoder, check_capture
 
 
 def main():
+    if '--install-display-driver' in sys.argv or '--remove-display-driver' in sys.argv:
+        from .virtual_driver import elevated_main
+        return elevated_main('--remove-display-driver' in sys.argv)
     sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
     sys.stdin.reconfigure(encoding='utf-8')
     lock = threading.Lock()
@@ -39,18 +43,38 @@ def main():
         task = request.get('command')
         threading.Thread(target=commands, daemon=True).start()
         if task == 'environment':
-            emit('environment', **environment(stop))
+            from .virtual_driver import status
+            emit('environment', **environment(stop), virtual_display=status())
+        elif task in ('display_status', 'enable_display', 'disable_display'):
+            from .displays import enable_extended, disable_extended
+            from .virtual_driver import status, owned_instance
+            if task != 'display_status' and not owned_instance():
+                raise ValueError('未找到由本客户端安装的扩展屏驱动。已有其他 VDD 时请在 Windows 中配置。')
+            if task == 'enable_display':
+                enable_extended()
+            elif task == 'disable_display':
+                disable_extended()
+            emit('display_status', **status())
         elif task in ('probe', 'stream'):
             if driver_status()['status'] != 'verified':
                 emit('problem', code='driver', message=driver_status()['message'])
                 return 2
             if task == 'probe':
+                from .virtual_driver import status
+                emit('display_status', **status())
                 probe(stop, emit)
             else:
                 settings = Settings.from_dict(request.get('settings', {}))
+                from .displays import select_source
+                target = select_source(settings.source)
                 bridge = settings.bridge(display_index=0)
+                hmonitor = target['hmonitor'] if settings.capture == 'gfxcapture' else None
+                if settings.capture == 'ddagrab' and settings.source != 'primary':
+                    raise ValueError('兼容采集仅支持主显示器。')
+                emit('capture_source', **target, source=settings.source,
+                     color='limited NV12, unspecified H.264 VUI', profile='baseline', idr_seconds=1)
                 emit('checking_capture')
-                problem = check_encoder(bridge, run=partial(run_cancellable, stop=stop))
+                problem = check_encoder(bridge, run=partial(check_capture, stop=stop, hmonitor=hmonitor))
                 if problem:
                     emit('problem', code='capture', message='桌面采集测试失败，请检查 NVIDIA 驱动或尝试兼容采集。', details=problem)
                     return 2
@@ -62,10 +86,13 @@ def main():
                 def on_event(row):
                     # Binary protocol telemetry stays in the local log, not the UI pipe.
                     if row['event'] not in ('control_send', 'control_receive'):
+                        if row['event'] == 'starting':
+                            row = dict(row, intra_refresh=False, adapter='desktop-compatibility-v1')
                         emit(**row)
 
                 engine = BridgeEngine(bridge, log, stop_event=stop, on_event=on_event,
                     reconnect=settings.reconnect, retry_delay=2,
+                    process_factory=partial(start_encoder, hmonitor=hmonitor),
                     transport_factory=partial(VerifiedTransport, stop=stop, emit=emit,
                                               write_size=bridge.usb_write_size))
                 engine.run()

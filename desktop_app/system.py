@@ -95,7 +95,7 @@ def environment(stop):
     except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired):
         result['gpu'] = []
     if not result['supported_os']:
-        result['encoder_message'] = '0.0.1 仅支持 Windows x64。'
+        result['encoder_message'] = '0.1.0 仅支持 Windows x64。'
     elif not encoder.is_file():
         result['encoder_message'] = '内置 FFmpeg 缺失，请重新安装客户端。'
     else:

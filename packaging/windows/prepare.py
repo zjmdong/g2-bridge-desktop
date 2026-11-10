@@ -17,6 +17,9 @@ INPUTS = {
     'innoextract-1.9-windows.zip': (
         'https://constexpr.org/innoextract/files/innoextract-1.9-windows.zip',
         '6989342c9b026a00a72a38f23b62a8e6a22cc5de69805cf47d68ac2fec993065'),
+    'vdd-25.7.23.zip': (
+        'https://github.com/VirtualDrivers/Virtual-Display-Driver/releases/download/25.7.23/VirtualDisplayDriver-x86.Driver.Only.zip',
+        'e24210692b442b39af763536330ce78b423f19342b7a7792c26de3944e418b3a'),
 }
 
 
@@ -34,7 +37,7 @@ def main():
         with archive.open('rb') as handle:
             if hashlib.file_digest(handle, 'sha256').hexdigest() != checksum:
                 raise ValueError(f'Checksum mismatch: {name}')
-        target = ROOT / 'vendor' / ('ffmpeg' if name.startswith('ffmpeg') else 'innoextract')
+        target = ROOT / 'vendor' / ('ffmpeg' if name.startswith('ffmpeg') else 'vdd' if name.startswith('vdd') else 'innoextract')
         target.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(archive) as bundle:
             for member in bundle.infolist():
@@ -43,6 +46,10 @@ def main():
                 if name.startswith('ffmpeg'):
                     if not (member.filename.endswith('/bin/ffmpeg.exe') or
                             Path(member.filename).name.lower() in ('license', 'readme.txt')):
+                        continue
+                    dest = target / Path(member.filename).name
+                elif name.startswith('vdd'):
+                    if Path(member.filename).name.lower() not in ('mttvdd.inf','mttvdd.dll','mttvdd.cat'):
                         continue
                     dest = target / Path(member.filename).name
                 else:
@@ -66,6 +73,7 @@ def main():
                     shutil.copyfile(src, dest)
     shutil.copyfile(Path(sys.base_prefix) / 'LICENSE.txt', notices / 'Python-LICENSE.txt')
     shutil.copyfile(ROOT/'LICENSE', notices/'GPL-3.0.txt')
+    shutil.copyfile(ROOT/'docs/desktop/VDD-LICENSE.txt', ROOT/'vendor/vdd/LICENSE.txt')
     (notices / 'build-inputs.json').write_text(json.dumps(INPUTS, indent=2)+'\n', encoding='utf-8')
 
     from PySide6.QtWidgets import QApplication

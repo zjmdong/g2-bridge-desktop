@@ -12,21 +12,22 @@ from .paths import data_dir, ffmpeg_path
 @dataclass
 class Settings:
     schema: int = 1
-    fps: int = 100
-    bitrate_mbps: int = 32
+    fps: int = 60
+    bitrate_mbps: int = 16
     preset: str = 'p1'
     capture: str = 'gfxcapture'
     show_cursor: bool = True
     reconnect: bool = True
     quality: str = 'balanced'
     display_device: str = ''
+    source: str = 'primary'
 
     def bridge(self, display_index=0):
         self.validate()
         return BridgeSettings(dll=find_dll(), ffmpeg=ffmpeg_path(), fps=self.fps,
                               bitrate_mbps=self.bitrate_mbps, preset=self.preset,
                               capture=self.capture, display_index=display_index,
-                              show_cursor=self.show_cursor)
+                              show_cursor=self.show_cursor, h264_profile='baseline', keyframe_seconds=1)
 
     def validate(self):
         if type(self.schema) is not int or self.schema != 1:
@@ -43,6 +44,10 @@ class Settings:
             raise ValueError('Unknown quality preset')
         if not isinstance(self.display_device, str) or len(self.display_device) > 256:
             raise ValueError('Invalid desktop identifier')
+        if self.source not in ('primary', 'extended'):
+            raise ValueError('Unknown desktop source')
+        if self.source == 'extended' and self.capture != 'gfxcapture':
+            raise ValueError('扩展屏需要 Windows Graphics Capture。')
 
     def save(self, path=None):
         self.validate()
@@ -76,6 +81,6 @@ def bitrates(fps):
 
 
 def preset_values(name, fps):
-    desired = {'balanced': (32, 'p1'), 'quality': (40, 'p4'), 'efficient': (16, 'p1')}
+    desired = {'balanced': (16, 'p1'), 'quality': (40, 'p4'), 'efficient': (8, 'p1')}
     bitrate, preset = desired[name]
     return min(bitrate, max(bitrates(fps))), preset
