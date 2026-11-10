@@ -1,5 +1,17 @@
 # Windows implementation history
 
+## 0.2.1 NVIDIA-only correction
+
+The user rejected software encoding after observing tearing, latency and stutter
+in use. Restore h264_nvenc as the only desktop encoder and environment probe;
+an unavailable NVIDIA encoder blocks streaming without software fallback.
+Keep P1/P4, ULL, CBR/VBV, quarter-resolution multipass and zero reorder delay;
+disable lookahead and periodic intra refresh. Preserve three startup IDRs, one reference,
+wall-clock DDA frame selection and sender pacing from the prior hardware trials.
+Capture conversion, USB framing, virtual-display lifetime and statistics stay
+unchanged. Earlier NVENC grey-block corruption is not claimed fixed by this
+encoder restoration. See VALIDATION-0.2.1.md for verification and limitations.
+
 ## 0.2.0 stream lifecycle and compatibility
 
 The application adapter selects the DXGI adapter/output by display identity,

@@ -20,6 +20,15 @@ def screen(device='physical', virtual=False, **fields):
 
 
 class VideoTests(unittest.TestCase):
+    def test_hardware_presets_are_retained_and_software_input_is_rejected(self):
+        for preset in ('p1', 'p4'):
+            command = encoder_command(Settings(preset=preset).bridge())
+            adapted = compatible_command(command)
+            self.assertEqual(adapted[adapted.index('-preset')+1], preset)
+            command[command.index('-c:v')+1] = 'libx264'
+            with self.assertRaises(ValueError):
+                compatible_command(command)
+
     def test_capture_check_and_stream_use_same_conversion(self):
         for capture in ('gfxcapture','ddagrab'):
             settings=Settings(capture=capture).bridge()
@@ -30,8 +39,12 @@ class VideoTests(unittest.TestCase):
                 self.assertIn('out_color_matrix=bt709:out_range=tv',vf)
                 self.assertIn('setsar=1',vf)
                 self.assertIn('color_trc=unknown',vf)
-                self.assertNotIn('-intra-refresh', command)
-                self.assertEqual(command[command.index('-c:v')+1], 'libx264')
+                self.assertEqual(command[command.index('-intra-refresh')+1], '0')
+                self.assertEqual(command[command.index('-c:v')+1], 'h264_nvenc')
+                self.assertEqual(command[command.index('-tune')+1], 'ull')
+                self.assertEqual(command[command.index('-rc-lookahead')+1], '0')
+                self.assertEqual(command[command.index('-multipass')+1], 'qres')
+                self.assertNotIn('-x264-params', command)
                 self.assertEqual(command[command.index('-force_key_frames')+1], '0,1,2')
                 self.assertEqual(command[command.index('-g')+1], '1000000')
                 self.assertEqual(command[-3:], ['-f','null' if frames else 'avi','-' if frames else 'pipe:1'])

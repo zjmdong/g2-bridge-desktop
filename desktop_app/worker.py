@@ -32,7 +32,7 @@ def stream(settings, stop, emit):
         bridge = settings.bridge(display_index=output['output'])
         options = dict(output=output, dimensions=settings.dimensions)
         emit('capture_source', **target, source=settings.source,
-             color='8-bit limited NV12 / BT.709', profile='baseline', encoder='libx264',
+             color='8-bit limited NV12 / BT.709', profile='baseline', encoder='h264_nvenc',
              capture='Desktop Duplication', output_resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}',
              bootstrap_idr_seconds=[0,1,2], periodic_idr=False, reference_frames=1,
              capture_sampling_fps=240, sender_pacing_fps=settings.fps)
@@ -49,8 +49,8 @@ def stream(settings, stop, emit):
         def on_event(row):
             if row['event'] not in ('control_send', 'control_receive', 'stats'):
                 if row['event'] == 'starting':
-                    row = dict(row, intra_refresh=False, multipass='disabled', encoder='libx264',
-                               adapter='desktop-compatibility-v2',
+                    row = dict(row, intra_refresh=False, multipass='qres', encoder='h264_nvenc',
+                               adapter='desktop-nvenc-v2',
                                resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}')
                 emit(**row)
 

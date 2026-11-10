@@ -134,6 +134,19 @@ class DeviceTests(unittest.TestCase):
 
 
 class ProcessAndDriverTests(unittest.TestCase):
+    def test_nvenc_failure_blocks_streaming_without_software_fallback(self):
+        from desktop_app.system import environment
+        result = subprocess.CompletedProcess([], 1, '', 'No NVENC capable devices found')
+        with patch('desktop_app.system.powershell_json', return_value=[]), \
+             patch('desktop_app.system.driver_status', return_value={'status': 'verified'}), \
+             patch('desktop_app.system.run_cancellable', return_value=result) as run:
+            status = environment(threading.Event())
+        self.assertFalse(status['encoder_ok'])
+        self.assertIn('NVIDIA NVENC', status['encoder_message'])
+        run.assert_called_once()
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index('-c:v')+1], 'h264_nvenc')
+
     def test_cancellation_kills_encoder_check(self):
         import sys
         stop = threading.Event()

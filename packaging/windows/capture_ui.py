@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory() as data:
             window.grab().save(str(folder/f'{prefix}-{name}.png'))
     # Fixtures only: no USB claim or physical stream is made by this renderer.
     window.on_event(dict(event='environment', os='Windows x64', gpu=[dict(Name='Display adapter fixture')],
-        encoder_ok=True, supported_os=True, encoder_message='H.264 兼容编码测试通过（CPU）',
+        encoder_ok=True, supported_os=True, encoder_message='NVIDIA NVENC 硬件编码测试通过',
         driver=dict(status='verified', title='DJI USB 组件已验证', message='连接时检查设备接口与驱动绑定。')))
     window.source.setCurrentIndex(window.source.findData('extended'))
     window.fps.setCurrentIndex(window.fps.findData(100))

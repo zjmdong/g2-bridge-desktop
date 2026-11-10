@@ -1,8 +1,8 @@
 """Windows capture compatibility adapter at the SDK's public process boundary.
 
 The SDK and its USB packet framing remain unchanged. Capture uses DXGI and an
-explicit RGB -> limited-range NV12 conversion. Software H.264 avoids the observed
-NVENC/Goggles 2 grey-block corruption, while retaining the SDK frame-size guard.
+explicit RGB -> limited-range NV12 conversion. NVIDIA NVENC is the only encoder;
+failure is reported without a software fallback. The SDK frame-size guard stays.
 """
 import subprocess
 import re
@@ -55,20 +55,18 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
         # Compacting capture timestamps made 100 fps run at ~72 fps on this host.
         result[filter_index] = f'fps={fps}:round=near,' + result[filter_index]
         result[-3:-3] = ['-r', fps, '-fps_mode', 'cfr']
-    preset = result[result.index('-preset')+1]
-    for option in ('-rc', '-zerolatency', '-delay', '-multipass', '-intra-refresh',
-                   '-single-slice-intra-refresh'):
-        index = result.index(option)
-        del result[index:index+2]
-    result[result.index('-c:v')+1] = 'libx264'
+    # Keep the SDK's NVIDIA encoder, P1/P4 preset, ULL tuning and CBR/VBV budget.
+    # Quarter-resolution multipass is needed for the SDK's tight frame budget.
+    # Keep periodic intra refresh disabled to avoid the observed display pulses.
+    for option, value in (('-intra-refresh', '0'),
+                          ('-single-slice-intra-refresh', '0')):
+        result[result.index(option)+1] = value
     result[result.index('-profile:v')+1] = 'baseline'
-    result[result.index('-preset')+1] = 'ultrafast' if preset == 'p1' else 'veryfast'
-    result[result.index('-tune')+1] = 'zerolatency'
     # Repeat headers during decoder startup, then avoid periodic full-IDR pulses.
     # USB is ordered/reliable; SDK recovery restarts this bootstrap on link loss.
     result[result.index('-g')+1] = '1000000'
     result[-3:-3] = ['-force_key_frames', '0,1,2', '-refs', '1',
-                     '-x264-params', 'scenecut=0:repeat-headers=1:force-cfr=1',
+                     '-rc-lookahead', '0', '-no-scenecut', '1',
                      '-color_range', 'tv', '-color_primaries', 'unknown',
                      '-color_trc', 'unknown', '-colorspace', 'unknown']
     return result

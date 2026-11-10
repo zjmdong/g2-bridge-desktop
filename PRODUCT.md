@@ -36,9 +36,11 @@ and starts/stops desktop video over USB. The initial Windows installer is 0.0.1.
   (60/75/90/100 Hz), automatic USB and display lifecycle, borderless DXGI capture,
   and asynchronous sender statistics. Firmware optical results are recorded
   separately from local mode/decoder checks.
-- The desktop adapter uses CPU libx264 after same-host optical A/B tests found
-  neutral-grey corruption with NVENC but not libx264. SDK encoder defaults and
-  USB framing remain unchanged. High-rate software encoding has a CPU cost.
+- Version 0.2.1 uses NVIDIA NVENC exclusively, per the user's requirement after
+  software encoding caused unsatisfactory motion and latency. Do not introduce
+  software fallback. Earlier NVENC optical grey-block issues remain a distinct
+  compatibility concern; report evidence without claiming an unverified fix.
+  SDK encoder defaults and USB framing remain unchanged.
 - USB driver installation can need Windows elevation. Firmware updates remain
   in DJI's official software, with integrated instructions and rechecking.
 - New features increment the minor version; fixes/tests increment the patch.

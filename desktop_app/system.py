@@ -101,11 +101,13 @@ def environment(stop):
     else:
         command = [str(encoder), '-hide_banner', '-nostdin', '-v', 'error', '-f', 'lavfi',
                    '-i', 'color=size=1920x1080:rate=100', '-frames:v', '2', '-an',
-                   '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency', '-f', 'null', '-']
+                   '-c:v', 'h264_nvenc', '-preset', 'p1', '-tune', 'ull',
+                   '-profile:v', 'baseline', '-bf', '0', '-rc-lookahead', '0',
+                   '-zerolatency', '1', '-delay', '0', '-f', 'null', '-']
         try:
             check = run_cancellable(command, stop, timeout=20)
             result['encoder_ok'] = check.returncode == 0
-            result['encoder_message'] = 'H.264 兼容编码测试通过（CPU）' if result['encoder_ok'] else 'H.264 编码不可用，请重新安装内置组件。'
+            result['encoder_message'] = 'NVIDIA NVENC 硬件编码测试通过' if result['encoder_ok'] else 'NVIDIA NVENC 不可用，请检查 NVIDIA 显卡与驱动。本版仅支持硬件编码。'
             result['encoder_details'] = check.stderr[-1500:]
         except (OSError, subprocess.TimeoutExpired) as exc:
             result['encoder_message'] = '编码测试未完成，请重新检测。'
