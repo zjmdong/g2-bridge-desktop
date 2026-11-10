@@ -1,5 +1,5 @@
 #define AppName "DJI Goggles Streamer"
-#define AppVersion "0.2.1"
+#define AppVersion "0.2.2"
 #define Root "..\.."
 [Setup]
 AppId={{CDE1872A-4912-4C24-A51A-3F69CCF74302}

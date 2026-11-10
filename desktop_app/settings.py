@@ -12,9 +12,9 @@ from .paths import data_dir, ffmpeg_path
 @dataclass
 class Settings:
     schema: int = 1
-    fps: int = 60
-    bitrate_mbps: int = 16
-    preset: str = 'p1'
+    fps: int = 100
+    bitrate_mbps: int = 20
+    preset: str = 'p4'
     capture: str = 'ddagrab'
     show_cursor: bool = True
     reconnect: bool = True
@@ -91,6 +91,6 @@ def bitrates(fps):
 
 
 def preset_values(name, fps):
-    desired = {'balanced': (16, 'p1'), 'quality': (40, 'p4'), 'efficient': (8, 'p1')}
+    desired = {'balanced': (20, 'p4'), 'quality': (40, 'p4'), 'efficient': (8, 'p1')}
     bitrate, preset = desired[name]
     return min(bitrate, max(bitrates(fps))), preset

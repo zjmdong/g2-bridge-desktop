@@ -71,10 +71,8 @@ class VerifiedTransport:
     Every reconnect passes this gate again. There is no detection/streaming
     race where a different physical device is opened after compatibility checks.
     """
-    def __init__(self, dll, *, stop, emit, write_size=16384, factory=ControlUsb, telemetry=None, fps=None):
+    def __init__(self, dll, *, stop, emit, write_size=16384, factory=ControlUsb, telemetry=None):
         self.telemetry = telemetry
-        from .pacing import FramePacer
-        self.pacer = FramePacer(fps) if fps else None
         self.usb = factory(dll, write_size=write_size)
         try:
             result = inspect_transport(self.usb, stop, emit)
@@ -88,9 +86,9 @@ class VerifiedTransport:
         return self.usb.read(**kwargs)
 
     def write(self, data):
+        # Drain every encoded reference picture immediately and in order. A
+        # target-FPS sleep here moves backlog into the encoder pipe indefinitely.
         video = len(data) >= 11 and data[9:11] == b'\x0b\x53'
-        if self.pacer and video:
-            self.pacer.wait()
         if self.telemetry is None:
             return self.usb.write(data)
         started = self.telemetry.clock()

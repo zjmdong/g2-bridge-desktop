@@ -1,5 +1,33 @@
 # Windows implementation history
 
+## 0.2.2 remove accumulating latency
+
+The previous post-encode pacer preserved timing regularity by retaining old
+reference frames. Its initial 20 ms wait was not a latency bound: repeated late
+writes shifted its deadline and prevented faster draining. A deterministic
+100 fps model with a 25 ms stall each second reached 355 ms frame age after
+30 seconds. Remove this pacer entirely; keep encoded reference pictures ordered.
+
+The old fps filter also waited for a second input and filled timestamp gaps with
+old pictures. Apply the SDK's existing select/setpts admission rule before pixel
+conversion and NVENC instead. Compact PTS prevents CFR/AVI from filling gaps.
+Combine DDA and the processing chain in a source filter_complex, removing lavfi
+demux/wrapped-frame decoder queues upstream of selection. Both primary and
+extended source differ only by display identity. Keep explicit NV12 conversion,
+startup IDRs, NVIDIA P1/P4, qres, AVI framing and SDK size guards.
+
+DesktopBridgeEngine inherits the SDK loop and overrides only diagnostic emission
+plus the outside logging lifetime: control hex events are omitted, other events
+append asynchronously through bounded storage with finite shutdown. FFmpeg
+progress output is disabled. Live write counters stay constant-work and add no
+USB request; they do not measure picture age. Startup-only DXGI GPU/LUID metadata
+helps diagnose display placement without assigning CUDA indices from DXGI IDs.
+
+No driver mode/configuration or source-refresh changes are required. The new
+default is 1080p100/20 Mbps/P4. See VALIDATION-0.2.2.md for code evidence, synthetic
+checks and the distinction between upstream monitor-to-lens timing and total
+simulator input latency. No new optical measurement is claimed.
+
 ## 0.2.1 NVIDIA-only correction
 
 The user rejected software encoding after observing tearing, latency and stutter

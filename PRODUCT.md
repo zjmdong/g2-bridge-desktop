@@ -41,6 +41,11 @@ and starts/stops desktop video over USB. The initial Windows installer is 0.0.1.
   software fallback. Earlier NVENC optical grey-block issues remain a distinct
   compatibility concern; report evidence without claiming an unverified fix.
   SDK encoder defaults and USB framing remain unchanged.
+- Version 0.2.2 prioritizes picture age: raw-frame admission before encoding,
+  immediate ordered USB writes, no stale-frame catch-up or post-encode pacing,
+  no synchronous diagnostic disk writes in the sender. Both display sources
+  share this pipeline. Default target is 1080p100/20 Mbps/P4. Never claim source
+  refresh/display timing is identical or 12 ms optical latency without evidence.
 - USB driver installation can need Windows elevation. Firmware updates remain
   in DJI's official software, with integrated instructions and rechecking.
 - New features increment the minor version; fixes/tests increment the patch.

@@ -8,34 +8,30 @@ from desktop_app.telemetry import SenderTelemetry
 from desktop_app.events import EventWriter
 from desktop_app.settings import Settings
 from desktop_app.display_session import capture_target
-from desktop_app.pacing import FramePacer
 
 
-class PacingTests(unittest.TestCase):
-    def test_startup_lead_and_regular_cadence_use_sleep_without_dropping(self):
-        now, sleeps = [10.0], []
-        def sleep(delay):
-            sleeps.append(delay)
-            now[0] += delay
-        pacer = FramePacer(100, clock=lambda: now[0], sleep=sleep)
-        stamps = []
-        for _ in range(6):
-            pacer.wait()
-            stamps.append(now[0])
-        self.assertAlmostEqual(sleeps[0], .02)
-        for a,b in zip(stamps,stamps[1:]):
-            self.assertAlmostEqual(b-a, .01)
-        self.assertEqual(len(sleeps), 6)
+class ImmediateTransportTests(unittest.TestCase):
+    def test_encoded_frames_drain_in_order_after_stalls_without_pacing(self):
+        from desktop_app.device import VerifiedTransport
+        now, ages, received = [0.0], [], []
 
-    def test_late_capture_does_not_cause_unbounded_catchup_burst(self):
-        now = [10.0]
-        pacer = FramePacer(60, clock=lambda: now[0], sleep=lambda d: now.__setitem__(0, now[0]+d))
-        pacer.wait()
-        now[0] += .5
-        pacer.wait()
-        late = now[0]
-        pacer.wait()
-        self.assertGreaterEqual(now[0]-late, 1/120-1e-9)
+        def write(data):
+            received.append(data)
+            now[0] += .001  # Simulated USB work, not an added sender wait.
+
+        transport = VerifiedTransport.__new__(VerifiedTransport)
+        transport.telemetry, transport.usb = None, Mock(write=write)
+        with patch('time.sleep', side_effect=AssertionError('Sender must not sleep')):
+            for index in range(1000):
+                ready = index / 100
+                now[0] = max(now[0], ready)
+                if index and index % 100 == 0:
+                    now[0] += .025
+                ages.append(now[0] - ready)
+                transport.write(b'\0'*9 + b'\x0b\x53' + index.to_bytes(4, 'little'))
+        self.assertEqual([int.from_bytes(p[-4:], 'little') for p in received], list(range(1000)))
+        self.assertLessEqual(max(ages), .025 + 1e-9)
+        self.assertAlmostEqual(ages[-1], 0)
 
 
 class TelemetryTests(unittest.TestCase):
@@ -43,7 +39,6 @@ class TelemetryTests(unittest.TestCase):
         from desktop_app.device import VerifiedTransport
         counter = SenderTelemetry(Mock())
         transport = VerifiedTransport.__new__(VerifiedTransport)
-        transport.pacer = None
         transport.telemetry, transport.usb = counter, Mock()
         video = b'\0'*9 + b'\x0b\x53' + b'\0'*100
         transport.write(video)

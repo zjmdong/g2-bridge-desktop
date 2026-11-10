@@ -4,7 +4,7 @@ Stream your Windows or Mac desktop to DJI Goggles 2 or DJI Goggles Integra over 
 
 ## DJI Goggles Streamer desktop client
 
-This fork adds **DJI Goggles Streamer 0.2.1**, a Windows x64 graphical client.
+This fork adds **DJI Goggles Streamer 0.2.2**, a Windows x64 graphical client.
 It wraps the unchanged SDK with environment and firmware checks, integrated
 driver setup, streaming controls, persistent settings and offline help.
 It offers borderless primary/virtual desktop capture at 720p or 1080p, four frame
@@ -12,9 +12,12 @@ rates up to 100 fps, automatic USB streaming/display lifecycle and sender metric
 The desktop adapter uses NVIDIA NVENC H.264 exclusively, without a software
 fallback; the SDK's original encoder defaults remain unchanged. Window selection and a
 macOS GUI are planned.
+Version 0.2.2 removes post-encode pacing and stale-frame catch-up, uses a direct
+capture filter graph, and moves session logging off the sending thread. The
+default target is 1080p100/20 Mbps; optical 12 ms latency is not claimed for this client.
 
 See the [Windows user and build guide](docs/desktop/USER_GUIDE.md),
-[validation record](docs/desktop/VALIDATION-0.2.1.md) and
+[validation record](docs/desktop/VALIDATION-0.2.2.md) and
 [third-party notices](docs/desktop/THIRD_PARTY.md). The command-line SDK described
 below remains available unchanged. Upstream latency measurements below describe
 the SDK's original hardware tests, not a new measurement of the desktop client.

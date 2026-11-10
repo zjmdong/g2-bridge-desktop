@@ -6,7 +6,7 @@ import zipfile
 root = Path(__file__).resolve().parents[2]
 paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'],
                                 cwd=root).decode().split('\0')
-target = root/'dist/DJI-Goggles-Streamer-0.2.1-Source.zip'
+target = root/'dist/DJI-Goggles-Streamer-0.2.2-Source.zip'
 with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as archive:
     for name in sorted(set(paths)):
         if name and (root/name).is_file():

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from goggles_bridge.engine import encoder_command
 from desktop_app.settings import Settings
-from desktop_app.video import compatible_command
+from desktop_app.video import compatible_command, frame_selection
 from desktop_app.displays import DEVMODE, DisplayError, select_source, enable_extended, disable_extended
 from desktop_app.virtual_driver import verify_package
 
@@ -34,7 +34,7 @@ class VideoTests(unittest.TestCase):
             settings=Settings(capture=capture).bridge()
             for frames in (0,1):
                 command=compatible_command(encoder_command(settings,frames=frames))
-                vf=command[command.index('-vf')+1]
+                vf=command[command.index('-filter_complex')+1]
                 self.assertIn('format=nv12',vf)
                 self.assertIn('out_color_matrix=bt709:out_range=tv',vf)
                 self.assertIn('setsar=1',vf)
@@ -45,6 +45,8 @@ class VideoTests(unittest.TestCase):
                 self.assertEqual(command[command.index('-rc-lookahead')+1], '0')
                 self.assertEqual(command[command.index('-multipass')+1], 'qres')
                 self.assertNotIn('-x264-params', command)
+                self.assertNotIn('-i', command)  # No lavfi demux/decoder queues.
+                self.assertEqual(command[command.index('-map')+1], '[desktop]')
                 self.assertEqual(command[command.index('-force_key_frames')+1], '0,1,2')
                 self.assertEqual(command[command.index('-g')+1], '1000000')
                 self.assertEqual(command[-3:], ['-f','null' if frames else 'avi','-' if frames else 'pipe:1'])
@@ -53,7 +55,7 @@ class VideoTests(unittest.TestCase):
         original=encoder_command(Settings(capture='gfxcapture').bridge())
         adapted=compatible_command(original,hmonitor=9876)
         self.assertIn('monitor_idx=0',original[original.index('-i')+1])
-        source=adapted[adapted.index('-i')+1]
+        source=adapted[adapted.index('-filter_complex')+1]
         self.assertTrue(source.startswith('gfxcapture=hmonitor=9876:'))
         self.assertNotIn('monitor_idx',source)
         with self.assertRaises(ValueError):
@@ -69,10 +71,28 @@ class VideoTests(unittest.TestCase):
         original = encoder_command(Settings(capture='ddagrab').bridge())
         adapted = compatible_command(original, output=dict(adapter=1, output=2), dimensions=(1280,720))
         self.assertIn('d3d11va=cap:1', adapted)
-        self.assertIn('output_idx=2', adapted[adapted.index('-i')+1])
-        self.assertIn('pad=1280:720', adapted[adapted.index('-vf')+1])
+        self.assertIn('output_idx=2', adapted[adapted.index('-filter_complex')+1])
+        self.assertIn('pad=1280:720', adapted[adapted.index('-filter_complex')+1])
         self.assertIn('pad=1920:1080', original[original.index('-vf')+1])
         self.assertNotIn('gfxcapture', ' '.join(adapted))
+
+    def test_both_sources_use_identical_immediate_selection_and_no_catchup_filter(self):
+        for fps in (60, 75, 90, 100):
+            settings = Settings(fps=fps).bridge()
+            graphs = []
+            for output in (0, 1):
+                command = compatible_command(encoder_command(settings),
+                                             output=dict(adapter=0, output=output))
+                graph = command[command.index('-filter_complex')+1]
+                self.assertNotIn(',fps=', graph)
+                self.assertIn(','+frame_selection(fps)+',hwdownload', graph)
+                graphs.append(graph.replace(f'output_idx={output}', 'output_idx=TARGET'))
+            self.assertEqual(graphs[0], graphs[1])
+
+    def test_selection_matches_the_sdk_no_wait_rule(self):
+        for fps in (60, 75, 90, 100):
+            original = encoder_command(Settings(fps=fps, capture='gfxcapture').bridge())
+            self.assertEqual(frame_selection(fps), original[original.index('-vf')+1])
 
 
 class DisplayTests(unittest.TestCase):

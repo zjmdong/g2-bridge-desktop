@@ -7,13 +7,14 @@ import threading
 import traceback
 import uuid
 
-from goggles_bridge.engine import BridgeEngine, check_encoder
+from goggles_bridge.engine import check_encoder
 from goggles_bridge.usb_transport import DeviceNotFoundError, LinkSpeedError
 from .device import probe, VerifiedTransport, CompatibilityError
 from .paths import data_dir
 from .settings import Settings
 from .system import Cancelled, driver_status, environment, run_cancellable
 from .video import start_encoder, check_capture
+from .stream_engine import DesktopBridgeEngine
 
 
 def stream(settings, stop, emit):
@@ -35,7 +36,9 @@ def stream(settings, stop, emit):
              color='8-bit limited NV12 / BT.709', profile='baseline', encoder='h264_nvenc',
              capture='Desktop Duplication', output_resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}',
              bootstrap_idr_seconds=[0,1,2], periodic_idr=False, reference_frames=1,
-             capture_sampling_fps=240, sender_pacing_fps=settings.fps)
+             capture_sampling_fps=240, frame_selection='immediate raw-frame admission',
+             sender_pacing=False, capture_gpu=output.get('gpu_name'),
+             capture_adapter_luid=output.get('adapter_luid'))
         emit('checking_capture')
         problem = check_encoder(bridge, run=partial(check_capture, stop=stop, **options))
         if problem:
@@ -49,8 +52,11 @@ def stream(settings, stop, emit):
         def on_event(row):
             if row['event'] not in ('control_send', 'control_receive', 'stats'):
                 if row['event'] == 'starting':
-                    row = dict(row, intra_refresh=False, multipass='qres', encoder='h264_nvenc',
-                               adapter='desktop-nvenc-v2',
+                    # DesktopBridgeEngine journals this same row after callback.
+                    # Persist the adapter policy, not the SDK's unchanged defaults.
+                    row.update(intra_refresh=False, multipass='qres', encoder='h264_nvenc',
+                               adapter='desktop-nvenc-immediate-v3',
+                               sender_pacing=False, input_graph='direct',
                                resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}')
                 emit(**row)
 
@@ -72,11 +78,11 @@ def stream(settings, stop, emit):
         guard_thread.start()
         telemetry.start()
         try:
-            engine = BridgeEngine(bridge, log, stop_event=stop, on_event=on_event,
+            engine = DesktopBridgeEngine(bridge, log, stop_event=stop, on_event=on_event,
                 reconnect=settings.reconnect, retry_delay=2,
                 process_factory=partial(start_encoder, **options),
                 transport_factory=partial(VerifiedTransport, stop=stop, emit=emit,
-                                          write_size=bridge.usb_write_size, telemetry=telemetry, fps=settings.fps))
+                                          write_size=bridge.usb_write_size, telemetry=telemetry))
             engine.run()
         finally:
             telemetry.close()

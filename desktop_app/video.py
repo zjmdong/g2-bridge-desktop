@@ -10,10 +10,28 @@ import re
 from .system import run_cancellable
 
 
+def frame_selection(fps):
+    """Select before encoding, without waiting for a later frame or filling gaps.
+
+    This is the SDK's WGC admission rule, applied equally to both DDA displays.
+    Compact timestamps prevent CFR/AVI from replaying old images after a stall.
+    A slow source stays slow; inventing frames cannot reduce picture age.
+    """
+    if fps not in (60, 75, 90, 100):
+        raise ValueError('Unsupported stream frame rate')
+    return ("select='if(isnan(prev_selected_pts),st(0,pts*TB);1,"
+            "if(gte((pts+0.5)*TB,ld(0)),"
+            f"st(0,max(ld(0)+1/{fps},pts*TB));1,0))',"
+            f'setpts=N/({fps}*TB):strip_fps=1')
+
+
 def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920, 1080)):
     result = list(command)
     if '-c:v' not in result or result[result.index('-c:v')+1] != 'h264_nvenc':
         raise ValueError('Unsupported desktop encoder')
+    # FFmpeg's periodic stderr progress otherwise writes synchronously to disk.
+    result[result.index('-loglevel')+1] = 'warning'
+    result[1:1] = ['-nostats']
     source_index = result.index('-i')+1
     source = result[source_index]
     width, height = dimensions
@@ -51,9 +69,10 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     if source.startswith('ddagrab='):
         # The SDK's GOP is fps * keyframe_seconds; source carries the actual rate.
         fps = re.search(r'framerate=(\d+)', source).group(1)
-        # Sample DXGI frequently, then select pictures by their wall-clock PTS.
-        # Compacting capture timestamps made 100 fps run at ~72 fps on this host.
-        result[filter_index] = f'fps={fps}:round=near,' + result[filter_index]
+        # The fps filter buffers a future frame and fills capture gaps with old
+        # pictures. Admission must happen before conversion/encoding, without a
+        # second rate limiter at USB that would retain those encoded pictures.
+        result[filter_index] = frame_selection(int(fps)) + ',' + result[filter_index]
         result[-3:-3] = ['-r', fps, '-fps_mode', 'cfr']
     # Keep the SDK's NVIDIA encoder, P1/P4 preset, ULL tuning and CBR/VBV budget.
     # Quarter-resolution multipass is needed for the SDK's tight frame budget.
@@ -69,6 +88,20 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
                      '-rc-lookahead', '0', '-no-scenecut', '1',
                      '-color_range', 'tv', '-color_primaries', 'unknown',
                      '-color_trc', 'unknown', '-colorspace', 'unknown']
+    # Pull the capture source directly inside the processing graph. A lavfi
+    # demuxer input introduces wrapped-frame packet/decoder queues before the
+    # selector; a full queue can retain several old GPU textures under load.
+    # These are raw capture frames, not encoded references that can be dropped.
+    input_index = result.index('-i')
+    if result[input_index-2:input_index] != ['-f', 'lavfi']:
+        raise ValueError('Expected an SDK lavfi desktop source')
+    capture_source = result[input_index+1]
+    del result[input_index-2:input_index+2]
+    filter_index = result.index('-vf')
+    filters = result[filter_index+1]
+    result[filter_index:filter_index+2] = [
+        '-filter_complex', capture_source + ',' + filters + '[desktop]',
+        '-map', '[desktop]']
     return result
 
 
