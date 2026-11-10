@@ -32,6 +32,13 @@ and starts/stops desktop video over USB. The initial Windows installer is 0.0.1.
   simulator to appear in the goggles while the primary monitor remains usable.
 - The SDK's verified stream is 1920x1080; unsupported modes must never be
   presented as verified capabilities.
+- Version 0.2.0 adds two resolutions (720p/1080p), four virtual refresh rates
+  (60/75/90/100 Hz), automatic USB and display lifecycle, borderless DXGI capture,
+  and asynchronous sender statistics. Firmware optical results are recorded
+  separately from local mode/decoder checks.
+- The desktop adapter uses CPU libx264 after same-host optical A/B tests found
+  neutral-grey corruption with NVENC but not libx264. SDK encoder defaults and
+  USB framing remain unchanged. High-rate software encoding has a CPU cost.
 - USB driver installation can need Windows elevation. Firmware updates remain
   in DJI's official software, with integrated instructions and rechecking.
 - New features increment the minor version; fixes/tests increment the patch.

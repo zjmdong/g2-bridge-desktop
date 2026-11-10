@@ -30,13 +30,14 @@ class VideoTests(unittest.TestCase):
                 self.assertIn('out_color_matrix=bt709:out_range=tv',vf)
                 self.assertIn('setsar=1',vf)
                 self.assertIn('color_trc=unknown',vf)
-                self.assertEqual(command[command.index('-intra-refresh')+1],'0')
-                self.assertEqual(command[command.index('-single-slice-intra-refresh')+1],'0')
-                self.assertEqual(command[command.index('-force_key_frames')+1],'expr:gte(t,n_forced)')
+                self.assertNotIn('-intra-refresh', command)
+                self.assertEqual(command[command.index('-c:v')+1], 'libx264')
+                self.assertEqual(command[command.index('-force_key_frames')+1], '0,1,2')
+                self.assertEqual(command[command.index('-g')+1], '1000000')
                 self.assertEqual(command[-3:], ['-f','null' if frames else 'avi','-' if frames else 'pipe:1'])
 
     def test_monitor_handle_replaces_index_without_mutating_sdk_command(self):
-        original=encoder_command(Settings().bridge())
+        original=encoder_command(Settings(capture='gfxcapture').bridge())
         adapted=compatible_command(original,hmonitor=9876)
         self.assertIn('monitor_idx=0',original[original.index('-i')+1])
         source=adapted[adapted.index('-i')+1]
@@ -48,8 +49,17 @@ class VideoTests(unittest.TestCase):
     def test_old_settings_migrate_without_losing_user_values(self):
         result=Settings.from_dict(dict(schema=1,fps=60,bitrate_mbps=8,capture='gfxcapture'))
         self.assertEqual((result.fps,result.bitrate_mbps,result.source),(60,8,'primary'))
-        with self.assertRaises(ValueError):
-            Settings(source='extended',capture='ddagrab').validate()
+        self.assertEqual(result.capture, 'ddagrab')
+        Settings(source='extended',capture='ddagrab').validate()
+
+    def test_dxgi_identity_and_720p_without_mutating_sdk(self):
+        original = encoder_command(Settings(capture='ddagrab').bridge())
+        adapted = compatible_command(original, output=dict(adapter=1, output=2), dimensions=(1280,720))
+        self.assertIn('d3d11va=cap:1', adapted)
+        self.assertIn('output_idx=2', adapted[adapted.index('-i')+1])
+        self.assertIn('pad=1280:720', adapted[adapted.index('-vf')+1])
+        self.assertIn('pad=1920:1080', original[original.index('-vf')+1])
+        self.assertNotIn('gfxcapture', ' '.join(adapted))
 
 
 class DisplayTests(unittest.TestCase):

@@ -13,6 +13,18 @@ class CompatibilityError(RuntimeError):
     pass
 
 
+def usb_description(usb):
+    """Report descriptors already exposed by the claimed SDK transport."""
+    device = getattr(usb, 'device', None)
+    if device is None:
+        return '无法读取 USB 描述符'
+    packet_sizes = {ep.wMaxPacketSize for config in device for interface in config
+                    if interface.bInterfaceNumber == 4 for ep in interface}
+    if packet_sizes == {512}:
+        return 'USB 2.0 High Speed · 512 B Bulk'
+    return 'USB Bulk · ' + '/'.join(str(s) for s in sorted(packet_sizes)) + ' B'
+
+
 def inspect_transport(usb, stop, emit, timeout=15):
     session = ControlSession(enter_simulator=False)
     decoder = V1Stream()
@@ -41,7 +53,7 @@ def inspect_transport(usb, stop, emit, timeout=15):
                 firmware = reader.manifest.firmware if reader.manifest else None
                 result = dict(model=session.model, identity=session.identity, firmware=firmware,
                               modules=reader.manifest.modules if reader.manifest else [],
-                              firmware_error=reader.error, interface='MI04', usb='USB 2.0 High Speed',
+                              firmware_error=reader.error, interface='MI04', usb=usb_description(usb),
                               compatibility=assess(session.model, firmware))
                 emit('device', **result)
                 return result
@@ -59,7 +71,10 @@ class VerifiedTransport:
     Every reconnect passes this gate again. There is no detection/streaming
     race where a different physical device is opened after compatibility checks.
     """
-    def __init__(self, dll, *, stop, emit, write_size=16384, factory=ControlUsb):
+    def __init__(self, dll, *, stop, emit, write_size=16384, factory=ControlUsb, telemetry=None, fps=None):
+        self.telemetry = telemetry
+        from .pacing import FramePacer
+        self.pacer = FramePacer(fps) if fps else None
         self.usb = factory(dll, write_size=write_size)
         try:
             result = inspect_transport(self.usb, stop, emit)
@@ -73,7 +88,16 @@ class VerifiedTransport:
         return self.usb.read(**kwargs)
 
     def write(self, data):
-        return self.usb.write(data)
+        video = len(data) >= 11 and data[9:11] == b'\x0b\x53'
+        if self.pacer and video:
+            self.pacer.wait()
+        if self.telemetry is None:
+            return self.usb.write(data)
+        started = self.telemetry.clock()
+        result = self.usb.write(data)
+        ended = self.telemetry.clock()
+        self.telemetry.record(len(data), video, started, ended)
+        return result
 
     def close(self):
         return self.usb.close()

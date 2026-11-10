@@ -95,19 +95,19 @@ def environment(stop):
     except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired):
         result['gpu'] = []
     if not result['supported_os']:
-        result['encoder_message'] = '0.1.1 仅支持 Windows x64。'
+        result['encoder_message'] = '当前版本仅支持 Windows x64。'
     elif not encoder.is_file():
         result['encoder_message'] = '内置 FFmpeg 缺失，请重新安装客户端。'
     else:
         command = [str(encoder), '-hide_banner', '-nostdin', '-v', 'error', '-f', 'lavfi',
                    '-i', 'color=size=1920x1080:rate=100', '-frames:v', '2', '-an',
-                   '-c:v', 'h264_nvenc', '-preset', 'p1', '-f', 'null', '-']
+                   '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency', '-f', 'null', '-']
         try:
             check = run_cancellable(command, stop, timeout=20)
             result['encoder_ok'] = check.returncode == 0
-            result['encoder_message'] = 'NVIDIA NVENC 编码测试通过' if result['encoder_ok'] else 'NVIDIA 编码不可用，请检查显卡与 NVIDIA 驱动。'
+            result['encoder_message'] = 'H.264 兼容编码测试通过（CPU）' if result['encoder_ok'] else 'H.264 编码不可用，请重新安装内置组件。'
             result['encoder_details'] = check.stderr[-1500:]
         except (OSError, subprocess.TimeoutExpired) as exc:
-            result['encoder_message'] = '硬件编码测试未完成，请重新检测。'
+            result['encoder_message'] = '编码测试未完成，请重新检测。'
             result['encoder_details'] = str(exc)
     return result

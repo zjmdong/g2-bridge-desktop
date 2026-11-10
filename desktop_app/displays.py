@@ -89,14 +89,14 @@ def virtual_display(rows=None):
     return candidates[0]
 
 
-def select_source(source):
+def select_source(source, width=1920, height=1080, hz=60):
     rows = inventory()
     if source == 'extended':
         target = virtual_display(rows)
         if not target['active'] or not target['hmonitor']:
-            raise DisplayError('独立扩展屏尚未启用，请点击「启用 1080p 扩展屏」。')
-        if (target['width'], target['height'], target['hz']) != (1920, 1080, 60) or target['primary']:
-            raise DisplayError('扩展屏应为非主屏的 1920 × 1080 / 60 Hz 显示器，请重新启用扩展屏。')
+            raise DisplayError('独立扩展屏未能创建，请停止串流后重试，或检查扩展屏驱动。')
+        if (target['width'], target['height'], target['hz']) != (width, height, hz) or target['primary']:
+            raise DisplayError(f'扩展屏应为非主屏的 {width} × {height} / {hz} Hz 显示器。')
     else:
         target = next((r for r in rows if r['primary'] and r['hmonitor']), None)
         if target is None:
@@ -104,7 +104,9 @@ def select_source(source):
     return target
 
 
-def enable_extended():
+def enable_extended(width=1920, height=1080, hz=60):
+    if (width, height) not in ((1280, 720), (1920, 1080)) or hz not in (60, 75, 90, 100):
+        raise DisplayError('Unsupported virtual display mode')
     before = inventory()
     target = virtual_display(before)
     if target['primary']:
@@ -118,11 +120,11 @@ def enable_extended():
         candidate = mode(target['device'], index)
         if candidate is None:
             break
-        if (candidate.dmPelsWidth, candidate.dmPelsHeight, candidate.dmDisplayFrequency) == (1920,1080,60):
+        if (candidate.dmPelsWidth, candidate.dmPelsHeight, candidate.dmDisplayFrequency) == (width,height,hz):
             desired = candidate
             break
     if desired is None:
-        raise DisplayError('虚拟驱动没有提供 1920 × 1080 / 60 Hz 模式。')
+        raise DisplayError(f'虚拟驱动没有提供 {width} × {height} / {hz} Hz 模式，请更新扩展屏驱动配置。')
     desired.x = max(r['x']+r['width'] for r in active)
     desired.y = next(r['y'] for r in active if r['primary'])
     desired.dmFields |= 0x20 | 0x80000 | 0x100000 | 0x400000  # position, width, height, frequency
@@ -139,7 +141,7 @@ def enable_extended():
                 raise DisplayError(f'Windows 无法启用扩展屏（{status}）。')
         else:
             from .display_config import attach
-            rollback = attach(target['device'], 1920, 1080, 60, desired.x, desired.y)
+            rollback = attach(target['device'], width, height, hz, desired.x, desired.y)
         deadline = time.monotonic()+8
         while time.monotonic() < deadline:
             after = inventory()
@@ -151,7 +153,7 @@ def enable_extended():
             if not current.get('active') or not current.get('hmonitor'):
                 time.sleep(.2)
                 continue
-            result = select_source('extended')
+            result = select_source('extended', width, height, hz)
             return result
         raise DisplayError('扩展屏未能按预期启用，请打开 Windows 显示设置检查。')
     except Exception:

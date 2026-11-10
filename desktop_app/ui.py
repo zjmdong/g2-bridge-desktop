@@ -134,24 +134,37 @@ class MainWindow(QMainWindow):
         self.controller.event.connect(self.on_event)
         self.controller.ended.connect(self.on_ended)
         self.controller.busy_changed.connect(self.refresh_controls)
+        self.probe_controller = Controller(self)
+        self.probe_controller.event.connect(self.on_probe_event)
+        self.probe_controller.ended.connect(self.on_probe_ended)
+        self.watcher = Controller(self)
+        self.watcher.event.connect(self.on_presence)
+        self.watcher.ended.connect(self.on_watcher_ended)
+        self.usb_connected = False
+        self.presence_token = None
+        self.manual_stop = False
+        self.pending_start = False
+        self.auto_armed = False
+        self.pending_environment = False
         self._build()
         self._load_settings()
         self._tray()
         self.poll_timer = QTimer(self)
-        self.poll_timer.setInterval(8000)
-        self.poll_timer.timeout.connect(self.auto_probe)
+        self.poll_timer.setSingleShot(True)
+        self.poll_timer.setInterval(1000)
+        self.poll_timer.timeout.connect(self.start_watcher)
         self.install_timer = QTimer(self)
         self.install_timer.setInterval(1000)
         self.install_timer.timeout.connect(self.poll_installer)
         self.virtual_timer = QTimer(self)
         self.virtual_timer.setInterval(1000)
         self.virtual_timer.timeout.connect(self.poll_virtual_installer)
-        self.set_status('正在检查运行环境', '检查内置组件、NVIDIA 编码和 DJI USB 驱动。', 'busy')
+        self.set_status('正在检查运行环境', '检查内置组件、H.264 编码和 DJI USB 驱动。', 'busy')
         if config_warning:
             self.notice.setText(config_warning)
         if autostart_checks:
             QTimer.singleShot(200, self.check_environment)
-            self.poll_timer.start()
+            QTimer.singleShot(200, self.start_watcher)
 
     def _build(self):
         self.setStyleSheet(STYLE.replace('CHEVRON_PATH', (resources()/'desktop_app/assets/chevron.svg').as_posix()))
@@ -181,7 +194,7 @@ class MainWindow(QMainWindow):
             nav.addWidget(button)
             self.nav_buttons.append(button)
         nav.addStretch()
-        nav.addWidget(label('WINDOWS  ·  0.1.1', 'railNote'))
+        nav.addWidget(label(f'WINDOWS  ·  {VERSION}', 'railNote'))
         nav.addWidget(label('基于开源 G2 Bridge\n独立项目，非 DJI 官方软件', 'railNote', True))
         root.addWidget(rail)
 
@@ -243,7 +256,7 @@ class MainWindow(QMainWindow):
         self.source = QComboBox()
         self.source.setAccessibleName('画面来源')
         self.source.addItem('电脑主屏 · 完整桌面', 'primary')
-        self.source.addItem('独立扩展屏 · 1080p · 实验性', 'extended')
+        self.source.addItem('独立扩展屏 · 实验性', 'extended')
         source_layout.addWidget(self.source)
         self.source_note = label('带鱼屏会等比缩放并补黑边，主屏分辨率保持不变。', 'muted', True)
         source_layout.addWidget(self.source_note)
@@ -254,18 +267,13 @@ class MainWindow(QMainWindow):
         display_layout.addWidget(self.display_status)
         display_buttons = QHBoxLayout()
         self.display_install = QPushButton('安装扩展屏驱动')
-        self.display_enable = QPushButton('启用 1080p 扩展屏')
-        self.display_disable = QPushButton('断开扩展屏')
         self.display_install.clicked.connect(self.install_virtual_driver)
-        self.display_enable.clicked.connect(lambda: self.display_task('enable_display'))
-        self.display_disable.clicked.connect(lambda: self.display_task('disable_display'))
-        for button in (self.display_install,self.display_enable,self.display_disable):
-            display_buttons.addWidget(button)
+        display_buttons.addWidget(self.display_install)
         display_layout.addLayout(display_buttons)
         settings_link = QPushButton('打开 Windows 显示设置')
         settings_link.clicked.connect(lambda: QDesktopServices.openUrl(QUrl('ms-settings:display')))
         display_layout.addWidget(settings_link, alignment=Qt.AlignmentFlag.AlignLeft)
-        display_layout.addWidget(label('扩展屏在主屏右侧。把模拟器窗口拖过去，或按 Win + Shift + → 移动窗口。停止串流后仍保留扩展屏；不用时点击断开。', 'small', True))
+        display_layout.addWidget(label('开始串流时自动创建主屏右侧的桌面；停止或拔线时自动收回。用 Win + Shift + → 把模拟器移入扩展屏。', 'small', True))
         source_layout.addWidget(self.display_controls)
         layout.addWidget(source)
 
@@ -281,9 +289,9 @@ class MainWindow(QMainWindow):
         for rate in (60, 75, 90, 100):
             self.fps.addItem(f'{rate} fps', rate)
         self.resolution = QComboBox()
-        self.resolution.addItem('1920 × 1080 · SDK 已验证')
-        self.resolution.setEnabled(False)
-        self.resolution.setToolTip('当前 SDK 固定输出 1080p。本版保持 SDK 不变。')
+        self.resolution.addItem('1920 × 1080 · 1080p', '1080p')
+        self.resolution.addItem('1280 × 720 · 720p', '720p')
+        self.resolution.setToolTip('同时用于扩展屏和发送画面；电脑主屏分辨率保持不变。')
         self.bitrate = QComboBox()
         for col, (text, control) in enumerate((('画质预设', self.quality), ('目标帧率', self.fps))):
             field_label = label(text, 'small')
@@ -302,9 +310,10 @@ class MainWindow(QMainWindow):
         settings_layout.addLayout(form)
         checks = QHBoxLayout()
         self.cursor = QCheckBox('显示鼠标指针')
-        self.reconnect = QCheckBox('USB 断开后自动重连')
+        self.reconnect = QCheckBox('传输异常时自动重试')
+        self.auto_start = QCheckBox('插入 USB 后自动串流')
         checks.addWidget(self.cursor)
-        checks.addWidget(self.reconnect)
+        checks.addWidget(self.auto_start)
         settings_layout.addLayout(checks)
         self.advanced_toggle = QPushButton('高级设置')
         self.advanced_toggle.setCheckable(True)
@@ -313,24 +322,24 @@ class MainWindow(QMainWindow):
         advanced_form = QFormLayout(self.advanced)
         advanced_form.setContentsMargins(0, 4, 0, 0)
         self.capture = QComboBox()
-        self.capture.addItem('Windows Graphics Capture · 推荐', 'gfxcapture')
-        self.capture.addItem('Desktop Duplication · 兼容模式', 'ddagrab')
+        self.capture.addItem('Desktop Duplication · 无黄色边框', 'ddagrab')
         self.encoder_preset = QComboBox()
-        self.encoder_preset.addItem('P1 · 速度优先', 'p1')
-        self.encoder_preset.addItem('P4 · 精细编码', 'p4')
+        self.encoder_preset.addItem('速度优先 · CPU 占用较低', 'p1')
+        self.encoder_preset.addItem('精细编码 · CPU 占用较高', 'p4')
         advanced_form.addRow('采集方式', self.capture)
-        advanced_form.addRow('NVIDIA 编码预设', self.encoder_preset)
+        advanced_form.addRow('H.264 兼容编码', self.encoder_preset)
+        advanced_form.addRow(self.reconnect)
         self.advanced.setVisible(False)
         self.advanced_toggle.toggled.connect(self.advanced.setVisible)
         settings_layout.addWidget(self.advanced)
-        settings_layout.addWidget(label('目标帧率不等于眼镜面板刷新率。码率按 SDK 的单帧预算限制。', 'small', True))
+        settings_layout.addWidget(label('扩展屏刷新率跟随目标帧率；眼镜面板刷新率由设备决定。30 / 32 / 40 Mbps 分别需要至少 75 / 90 / 100 fps。', 'small', True))
         layout.addWidget(settings_panel)
 
         statistics, stats_layout = panel()
         stats_layout.addWidget(label('当前串流', 'section'))
         stats = QHBoxLayout()
         self.stat_values = []
-        for title, initial in (('发送速率', '— fps'), ('USB 发送 p95', '— ms'), ('队列等待 p95', '— ms')):
+        for title, initial in (('发送帧率', '— fps'), ('USB 发送耗时', '— ms'), ('USB 实际带宽', '— Mbps')):
             group = QVBoxLayout()
             value = label(initial, 'statValue')
             group.addWidget(value)
@@ -338,10 +347,10 @@ class MainWindow(QMainWindow):
             stats.addLayout(group, 1)
             self.stat_values.append(value)
         stats_layout.addLayout(stats)
-        stats_layout.addWidget(label('以上为电脑端统计，并非端到端显示延迟。每 5 秒更新。', 'small', True))
+        stats_layout.addWidget(label('每 100 ms 更新，带宽与帧率使用最近 1 秒窗口。发送耗时仅测量电脑写入 USB；设备未返回显示时间，端到端延迟无法测量。', 'small', True))
         layout.addWidget(statistics)
         layout.addStretch()
-        self.inputs = [self.source, self.quality, self.fps, self.bitrate, self.cursor, self.reconnect, self.capture, self.encoder_preset]
+        self.inputs = [self.source, self.quality, self.fps, self.bitrate, self.resolution, self.cursor, self.reconnect, self.auto_start, self.capture, self.encoder_preset]
         self.source.currentIndexChanged.connect(self.source_changed)
         self.quality.currentIndexChanged.connect(self.apply_preset)
         self.fps.currentIndexChanged.connect(self.rate_changed)
@@ -350,6 +359,8 @@ class MainWindow(QMainWindow):
         self.capture.currentIndexChanged.connect(self.save_settings)
         self.cursor.toggled.connect(self.save_settings)
         self.reconnect.toggled.connect(self.save_settings)
+        self.auto_start.toggled.connect(self.automatic_changed)
+        self.resolution.currentIndexChanged.connect(self.source_changed)
         return page
 
     def build_device(self):
@@ -431,7 +442,7 @@ class MainWindow(QMainWindow):
         self.tray.setToolTip(APP_NAME)
         menu = QMenu(self)
         menu.addAction('显示客户端', self.show_normal)
-        self.tray_stop = menu.addAction('停止串流', self.controller.stop)
+        self.tray_stop = menu.addAction('停止串流', self.stop_stream)
         menu.addSeparator()
         menu.addAction('退出', self.close)
         self.tray.setContextMenu(menu)
@@ -454,29 +465,26 @@ class MainWindow(QMainWindow):
         self.help.setFocus()
 
     def source_changed(self, *_):
-        if self.source.currentData() == 'extended':
-            self.capture.setCurrentIndex(self.capture.findData('gfxcapture'))
         self.save_settings()
         self.refresh_controls()
 
     def update_source_controls(self):
         extended = self.source.currentData() == 'extended'
         self.display_controls.setVisible(extended)
-        self.source_note.setText('模拟器使用独立的 1920 × 1080 桌面，不占用电脑主屏。首次安装需 Windows 管理员授权。'
+        width, height = self.settings.dimensions
+        self.source_note.setText(f'模拟器使用独立的 {width} × {height} / {self.settings.fps} Hz 桌面。驱动只需安装一次，桌面随串流自动创建与收回。'
             if extended else '带鱼屏会等比缩放并补黑边，主屏分辨率保持不变。')
         available = not self.controller.busy and not self.virtual_installer and not self.installer
         owned = self.virtual_state.get('owned', False)
         screens = self.virtual_state.get('displays', [])
-        active = any(r['active'] for r in screens)
-        self.display_install.setText('移除扩展屏驱动' if owned else '安装扩展屏驱动')
+        self.display_install.setText('更新扩展屏配置' if self.virtual_state.get('needs_update') else '移除扩展屏驱动' if owned else '安装扩展屏驱动')
         self.display_install.setEnabled(available)
-        self.display_enable.setEnabled(available and owned)
-        self.display_disable.setEnabled(available and owned and active)
         self.capture.setEnabled(not extended and self.controller.task != 'stream' and not self.virtual_installer)
         if not self.virtual_installer:
             active_screen = next((r for r in screens if r['active']), None)
             self.display_status.setText(f"扩展屏已启用 · {active_screen['width']} × {active_screen['height']} / {active_screen['hz']} Hz" if active_screen else
-                '驱动已安装，请启用 1080p 扩展屏。' if owned else
+                '驱动需要更新配置，以支持全部分辨率与刷新率。' if self.virtual_state.get('needs_update') else
+                '驱动已就绪，开始串流时自动创建桌面。' if owned else
                 '检测到其他软件安装的 VDD；请在 Windows 中配置，客户端不会覆盖其设置。' if screens else
                 '驱动尚未安装。内置 VDD 25.7.23，已签名；不需要开启测试模式。')
 
@@ -492,7 +500,7 @@ class MainWindow(QMainWindow):
             return
         try:
             from .virtual_driver import VirtualInstaller
-            self.virtual_removing = self.virtual_state.get('owned', False)
+            self.virtual_removing = self.virtual_state.get('owned', False) and not self.virtual_state.get('needs_update')
             self.virtual_installer = VirtualInstaller(remove=self.virtual_removing)
             self.display_status.setText('等待 Windows 管理员授权，完成后将自动检测。')
             self.virtual_timer.start()
@@ -521,7 +529,7 @@ class MainWindow(QMainWindow):
             self.notice.setText('Windows 要求重启以完成扩展屏驱动安装，请保存工作后重启。')
         else:
             self.notice.setText('扩展屏驱动已移除。可选择电脑主屏继续串流，或重新安装扩展屏驱动。'
-                if self.virtual_removing else '扩展屏驱动安装完成。点击启用后，Windows 会出现独立的 1080p 显示器。')
+                if self.virtual_removing else '扩展屏驱动已就绪。开始串流时将自动创建所选模式的桌面。')
         self.display_task('display_status')
 
     def next_action(self):
@@ -532,12 +540,10 @@ class MainWindow(QMainWindow):
         if not self.environment.get('encoder_ok') or not self.environment.get('supported_os'):
             return 'encoder', '查看编码帮助'
         if self.source.currentData() == 'extended':
-            screens = self.virtual_state.get('displays', [])
-            if not self.virtual_state.get('installed'):
+            if not self.virtual_state.get('owned'):
                 return 'display_driver', '安装扩展屏驱动'
-            if len(screens) != 1 or not screens[0]['active'] or screens[0]['primary'] or (
-                    screens[0]['width'],screens[0]['height'],screens[0]['hz']) != (1920,1080,60):
-                return ('display_enable', '启用 1080p 扩展屏') if self.virtual_state.get('owned') else ('display_settings', '配置现有扩展屏')
+            if self.virtual_state.get('needs_update'):
+                return 'display_driver', '更新扩展屏配置'
         if not self.device:
             return 'probe', '重新检测设备'
         if not self.device['compatibility']['allowed']:
@@ -549,15 +555,14 @@ class MainWindow(QMainWindow):
             widget.blockSignals(True)
         self.quality.setCurrentIndex(self.quality.findData(self.settings.quality))
         self.fps.setCurrentIndex(self.fps.findData(self.settings.fps))
-        self.bitrate.clear()
-        for bitrate in bitrates(self.settings.fps):
-            self.bitrate.addItem(f'{bitrate} Mbps', bitrate)
-        self.bitrate.setCurrentIndex(self.bitrate.findData(self.settings.bitrate_mbps))
+        self.populate_bitrates(self.settings.fps, self.settings.bitrate_mbps)
         self.encoder_preset.setCurrentIndex(self.encoder_preset.findData(self.settings.preset))
         self.capture.setCurrentIndex(self.capture.findData(self.settings.capture))
         self.source.setCurrentIndex(self.source.findData(self.settings.source))
         self.cursor.setChecked(self.settings.show_cursor)
         self.reconnect.setChecked(self.settings.reconnect)
+        self.auto_start.setChecked(self.settings.auto_start)
+        self.resolution.setCurrentIndex(self.resolution.findData(self.settings.resolution))
         for widget in self.inputs:
             widget.blockSignals(False)
         self.update_source_controls()
@@ -568,7 +573,7 @@ class MainWindow(QMainWindow):
         self.settings = Settings(fps=self.fps.currentData(), bitrate_mbps=self.bitrate.currentData(),
             preset=self.encoder_preset.currentData(), capture=self.capture.currentData(),
             show_cursor=self.cursor.isChecked(), reconnect=self.reconnect.isChecked(), quality=self.quality.currentData(),
-            source=self.source.currentData())
+            source=self.source.currentData(), resolution=self.resolution.currentData(), auto_start=self.auto_start.isChecked())
         try:
             self.settings.save()
         except (ValueError, OSError) as exc:
@@ -589,13 +594,21 @@ class MainWindow(QMainWindow):
     def rate_changed(self, *_):
         old = self.bitrate.currentData() or 32
         self.bitrate.blockSignals(True)
-        self.bitrate.clear()
         allowed = bitrates(self.fps.currentData())
-        for bitrate in allowed:
-            self.bitrate.addItem(f'{bitrate} Mbps', bitrate)
-        self.bitrate.setCurrentIndex(self.bitrate.findData(min(old, max(allowed))))
+        self.populate_bitrates(self.fps.currentData(), min(old, max(allowed)))
         self.bitrate.blockSignals(False)
         self.apply_preset()
+        self.update_source_controls()
+
+    def populate_bitrates(self, fps, selected):
+        from goggles_bridge.engine import CHOICES
+        allowed = bitrates(fps)
+        self.bitrate.clear()
+        for rate in CHOICES['bitrate_mbps']:
+            minimum = next(f for f in CHOICES['fps'] if rate in bitrates(f))
+            self.bitrate.addItem(f'{rate} Mbps' if rate in allowed else f'{rate} Mbps · 需至少 {minimum} fps', rate)
+            self.bitrate.model().item(self.bitrate.count()-1).setEnabled(rate in allowed)
+        self.bitrate.setCurrentIndex(self.bitrate.findData(selected))
 
     def custom_changed(self, *_):
         self.quality.blockSignals(True)
@@ -620,13 +633,90 @@ class MainWindow(QMainWindow):
     def check_environment(self):
         if self.controller.busy or self.installer or self.virtual_installer:
             return
+        if self.probe_controller.busy:
+            self.pending_environment = True
+            self.probe_controller.stop()
+            return
+        self.pending_environment = False
         self.had_problem = False
-        self.set_status('正在检查运行环境', '正在测试硬件编码，并检查 USB 驱动组件。', 'busy')
+        self.set_status('正在检查运行环境', '正在测试 H.264 编码，并检查 USB 驱动组件。', 'busy')
         self.controller.start('environment')
 
     def auto_probe(self):
-        if not self.closing and not self.controller.busy and not self.installer and not self.virtual_installer and self.environment and self.environment['driver']['status'] == 'verified':
-            self.controller.start('probe')
+        if not self.closing and self.usb_connected and not self.controller.busy and not self.probe_controller.busy and not self.installer and not self.virtual_installer and self.environment and self.environment['driver']['status'] == 'verified':
+            self.probe_controller.start('probe')
+
+    def start_watcher(self):
+        if not self.closing and not self.watcher.busy:
+            self.watcher.start('watch_usb')
+
+    def on_watcher_ended(self, *_):
+        if self.closing:
+            self.close()
+        else:
+            self.poll_timer.start()
+
+    def on_presence(self, row):
+        if row['event'] != 'usb_presence':
+            return
+        connected = row['connected']
+        token = row.get('token')
+        if connected == self.usb_connected and token == self.presence_token:
+            return
+        self.usb_connected, self.presence_token = connected, token
+        self.device = None
+        if connected:
+            self.manual_stop = False
+            self.auto_armed = self.settings.auto_start
+            self.auto_probe()
+        else:
+            self.auto_armed = self.pending_start = False
+            self.probe_controller.stop()
+            if self.controller.task == 'stream':
+                self.controller.stop()
+            self.on_event(dict(event='problem', code='not_connected',
+                message='眼镜已断开。重新连接 USB 并进入 DJI Virtual Flight 后可继续串流。'))
+            self.reset_stats()
+
+    def on_probe_ended(self, task, code):
+        if self.closing:
+            self.close()
+        elif self.pending_environment:
+            self.check_environment()
+        elif self.pending_start:
+            self.begin_stream()
+        elif code == 0:
+            self.maybe_auto_start()
+
+    def on_probe_event(self, row):
+        if self.usb_connected and not self.probe_controller.stopping:
+            self.on_event(row)
+
+    def automatic_changed(self, checked):
+        self.save_settings()
+        self.auto_armed = checked and self.usb_connected
+        if checked:
+            self.manual_stop = False
+            self.maybe_auto_start()
+
+    def maybe_auto_start(self):
+        if self.closing or self.manual_stop or not self.auto_armed or not self.usb_connected:
+            return
+        if self.controller.busy or self.probe_controller.busy or self.installer or self.virtual_installer:
+            return
+        if self.ready():
+            self.auto_armed = False
+            self.begin_stream()
+
+    def reset_stats(self):
+        for item in self.stat_values:
+            item.setText('—')
+
+    def stop_stream(self):
+        self.manual_stop = True
+        self.auto_armed = self.pending_start = False
+        self.controller.stop()
+        self.refresh_controls()
 
     def ready(self):
         return self.next_action()[0] == 'stream'
@@ -651,12 +741,11 @@ class MainWindow(QMainWindow):
             self.start_button.setText('正在安装驱动…' if self.installer else self.next_action()[1])
             self.start_button.setEnabled(not busy and not self.installer and not self.virtual_installer)
             if not busy and not self.had_problem and self.next_action()[0].startswith('display_'):
-                self.set_status('扩展屏尚未准备好', '完成驱动安装并启用 1080p 扩展屏后，即可开始串流。', 'busy')
+                self.set_status('扩展屏驱动尚未准备好', '完成驱动安装或配置更新后，桌面将随串流自动创建。', 'busy')
 
     def toggle_stream(self):
         if self.controller.task in ('stream', 'download_driver', 'import_driver'):
-            self.controller.stop()
-            self.refresh_controls()
+            self.stop_stream()
             return
         if not self.ready():
             action, _ = self.next_action()
@@ -667,10 +756,6 @@ class MainWindow(QMainWindow):
             elif action == 'display_driver':
                 self.navigate(0)
                 self.install_virtual_driver()
-            elif action == 'display_enable':
-                self.display_task('enable_display')
-            elif action == 'display_settings':
-                QDesktopServices.openUrl(QUrl('ms-settings:display'))
             elif action in ('firmware', 'encoder'):
                 self.open_help('firmware' if action == 'firmware' else 'capture')
             else:
@@ -678,14 +763,35 @@ class MainWindow(QMainWindow):
                 self.pages.widget(1).verticalScrollBar().setValue(0)
                 self.check_environment() if action == 'environment' else self.auto_probe()
             return
+        self.manual_stop = False
+        self.auto_armed = False
+        self.begin_stream()
+
+    def begin_stream(self):
+        if self.closing or self.controller.busy or self.installer or self.virtual_installer:
+            return
+        if self.probe_controller.busy:
+            self.pending_start = True
+            self.probe_controller.stop()
+            return
+        self.pending_start = False
         self.save_settings()
         self.had_problem = False
         self.stream_active = False
+        self.reset_stats()
         self.notice.setText('正在检查桌面采集，随后将再次验证设备与固件。')
         self.controller.start('stream', settings=asdict(self.settings))
 
     def on_event(self, row):
         event = row['event']
+        if event == 'device' and self.watcher.busy and not self.usb_connected:
+            return  # A late worker reply cannot undo a confirmed USB removal.
+        if event == 'live_stats':
+            self.stat_values[0].setText(f"{row['fps']:.1f} fps")
+            latency = row.get('send_ms')
+            self.stat_values[1].setText(f'{latency:.2f} ms' if latency is not None else '—')
+            self.stat_values[2].setText(f"{row['bandwidth_mbps']:.2f} Mbps")
+            return  # Do not rebuild controls/history on the 100 ms statistics path.
         self.history.append(dict(at=datetime.now().isoformat(timespec='seconds'), **row))
         if event == 'environment':
             self.environment = row
@@ -699,7 +805,7 @@ class MainWindow(QMainWindow):
             if driver['status'] != 'verified':
                 self.set_status('还需要准备 USB 驱动', '前往「设备与驱动」，安装 SDK 已验证的 DJI USB 驱动。', 'busy')
             elif not row['encoder_ok']:
-                self.set_status('硬件编码尚未就绪', row['encoder_message'], 'busy')
+                self.set_status('编码尚未就绪', row['encoder_message'], 'busy')
             else:
                 self.set_status('等待眼镜连接', '连接 USB 数据线，并在眼镜中打开「更多 → DJI Virtual Flight」。')
         elif event == 'display_status':
@@ -716,7 +822,7 @@ class MainWindow(QMainWindow):
             self.checkpoints[1].setText('眼镜已验证' if policy['allowed'] else '固件需要检查')
             if not self.stream_active:
                 if policy['allowed'] and self.environment and not self.environment.get('encoder_ok'):
-                    self.set_status('硬件编码尚未就绪', self.environment['encoder_message'], 'busy')
+                    self.set_status('编码尚未就绪', self.environment['encoder_message'], 'busy')
                 else:
                     self.set_status('可以开始串流' if self.ready() else policy['title'],
                                     policy['message'], 'good' if self.ready() else 'busy')
@@ -728,11 +834,15 @@ class MainWindow(QMainWindow):
             self.stream_active = True
             self.set_status('正在串流桌面', '视频已发送，请在眼镜中确认画面。结束时点击「停止串流」。', 'good')
             self.checkpoints[2].setText('视频正在发送')
-            self.notice.setText(f'1920 × 1080  ·  目标 {self.settings.fps} fps  ·  {self.settings.bitrate_mbps} Mbps')
-        elif event == 'stats':
-            self.stat_values[0].setText(f"{row['fps']:.1f} fps")
-            self.stat_values[1].setText(f"{row['send_ms_p95']:.2f} ms")
-            self.stat_values[2].setText(f"{row['queue_ms_p95']:.2f} ms")
+            width, height = self.settings.dimensions
+            self.notice.setText(f'{width} × {height}  ·  目标 {self.settings.fps} fps  ·  {self.settings.bitrate_mbps} Mbps')
+        elif event == 'preparing_display':
+            self.set_status('正在创建串流桌面', '正在应用所选分辨率与刷新率。', 'busy')
+        elif event == 'releasing_display':
+            if not self.had_problem:
+                self.set_status('正在收回串流桌面', '视频已停止，正在释放扩展屏。', 'busy')
+        elif event == 'usb_disconnected':
+            self.set_status('眼镜已断开', '正在结束串流并收回扩展屏。')
         elif event == 'waiting':
             self.stream_active = False
             self.checkpoints[2].setText('等待恢复视频')
@@ -756,7 +866,10 @@ class MainWindow(QMainWindow):
                 if self.environment and self.environment['encoder_ok']:
                     self.set_status('等待眼镜连接', row['message'])
             else:
-                self.set_status('需要处理一个问题', row.get('message', '后台任务失败'), 'bad')
+                message = row.get('message', '后台任务失败')
+                if 'Goggles rejected 0b/1a: d6' in message:
+                    message = '眼镜拒绝启动串流（d6）。请退出并重新进入 DJI Virtual Flight，再点击开始串流；若仍失败，请重启眼镜。'
+                self.set_status('需要处理一个问题', message, 'bad')
                 self.notice.setText('可在「帮助与诊断」查看教程并导出诊断包。')
                 self.diagnostic_status.setText(row.get('details', row.get('message', ''))[-1500:])
         elif event == 'download_progress':
@@ -771,6 +884,16 @@ class MainWindow(QMainWindow):
         self.refresh_controls()
 
     def on_ended(self, task, code):
+        if task == 'stream':
+            self.stream_active = False
+            self.reset_stats()
+            # A killed worker cannot run its finally block. Recover only our VDD.
+            if code != 0 and self.settings.source == 'extended' and self.virtual_state.get('owned'):
+                if not self.had_problem and not self.controller.stopping:
+                    self.had_problem = True
+                    self.set_status('串流意外退出', '正在收回扩展屏。可重新开始，或导出诊断包检查。', 'bad')
+                self.controller.start('disable_display')
+                return
         if self.closing:
             self.close()
             return
@@ -780,11 +903,10 @@ class MainWindow(QMainWindow):
         if task == 'environment' and code == 0:
             QTimer.singleShot(100, self.auto_probe)
         elif task == 'stream':
-            self.stream_active = False
             self.checkpoints[2].setText('视频已停止')
             if not self.had_problem:
                 self.set_status('串流已停止', '可以调整参数后再次开始。若眼镜提示 d6，请退出并重新打开 Virtual Flight。')
-                self.notice.setText('视频编码和 USB 连接已释放。')
+                self.notice.setText('视频编码和 USB 连接已释放，串流扩展屏已收回。' if self.settings.source == 'extended' else '视频编码和 USB 连接已释放。')
         elif task in ('download_driver', 'import_driver'):
             self.progress.setVisible(False)
             if self.pending_installer and code == 0:
@@ -793,6 +915,11 @@ class MainWindow(QMainWindow):
             elif not self.had_problem:
                 self.install_detail.setText('已取消下载，可稍后重试。')
         self.refresh_controls()
+        if self.auto_armed and self.usb_connected:
+            if self.device:
+                self.maybe_auto_start()
+            else:
+                self.auto_probe()
 
     def install_driver(self):
         if self.controller.busy or self.installer:
@@ -867,13 +994,16 @@ class MainWindow(QMainWindow):
             self.notice.setText('Windows 正在处理扩展屏驱动，请完成或取消系统授权后再退出。')
             event.ignore()
             return
-        if self.controller.busy:
-            self.closing = True
-            self.controller.stop()
+        self.closing = True
+        self.poll_timer.stop()
+        controllers = (self.controller, self.probe_controller, self.watcher)
+        if any(c.busy for c in controllers):
+            for controller in controllers:
+                if not controller.stopping:
+                    controller.stop()
             self.notice.setText('正在结束后台任务并释放设备…')
             self.refresh_controls()
             event.ignore()
             return
-        self.poll_timer.stop()
         self.tray.hide()
         event.accept()

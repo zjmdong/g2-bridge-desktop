@@ -15,19 +15,25 @@ class Settings:
     fps: int = 60
     bitrate_mbps: int = 16
     preset: str = 'p1'
-    capture: str = 'gfxcapture'
+    capture: str = 'ddagrab'
     show_cursor: bool = True
     reconnect: bool = True
     quality: str = 'balanced'
     display_device: str = ''
     source: str = 'primary'
+    resolution: str = '1080p'
+    auto_start: bool = True
+
+    @property
+    def dimensions(self):
+        return {'720p': (1280, 720), '1080p': (1920, 1080)}[self.resolution]
 
     def bridge(self, display_index=0):
         self.validate()
         return BridgeSettings(dll=find_dll(), ffmpeg=ffmpeg_path(), fps=self.fps,
                               bitrate_mbps=self.bitrate_mbps, preset=self.preset,
                               capture=self.capture, display_index=display_index,
-                              show_cursor=self.show_cursor, h264_profile='baseline', keyframe_seconds=1)
+                              show_cursor=self.show_cursor, h264_profile='baseline', keyframe_seconds=3)
 
     def validate(self):
         if type(self.schema) is not int or self.schema != 1:
@@ -46,8 +52,8 @@ class Settings:
             raise ValueError('Invalid desktop identifier')
         if self.source not in ('primary', 'extended'):
             raise ValueError('Unknown desktop source')
-        if self.source == 'extended' and self.capture != 'gfxcapture':
-            raise ValueError('扩展屏需要 Windows Graphics Capture。')
+        if self.resolution not in ('720p', '1080p') or type(self.auto_start) is not bool:
+            raise ValueError('Invalid display or automatic streaming setting')
 
     def save(self, path=None):
         self.validate()
@@ -61,7 +67,11 @@ class Settings:
     def from_dict(cls, data):
         if not isinstance(data, dict):
             raise ValueError('Settings must be an object')
-        result = cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
+        values = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+        # 0.2 uses DXGI output identity for both sources, without WGC's capture border.
+        if values.get('capture') == 'gfxcapture':
+            values['capture'] = 'ddagrab'
+        result = cls(**values)
         result.validate()
         return result
 

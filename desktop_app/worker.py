@@ -16,18 +16,85 @@ from .system import Cancelled, driver_status, environment, run_cancellable
 from .video import start_encoder, check_capture
 
 
+def stream(settings, stop, emit):
+    from .display_session import capture_target
+    from .dxgi import select_output
+    from .telemetry import SenderTelemetry
+    # Confirm the device exists before creating a desktop. VerifiedTransport also
+    # checks the very handle the SDK will use, including after reconnects.
+    found = probe(stop, emit)
+    if not found['compatibility']['allowed']:
+        raise CompatibilityError(found['compatibility']['message'])
+    if stop.is_set():
+        raise Cancelled()
+    with capture_target(settings, emit) as target:
+        output = select_output(target['device'])
+        bridge = settings.bridge(display_index=output['output'])
+        options = dict(output=output, dimensions=settings.dimensions)
+        emit('capture_source', **target, source=settings.source,
+             color='8-bit limited NV12 / BT.709', profile='baseline', encoder='libx264',
+             capture='Desktop Duplication', output_resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}',
+             bootstrap_idr_seconds=[0,1,2], periodic_idr=False, reference_frames=1,
+             capture_sampling_fps=240, sender_pacing_fps=settings.fps)
+        emit('checking_capture')
+        problem = check_encoder(bridge, run=partial(check_capture, stop=stop, **options))
+        if problem:
+            emit('problem', code='capture', message='无边框桌面采集失败，请保持桌面解锁并检查显示驱动。', details=problem)
+            return 2
+        if stop.is_set():
+            raise Cancelled()
+        log = data_dir() / 'logs' / f'{datetime.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:6]}.jsonl'
+        emit('log_path', path=str(log))
+
+        def on_event(row):
+            if row['event'] not in ('control_send', 'control_receive', 'stats'):
+                if row['event'] == 'starting':
+                    row = dict(row, intra_refresh=False, multipass='disabled', encoder='libx264',
+                               adapter='desktop-compatibility-v2',
+                               resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}')
+                emit(**row)
+
+        telemetry = SenderTelemetry(emit)
+        guard_done = threading.Event()
+
+        def guard():
+            from .usb_presence import present_interfaces
+            while not guard_done.wait(.25):
+                try:
+                    if not present_interfaces():
+                        stop.set()
+                        emit('usb_disconnected')
+                        break
+                except OSError:
+                    pass  # SDK transport errors and GUI presence watcher remain active.
+
+        guard_thread = threading.Thread(target=guard, daemon=True, name='usb-disconnect-guard')
+        guard_thread.start()
+        telemetry.start()
+        try:
+            engine = BridgeEngine(bridge, log, stop_event=stop, on_event=on_event,
+                reconnect=settings.reconnect, retry_delay=2,
+                process_factory=partial(start_encoder, **options),
+                transport_factory=partial(VerifiedTransport, stop=stop, emit=emit,
+                                          write_size=bridge.usb_write_size, telemetry=telemetry, fps=settings.fps))
+            engine.run()
+        finally:
+            telemetry.close()
+            guard_done.set()
+            guard_thread.join(timeout=1)
+    return 0
+
+
 def main():
     if '--install-display-driver' in sys.argv or '--remove-display-driver' in sys.argv:
         from .virtual_driver import elevated_main
         return elevated_main('--remove-display-driver' in sys.argv)
     sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
     sys.stdin.reconfigure(encoding='utf-8')
-    lock = threading.Lock()
     stop = threading.Event()
-
-    def emit(event, **fields):
-        with lock:
-            print(json.dumps(dict(event=event, **fields), ensure_ascii=False), flush=True)
+    from .events import EventWriter
+    writer = EventWriter(sys.stdout)
+    emit = writer.emit
 
     def commands():
         for line in sys.stdin:
@@ -45,13 +112,17 @@ def main():
         if task == 'environment':
             from .virtual_driver import status
             emit('environment', **environment(stop), virtual_display=status())
+        elif task == 'watch_usb':
+            from .usb_presence import watch
+            watch(stop, emit)
         elif task in ('display_status', 'enable_display', 'disable_display'):
             from .displays import enable_extended, disable_extended
             from .virtual_driver import status, owned_instance
             if task != 'display_status' and not owned_instance():
                 raise ValueError('未找到由本客户端安装的扩展屏驱动。已有其他 VDD 时请在 Windows 中配置。')
             if task == 'enable_display':
-                enable_extended()
+                settings = Settings.from_dict(request.get('settings', {}))
+                enable_extended(*settings.dimensions, settings.fps)
             elif task == 'disable_display':
                 disable_extended()
             emit('display_status', **status())
@@ -65,37 +136,7 @@ def main():
                 probe(stop, emit)
             else:
                 settings = Settings.from_dict(request.get('settings', {}))
-                from .displays import select_source
-                target = select_source(settings.source)
-                bridge = settings.bridge(display_index=0)
-                hmonitor = target['hmonitor'] if settings.capture == 'gfxcapture' else None
-                if settings.capture == 'ddagrab' and settings.source != 'primary':
-                    raise ValueError('兼容采集仅支持主显示器。')
-                emit('capture_source', **target, source=settings.source,
-                     color='limited NV12, unspecified H.264 VUI', profile='baseline', idr_seconds=1)
-                emit('checking_capture')
-                problem = check_encoder(bridge, run=partial(check_capture, stop=stop, hmonitor=hmonitor))
-                if problem:
-                    emit('problem', code='capture', message='桌面采集测试失败，请检查 NVIDIA 驱动或尝试兼容采集。', details=problem)
-                    return 2
-                if stop.is_set():
-                    raise Cancelled()
-                log = data_dir() / 'logs' / f'{datetime.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:6]}.jsonl'
-                emit('log_path', path=str(log))
-
-                def on_event(row):
-                    # Binary protocol telemetry stays in the local log, not the UI pipe.
-                    if row['event'] not in ('control_send', 'control_receive'):
-                        if row['event'] == 'starting':
-                            row = dict(row, intra_refresh=False, adapter='desktop-compatibility-v1')
-                        emit(**row)
-
-                engine = BridgeEngine(bridge, log, stop_event=stop, on_event=on_event,
-                    reconnect=settings.reconnect, retry_delay=2,
-                    process_factory=partial(start_encoder, hmonitor=hmonitor),
-                    transport_factory=partial(VerifiedTransport, stop=stop, emit=emit,
-                                              write_size=bridge.usb_write_size))
-                engine.run()
+                return stream(settings, stop, emit)
         elif task in ('download_driver', 'import_driver'):
             from .drivers import download_assistant, prepare_driver
             installer = download_assistant(stop, emit) if task == 'download_driver' else request['path']
@@ -119,4 +160,5 @@ def main():
         return 1
     finally:
         emit('finished')
+        writer.close()
     return 0

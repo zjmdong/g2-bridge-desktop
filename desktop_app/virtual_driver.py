@@ -27,12 +27,14 @@ HASHES = {
 CONFIG = '''<?xml version="1.0" encoding="utf-8"?>
 <vdd_settings><monitors><count>1</count></monitors>
 <gpu><friendlyname>default</friendlyname></gpu>
+<global><g_refresh_rate>60</g_refresh_rate><g_refresh_rate>75</g_refresh_rate>
+<g_refresh_rate>90</g_refresh_rate><g_refresh_rate>100</g_refresh_rate></global>
 <resolutions><resolution><width>1920</width><height>1080</height>
+<refresh_rate>60</refresh_rate></resolution><resolution><width>1280</width><height>720</height>
 <refresh_rate>60</refresh_rate></resolution></resolutions>
-<logging><logging>false</logging><debuglogging>false</debuglogging></logging>
-<colour><SDR10bit>false</SDR10bit><HDRPlus>false</HDRPlus><ColourFormat>RGB</ColourFormat></colour>
-<cursor><HardwareCursor>false</HardwareCursor></cursor>
-<edid><CustomEdid>false</CustomEdid></edid></vdd_settings>
+<options><logging>false</logging><debuglogging>false</debuglogging>
+<SDR10bit>false</SDR10bit><HDRPlus>false</HDRPlus><HardwareCursor>false</HardwareCursor>
+<CustomEdid>false</CustomEdid></options></vdd_settings>
 '''
 
 
@@ -49,7 +51,14 @@ def status():
     instance = owned_instance()
     adapters = [r for r in inventory() if r['hardware_id'].lower() in ('root\\mttvdd','mttvdd')]
     screens = [r for r in adapters if r['monitor_id']]
-    return dict(owned=bool(instance), installed=bool(instance or adapters), displays=screens)
+    current = False
+    if instance:
+        try:
+            current = (Path(os.environ['ProgramFiles'])/'DJI Goggles Streamer Display/vdd_settings.xml').read_text(encoding='utf-8') == CONFIG
+        except OSError:
+            pass
+    return dict(owned=bool(instance), installed=bool(instance or adapters), displays=screens,
+                config_current=current, needs_update=bool(instance) and not current)
 
 
 def verify_package(folder=None):
@@ -127,8 +136,28 @@ def _create_device(inf):
 
 
 def install():
-    if owned_instance():
-        return 0
+    if instance := owned_instance():
+        target = Path(os.environ['ProgramFiles'])/'DJI Goggles Streamer Display'
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, REGISTRY) as key:
+            path = winreg.QueryValueEx(key, 'VDDPATH')[0]
+        if Path(path).resolve() != target.resolve() or not instance.upper().startswith('ROOT\\DISPLAY\\'):
+            raise RuntimeError('扩展屏配置已由其他软件接管，未覆盖。')
+        verify_package(target)
+        config = target/'vdd_settings.xml'
+        original = config.read_text(encoding='utf-8')
+        if original == CONFIG:
+            return 0
+        config.write_text(CONFIG, encoding='utf-8')
+        tool = Path(os.environ['SystemRoot'])/'System32/pnputil.exe'
+        try:
+            result = subprocess.run([str(tool), '/restart-device', instance], capture_output=True,
+                                    timeout=90, creationflags=NO_WINDOW)
+            if result.returncode not in (0, 3010):
+                raise RuntimeError(f'Windows 无法刷新扩展屏模式（{result.returncode}）。')
+        except Exception:
+            config.write_text(original, encoding='utf-8')
+            raise
+        return result.returncode
     # Changing VDDPATH would also affect other applications using this driver.
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, REGISTRY):

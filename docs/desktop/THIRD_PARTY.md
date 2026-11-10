@@ -1,4 +1,4 @@
-# Third-party components — 0.1.1
+# Third-party components — 0.2.0
 
 DJI Goggles Streamer and the unchanged G2 Bridge SDK are GPL-3.0-only. The
 application installer includes LICENSE and this notice. A source archive is
@@ -38,7 +38,8 @@ installation, never for normal video streaming. No firmware is flashed.
 
 The optional virtual display driver is redistributed under MIT in
 `_internal/vendor/vdd`, with its original INF/DLL/catalog and SignPath signature.
-The release archive is pinned by SHA-256. The app writes its own 1080p/60 Hz SDR
-configuration only on a new installation, registers its own root display device,
+The release archive is pinned by SHA-256. The app writes its own SDR configuration
+for 720p/1080p at 60/75/90/100 Hz on installation or an explicit owned-device
+configuration update, registers its own root display device,
 and never uses VDD's unsafe `RELOAD_DRIVER`/`SETDISPLAYCOUNT` pipe paths.
 No certificate-store or signature-enforcement settings are changed.
