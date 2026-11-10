@@ -1,0 +1,37 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><style>
+body {font-family:'Microsoft YaHei UI','Segoe UI',sans-serif;color:#20363c;font-size:13px;line-height:1.6}
+h2 {color:#174f57;font-size:19px;margin-top:24px} h3 {font-size:15px;margin-top:20px}
+a {color:#126d68} td,th {padding:8px;text-align:left} table {border-collapse:collapse} th {background:#e9f1ed}
+</style></head><body>
+<h2>第一次使用</h2>
+<ol><li>准备 Windows x64 电脑与支持 NVENC 的 NVIDIA 显卡。本版沿用 SDK 的 NVIDIA 编码路径。</li>
+<li>在「设备与驱动」检查环境。缺少驱动时点击「下载并安装驱动」，或选择本地 DJI Assistant 2 消费机系列 2.1.42 安装包。安装需要 Windows 管理员授权。</li>
+<li>将眼镜开机，用支持数据传输的 USB 线连接电脑。建议使用 USB-A 转 USB-C 数据线；仅有 USB-C 接口时可增加合适的 USB-A 转接器。</li>
+<li>在眼镜中进入「更多 → DJI Virtual Flight」。电脑无法替你完成这个菜单操作。</li>
+<li>等待型号、固件检测完成，回到「桌面串流」选择参数，点击「开始串流」。在眼镜中确认画面。</li>
+<li>结束时先点击「停止串流」，再断开线缆。SDK 默认显示器索引为 0，本版尚不支持选择其他显示器或软件窗口。</li></ol>
+<a name="firmware"></a><h2>固件兼容与更新</h2>
+<table border="1" cellspacing="0"><tr><th>型号</th><th>SDK 已测试固件</th></tr>
+<tr><td>DJI Goggles 2</td><td>01.11.00.00、01.14.00.00</td></tr>
+<tr><td>DJI Goggles Integra</td><td>01.09.00.00</td></tr></table>
+<p>清单中的版本为上游已有测试记录，不代表本客户端已完成所有硬件组合测试。设备返回的 01.14.0000 与界面中的 01.14.00.00 是同一版本格式。</p>
+<p><b>Goggles 2 的 01.12 有黑屏及恢复刷机报告。</b>本客户端会阻止该版本及未验证版本开始串流，不会自动刷机。</p>
+<h3>使用官方工具更新或恢复</h3>
+<ol><li>停止串流并退出本客户端，避免和 DJI Assistant 同时占用 USB。</li>
+<li>从 <a href="https://www.dji.com/downloads/softwares/dji-assistant-2-consumer-drones-series">DJI 官方下载页面</a>安装 DJI Assistant 2（消费机系列）。驱动安装与固件更新是两件不同的事。</li>
+<li>保持设备电量充足、供电和 USB 连接稳定。打开 DJI Assistant，按官方界面要求登录并选择眼镜。</li>
+<li>查看设备可用的固件列表，选择与型号匹配的已验证版本。只有官方界面提供降级时才可按该流程降级；若列表没有目标版本，不要尝试其他型号固件，应联系 DJI 支持。</li>
+<li>按官方工具提示完成升级或刷新，过程中不要断电或拔线。</li>
+<li>关闭 DJI Assistant，重新启动眼镜和本客户端，再次检测型号与固件。</li></ol>
+<p>参考：<a href="https://support.dji.com/help/content?customId=en-us03400006835&amp;lang=en&amp;re=US&amp;spaceId=34">DJI 官方固件更新说明</a> · <a href="https://github.com/Ammaar-Alam/g2-bridge/issues/16">上游 01.12 问题报告</a></p>
+<h2>常见问题</h2>
+<h3>找不到眼镜</h3><p>检查电源、数据线与 USB 端口，关闭可能占用设备的 DJI Assistant。避免只充电的线缆。设备连接后客户端会定期重新检测；插着多个受支持设备时请先只保留一台。</p>
+<h3>设备连接了，但一直等待</h3><p>确认眼镜已进入 DJI Virtual Flight。USB 连接成功与视频握手成功是不同状态。若提示 d6 或无法退出 Virtual Flight，先停止串流，退出并重新进入该模式；必要时重启眼镜。</p>
+<h3>黑屏、画面冻结或反复重启编码</h3><p>先停止串流，降低码率，重启眼镜后再试。SDK 会阻止超过其单帧预算的视频数据。切勿关闭限制或强制使用未验证固件。若设备无法正常启动，请使用官方恢复流程。</p>
+<a name="capture"></a><h3>NVIDIA 编码或桌面采集失败</h3><p>确认电脑为 Windows x64，显卡支持 NVENC，安装显卡厂商驱动并保持桌面解锁。可以在高级设置中尝试 Desktop Duplication。远程桌面、受保护内容及某些独占全屏应用可能无法采集。</p>
+<h3>分辨率为什么只有 1080p？</h3><p>当前 SDK 的桌面视频输出固定为 1920×1080。0.0.1 保持 SDK 不变，因此只显示这一已验证选项。高分辨率桌面会由 SDK 缩放；帧率、码率仍可调整。</p>
+<h3>第二显示器是什么？</h3><p>规划中的第二显示器是独立扩展桌面：可把模拟器放到眼镜中，电脑主显示器仍用于其他应用。本版仅传输现有电脑桌面。</p>
+<h2>诊断与项目</h2><p>日志保存在当前 Windows 用户的本地应用数据目录。诊断导出不包含桌面截图或完整 USB 原始数据。分享前请检查内容；客户端不自动上传诊断。</p>
+<p>DJI Goggles Streamer 0.0.1 · 基于 G2 Bridge SDK<br>本项目独立开发，不是 DJI 官方产品。原项目及本客户端使用 GPL-3.0-only；第三方组件遵循各自许可。</p>
+<p><a href="https://github.com/zjmdong/g2-bridge-desktop">客户端源码</a> · <a href="https://github.com/Ammaar-Alam/g2-bridge">原 SDK</a></p>
+</body></html>
