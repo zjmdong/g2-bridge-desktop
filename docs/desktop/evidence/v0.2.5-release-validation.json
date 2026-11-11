@@ -1,0 +1,1431 @@
+{
+  "schema": 1,
+  "release": "0.2.5",
+  "recorded_date": "2026-11-12",
+  "scope": "Final release regression measurements. Host arrival timings, generated codec/pixel checks and intentional mailbox pressure have different scopes and must not be combined as an optical or USB acceptance test.",
+  "selected_policy": {
+    "encoder": "h264_nvenc",
+    "profile": "high",
+    "entropy_coder": "cabac",
+    "chroma_qp_offsets": {
+      "cb": -4,
+      "cr": -4
+    },
+    "multipass": "qres",
+    "target_resolution": [
+      1920,
+      1080
+    ],
+    "target_fps": 100,
+    "target_bitrate_mbps": 20,
+    "b_frames": 0,
+    "lookahead_frames": 0,
+    "aq": false,
+    "native_ffmpeg_changed_from_0_2_4": false
+  },
+  "live_host": {
+    "scope": "DDA capture of a generated moving texture on a 1920x1080 100 Hz virtual display, through production GPU conversion and NVENC, followed by in-memory protocol packetization. Video discarded; no USB access. Baseline and final sampled sequentially, not simultaneous controlled optical trials.",
+    "baseline": {
+      "source_report": {
+        "filename": "host-baseline-20.json",
+        "sha256": "86f8051ba6668acfecd6099f7253b5961e945fd7d965ec0d2fb8e7a80e0a5929"
+      },
+      "measurement": "host access-unit arrival; not capture-to-photon latency",
+      "status": "completed",
+      "parse_error": null,
+      "frame_budget_target_met": true,
+      "optical_latency_target": "not measured",
+      "host_interval_one_percent_target_met": false,
+      "encoded_bitrate_one_percent_target_met": false,
+      "screen_video_saved": false,
+      "usb_access": false,
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "returncode": 0,
+      "warmup_seconds": 3,
+      "requested_seconds": 20.0,
+      "total_frames": 1988,
+      "measured_frames": 1700,
+      "measured_fps": 99.99610727325157,
+      "interval_ms": {
+        "min": 7.4608,
+        "p01": 8.4776,
+        "p50": 9.9909,
+        "p95": 10.8197,
+        "p99": 11.4597,
+        "max": 12.3263
+      },
+      "intervals_over_1_5_period": 0,
+      "intervals_within_one_percent": 535,
+      "packetize_ms": {
+        "min": 0.1754,
+        "p01": 0.1928,
+        "p50": 0.3451,
+        "p95": 0.4645,
+        "p99": 0.5951,
+        "max": 4.7848
+      },
+      "maximum_frame_bytes": 36351,
+      "oversize_frames": 0,
+      "unencoded_mailbox_replacements": 0,
+      "host_one_second_windows": {
+        "frames": {
+          "count": 17,
+          "min": 100,
+          "max": 100,
+          "mean": 100.0
+        },
+        "encoded_mbps": {
+          "count": 17,
+          "min": 19.466728,
+          "max": 19.562336,
+          "mean": 19.52229411764706
+        },
+        "serialized_mbps": {
+          "count": 17,
+          "min": 20.376808,
+          "max": 20.476376,
+          "mean": 20.434745882352942
+        },
+        "scope": "Complete host arrival windows after warmup; serialized bytes were formed in memory, not sent to USB."
+      }
+    },
+    "final": {
+      "source_report": {
+        "filename": "host-final-30.json",
+        "sha256": "0bfe1cc390630079cc37da882b31a4f4d1a7a9e3bf3bbe2cdc21b59445579985"
+      },
+      "measurement": "host access-unit arrival; not capture-to-photon latency",
+      "status": "completed",
+      "parse_error": null,
+      "frame_budget_target_met": true,
+      "optical_latency_target": "not measured",
+      "host_interval_one_percent_target_met": false,
+      "encoded_bitrate_one_percent_target_met": false,
+      "screen_video_saved": false,
+      "usb_access": false,
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "returncode": 0,
+      "warmup_seconds": 3,
+      "requested_seconds": 30.0,
+      "total_frames": 3009,
+      "measured_frames": 2700,
+      "measured_fps": 99.99099969868105,
+      "interval_ms": {
+        "min": 7.0417,
+        "p01": 8.1993,
+        "p50": 9.9965,
+        "p95": 10.9883,
+        "p99": 11.8253,
+        "max": 13.0625
+      },
+      "intervals_over_1_5_period": 0,
+      "intervals_within_one_percent": 988,
+      "packetize_ms": {
+        "min": 0.166,
+        "p01": 0.2013,
+        "p50": 0.3399,
+        "p95": 0.448,
+        "p99": 0.5632,
+        "max": 1.1517
+      },
+      "maximum_frame_bytes": 34428,
+      "oversize_frames": 0,
+      "unencoded_mailbox_replacements": 0,
+      "host_one_second_windows": {
+        "frames": {
+          "count": 27,
+          "min": 100,
+          "max": 100,
+          "mean": 100.0
+        },
+        "encoded_mbps": {
+          "count": 27,
+          "min": 19.468488,
+          "max": 19.669512,
+          "mean": 19.586136000000003
+        },
+        "serialized_mbps": {
+          "count": 27,
+          "min": 20.378568,
+          "max": 20.589312,
+          "mean": 20.501869333333335
+        },
+        "scope": "Complete host arrival windows after warmup; serialized bytes were formed in memory, not sent to USB."
+      }
+    },
+    "source_renderer": {
+      "source_report": {
+        "filename": "renderer-final-host.json",
+        "sha256": "1dc87afef7fdf55511f86f6a6044ba60a8cfcdc53d3d045101a68ba30d325f10"
+      },
+      "schema": 1,
+      "scope": "Source renderer only; Present return is not goggles display completion",
+      "mode": "texture",
+      "seconds_requested": 75,
+      "texture_cycle_frames": 200,
+      "display_refresh_hz": 100,
+      "swapchain": "flip-discard,2 buffers,max-frame-latency1,Present1 sync interval1",
+      "clock": "QueryPerformanceCounter",
+      "focus_unchanged_on_show": true,
+      "error": "",
+      "count": 7500,
+      "scope_note": "Renderer ran continuously across both host samples. Its 7500 source presents are not correlated to individual host output frames; no source-to-output frame-age claim is made."
+    },
+    "interpretation": "Both samples have no access-unit interval above 15 ms and no unencoded mailbox replacement. The final p99 and maximum arrival intervals are slightly higher; these single runs do not demonstrate a statistically equal latency distribution. Neither meets the 1% frame-interval target, and neither measures capture-to-photon latency."
+  },
+  "codec_modes": {
+    "supported_maximums": {
+      "source_report": {
+        "filename": "release-final-modes-max.json",
+        "sha256": "c52a2d5704eec70a8fd235a5d2e12c2923af8335df3da2e4d28ec1c15cb02df6"
+      },
+      "measurement": "Finite generated codec/frame-budget checks, not hardware/optical acceptance",
+      "desktop_access": false,
+      "usb_access": false,
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "passed": true,
+      "cases": [
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 60,
+          "bitrate_mbps": 24,
+          "preset": "p1",
+          "frames": 185,
+          "decoded_frames": 185,
+          "maximum_frame_bytes": 50449,
+          "startup_idrs": [
+            0,
+            60,
+            120
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 60,
+          "bitrate_mbps": 24,
+          "preset": "p4",
+          "frames": 185,
+          "decoded_frames": 185,
+          "maximum_frame_bytes": 49504,
+          "startup_idrs": [
+            0,
+            60,
+            120
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 75,
+          "bitrate_mbps": 30,
+          "preset": "p1",
+          "frames": 230,
+          "decoded_frames": 230,
+          "maximum_frame_bytes": 50373,
+          "startup_idrs": [
+            0,
+            75,
+            150
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 75,
+          "bitrate_mbps": 30,
+          "preset": "p4",
+          "frames": 230,
+          "decoded_frames": 230,
+          "maximum_frame_bytes": 49185,
+          "startup_idrs": [
+            0,
+            75,
+            150
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 90,
+          "bitrate_mbps": 32,
+          "preset": "p1",
+          "frames": 275,
+          "decoded_frames": 275,
+          "maximum_frame_bytes": 48671,
+          "startup_idrs": [
+            0,
+            90,
+            180
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 90,
+          "bitrate_mbps": 32,
+          "preset": "p4",
+          "frames": 275,
+          "decoded_frames": 275,
+          "maximum_frame_bytes": 47614,
+          "startup_idrs": [
+            0,
+            90,
+            180
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 100,
+          "bitrate_mbps": 40,
+          "preset": "p1",
+          "frames": 305,
+          "decoded_frames": 305,
+          "maximum_frame_bytes": 50400,
+          "startup_idrs": [
+            0,
+            100,
+            200
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 100,
+          "bitrate_mbps": 40,
+          "preset": "p4",
+          "frames": 305,
+          "decoded_frames": 305,
+          "maximum_frame_bytes": 49631,
+          "startup_idrs": [
+            0,
+            100,
+            200
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 60,
+          "bitrate_mbps": 24,
+          "preset": "p1",
+          "frames": 185,
+          "decoded_frames": 185,
+          "maximum_frame_bytes": 50786,
+          "startup_idrs": [
+            0,
+            60,
+            120
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 60,
+          "bitrate_mbps": 24,
+          "preset": "p4",
+          "frames": 185,
+          "decoded_frames": 185,
+          "maximum_frame_bytes": 50865,
+          "startup_idrs": [
+            0,
+            60,
+            120
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 75,
+          "bitrate_mbps": 30,
+          "preset": "p1",
+          "frames": 230,
+          "decoded_frames": 230,
+          "maximum_frame_bytes": 50698,
+          "startup_idrs": [
+            0,
+            75,
+            150
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 75,
+          "bitrate_mbps": 30,
+          "preset": "p4",
+          "frames": 230,
+          "decoded_frames": 230,
+          "maximum_frame_bytes": 50962,
+          "startup_idrs": [
+            0,
+            75,
+            150
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 90,
+          "bitrate_mbps": 32,
+          "preset": "p1",
+          "frames": 275,
+          "decoded_frames": 275,
+          "maximum_frame_bytes": 48451,
+          "startup_idrs": [
+            0,
+            90,
+            180
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 90,
+          "bitrate_mbps": 32,
+          "preset": "p4",
+          "frames": 275,
+          "decoded_frames": 275,
+          "maximum_frame_bytes": 48516,
+          "startup_idrs": [
+            0,
+            90,
+            180
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 100,
+          "bitrate_mbps": 40,
+          "preset": "p1",
+          "frames": 305,
+          "decoded_frames": 305,
+          "maximum_frame_bytes": 48864,
+          "startup_idrs": [
+            0,
+            100,
+            200
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 100,
+          "bitrate_mbps": 40,
+          "preset": "p4",
+          "frames": 305,
+          "decoded_frames": 305,
+          "maximum_frame_bytes": 49062,
+          "startup_idrs": [
+            0,
+            100,
+            200
+          ],
+          "passed": true
+        }
+      ],
+      "case_count": 16,
+      "encoded_frames": 3980,
+      "decoded_frames": 3980,
+      "maximum_frame_bytes": 50962,
+      "decoder_error_count": 0
+    },
+    "eight_mbps": {
+      "source_report": {
+        "filename": "release-final-modes-8m.json",
+        "sha256": "9da132d8d1a966bf0efc74253ed58c94bba682b64667aecfe16882845fa24b01"
+      },
+      "measurement": "Finite generated codec/frame-budget checks, not hardware/optical acceptance",
+      "desktop_access": false,
+      "usb_access": false,
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "passed": true,
+      "cases": [
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 60,
+          "bitrate_mbps": 8,
+          "preset": "p1",
+          "frames": 185,
+          "decoded_frames": 185,
+          "maximum_frame_bytes": 29002,
+          "startup_idrs": [
+            0,
+            60,
+            120
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 60,
+          "bitrate_mbps": 8,
+          "preset": "p4",
+          "frames": 185,
+          "decoded_frames": 185,
+          "maximum_frame_bytes": 29068,
+          "startup_idrs": [
+            0,
+            60,
+            120
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 75,
+          "bitrate_mbps": 8,
+          "preset": "p1",
+          "frames": 230,
+          "decoded_frames": 230,
+          "maximum_frame_bytes": 22853,
+          "startup_idrs": [
+            0,
+            75,
+            150
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 75,
+          "bitrate_mbps": 8,
+          "preset": "p4",
+          "frames": 230,
+          "decoded_frames": 230,
+          "maximum_frame_bytes": 22845,
+          "startup_idrs": [
+            0,
+            75,
+            150
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 90,
+          "bitrate_mbps": 8,
+          "preset": "p1",
+          "frames": 275,
+          "decoded_frames": 275,
+          "maximum_frame_bytes": 19096,
+          "startup_idrs": [
+            0,
+            90,
+            180
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 90,
+          "bitrate_mbps": 8,
+          "preset": "p4",
+          "frames": 275,
+          "decoded_frames": 275,
+          "maximum_frame_bytes": 19039,
+          "startup_idrs": [
+            0,
+            90,
+            180
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 100,
+          "bitrate_mbps": 8,
+          "preset": "p1",
+          "frames": 305,
+          "decoded_frames": 305,
+          "maximum_frame_bytes": 16727,
+          "startup_idrs": [
+            0,
+            100,
+            200
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1280,
+            720
+          ],
+          "fps": 100,
+          "bitrate_mbps": 8,
+          "preset": "p4",
+          "frames": 305,
+          "decoded_frames": 305,
+          "maximum_frame_bytes": 16728,
+          "startup_idrs": [
+            0,
+            100,
+            200
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 60,
+          "bitrate_mbps": 8,
+          "preset": "p1",
+          "frames": 185,
+          "decoded_frames": 185,
+          "maximum_frame_bytes": 27781,
+          "startup_idrs": [
+            0,
+            60,
+            120
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 60,
+          "bitrate_mbps": 8,
+          "preset": "p4",
+          "frames": 185,
+          "decoded_frames": 185,
+          "maximum_frame_bytes": 27776,
+          "startup_idrs": [
+            0,
+            60,
+            120
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 75,
+          "bitrate_mbps": 8,
+          "preset": "p1",
+          "frames": 230,
+          "decoded_frames": 230,
+          "maximum_frame_bytes": 21444,
+          "startup_idrs": [
+            0,
+            75,
+            150
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 75,
+          "bitrate_mbps": 8,
+          "preset": "p4",
+          "frames": 230,
+          "decoded_frames": 230,
+          "maximum_frame_bytes": 21387,
+          "startup_idrs": [
+            0,
+            75,
+            150
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 90,
+          "bitrate_mbps": 8,
+          "preset": "p1",
+          "frames": 275,
+          "decoded_frames": 275,
+          "maximum_frame_bytes": 18372,
+          "startup_idrs": [
+            0,
+            90,
+            180
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 90,
+          "bitrate_mbps": 8,
+          "preset": "p4",
+          "frames": 275,
+          "decoded_frames": 275,
+          "maximum_frame_bytes": 18370,
+          "startup_idrs": [
+            0,
+            90,
+            180
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 100,
+          "bitrate_mbps": 8,
+          "preset": "p1",
+          "frames": 305,
+          "decoded_frames": 305,
+          "maximum_frame_bytes": 16335,
+          "startup_idrs": [
+            0,
+            100,
+            200
+          ],
+          "passed": true
+        },
+        {
+          "resolution": [
+            1920,
+            1080
+          ],
+          "fps": 100,
+          "bitrate_mbps": 8,
+          "preset": "p4",
+          "frames": 305,
+          "decoded_frames": 305,
+          "maximum_frame_bytes": 16374,
+          "startup_idrs": [
+            0,
+            100,
+            200
+          ],
+          "passed": true
+        }
+      ],
+      "case_count": 16,
+      "encoded_frames": 3980,
+      "decoded_frames": 3980,
+      "maximum_frame_bytes": 29068,
+      "decoder_error_count": 0
+    }
+  },
+  "generated_pixel_regression": {
+    "source_report": {
+      "filename": "release-final-gpu-pixels.json",
+      "sha256": "2c7b0d29fb70d4fefd2bb9c1b102ed0f32864a9f2b3cf049646db8df40d878fd"
+    },
+    "status": "passed",
+    "measurement": "Generated pixel, frame-order and H.264 compatibility checks; not optical latency, live pacing or goggles-display validation",
+    "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+    "screen_capture": false,
+    "usb_access": false,
+    "frames_per_case": 48,
+    "raw_component_tolerance": 2,
+    "decoded_component_tolerance": 4,
+    "elapsed_seconds": 23.25,
+    "validation_frame_counts": {
+      "cpu_raw": 288,
+      "gpu_raw": 288,
+      "cpu_encoded": 288,
+      "gpu_encoded": 288,
+      "cpu_decoded": 288,
+      "gpu_decoded": 288
+    },
+    "cases": [
+      {
+        "source": [
+          128,
+          72
+        ],
+        "target": [
+          1280,
+          720
+        ],
+        "aspect_fit_rect": [
+          0,
+          0,
+          1280,
+          720
+        ],
+        "status": "passed",
+        "sps_pps_match_cpu_path": true,
+        "cpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": false,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 0,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 0,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": false,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 0,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 0,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 34534,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        },
+        "gpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 32779,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        }
+      },
+      {
+        "source": [
+          128,
+          72
+        ],
+        "target": [
+          1920,
+          1080
+        ],
+        "aspect_fit_rect": [
+          0,
+          0,
+          1920,
+          1080
+        ],
+        "status": "passed",
+        "sps_pps_match_cpu_path": true,
+        "cpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": false,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 0,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 0,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": false,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 0,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 0,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 4309,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        },
+        "gpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 4297,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        }
+      },
+      {
+        "source": [
+          344,
+          144
+        ],
+        "target": [
+          1280,
+          720
+        ],
+        "aspect_fit_rect": [
+          0,
+          92,
+          1280,
+          534
+        ],
+        "status": "passed",
+        "sps_pps_match_cpu_path": true,
+        "cpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": false,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 17141760,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 17141760,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 6,
+          "colour_thresholds_enforced": false,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 2,
+          "checked_black_bar_components": 14015232,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 6,
+          "colour_threshold_violation_count": 2
+        },
+        "gpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 3,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 1,
+          "checked_black_bar_components": 14015232,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 3,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 30551,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        },
+        "gpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 29469,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        }
+      },
+      {
+        "source": [
+          344,
+          144
+        ],
+        "target": [
+          1920,
+          1080
+        ],
+        "aspect_fit_rect": [
+          0,
+          138,
+          1920,
+          802
+        ],
+        "status": "passed",
+        "sps_pps_match_cpu_path": true,
+        "cpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": false,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 38430720,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 38430720,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": false,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 33723648,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 1,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 2,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 33723648,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 1,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 3149,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        },
+        "gpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 3159,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        }
+      },
+      {
+        "source": [
+          108,
+          192
+        ],
+        "target": [
+          1280,
+          720
+        ],
+        "aspect_fit_rect": [
+          438,
+          0,
+          404,
+          720
+        ],
+        "status": "passed",
+        "sps_pps_match_cpu_path": true,
+        "cpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": false,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 45411840,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 45411840,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": false,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 42780672,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 1,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 42780672,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 28170,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        },
+        "gpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 27951,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        }
+      },
+      {
+        "source": [
+          108,
+          192
+        ],
+        "target": [
+          1920,
+          1080
+        ],
+        "aspect_fit_rect": [
+          656,
+          0,
+          606,
+          1080
+        ],
+        "status": "passed",
+        "sps_pps_match_cpu_path": true,
+        "cpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": false,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 102176640,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_raw": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 102176640,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 0,
+          "colour_thresholds_enforced": false,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 98211456,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "gpu_decoded": {
+          "frames": 48,
+          "maximum_component_error": 1,
+          "colour_thresholds_enforced": true,
+          "compared_with_cpu_reference": true,
+          "maximum_uniform_field_spread": 0,
+          "maximum_gray_chroma_error": 0,
+          "maximum_black_bar_error": 0,
+          "checked_black_bar_components": 98211456,
+          "colour_sample_positions_per_frame": 36,
+          "content_edges_checked": true,
+          "repeated_colour_error": 0,
+          "colour_threshold_violation_count": 0
+        },
+        "cpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 2812,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        },
+        "gpu_encoded": {
+          "frames": 48,
+          "maximum_access_unit_bytes": 2822,
+          "oversized_access_units": 0,
+          "idr_frames": [
+            0
+          ]
+        }
+      }
+    ],
+    "scope": "Generated pixels, offline admission preserves all frame IDs. CPU reference paths also encode with NVIDIA NVENC. This is not live capture or optical validation."
+  },
+  "intentional_backpressure": {
+    "source_report": {
+      "filename": "mailbox-stress-final.json",
+      "sha256": "0860e9e39bdade13ff5af5078107c76f011e9414872808ca90f48590e24ed600"
+    },
+    "status": "passed",
+    "screen_capture": false,
+    "usb": false,
+    "software_encoding": false,
+    "source": "Eight cached deterministic moving backgrounds plus 17 independent source-ID/CRC regions",
+    "scope": "D3D11 upload/conversion/pool/latest/NVENC stress; does not exercise DDA or measure normal latency",
+    "caution": "Identity probes cover their regions; PSNR/MSE are evidence, not proof of mixed surface ownership.",
+    "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+    "template_sha256": "eae9032f1d8bf8c4024d458e76c8bb6b8a977d8c7b11ff46a82f191ed4a00f8c",
+    "frames_requested": 1000,
+    "nominal_source_rate": 400,
+    "source_cache_prepare_seconds": 0.9849999999860302,
+    "encode": {
+      "submitted": 1000,
+      "producer_seconds": 4.812999999965541,
+      "returncode": 0,
+      "elapsed_seconds": 4.952999999979511,
+      "submitted_wall_fps": 201.8978396939505,
+      "access_units": 172,
+      "packet_bytes": {
+        "count": 172,
+        "mean": 22100.656976744187,
+        "min": 8538.0,
+        "p01": 9337.0,
+        "p50": 21921.0,
+        "p95": 34349.0,
+        "p99": 39303.0,
+        "max": 41892.0
+      },
+      "mailbox_replaced": 828,
+      "mailbox_summary_count": 1,
+      "slow_reader_ms": 4,
+      "read_chunk": 4096
+    },
+    "decode": {
+      "returncode": 0,
+      "frames": 172,
+      "confirmed_mixed": 0,
+      "inconclusive": 0,
+      "duplicate_or_reverse": 0,
+      "minimum_marker_margin": 78.5,
+      "truth_y_mse": {
+        "count": 172,
+        "mean": 36.78530309045723,
+        "min": 13.695639467592592,
+        "p01": 14.058148630401234,
+        "p50": 30.24997588734568,
+        "p95": 83.76264178240741,
+        "p99": 91.82861111111112,
+        "max": 103.8424045138889
+      }
+    },
+    "reference_chain": {
+      "slice_count": 172,
+      "frame_num_errors": [],
+      "qp_scope": "Initial slice QP only; macroblock/AQ QP is unavailable",
+      "returncode": 0
+    },
+    "frame_accounting_matches": true,
+    "source_ids_strictly_increasing": true,
+    "final_source_frame_drained": true
+  },
+  "external_validation": {
+    "goggles_connected_for_final_validation": false,
+    "usb_transport_tested_this_release": false,
+    "goggles_optical_tested_this_release": false,
+    "optical_latency_ms": null,
+    "one_percent_end_to_end_jitter_proven": false,
+    "zero_end_to_end_frame_loss_proven": false
+  }
+}

@@ -4,7 +4,7 @@ Stream your Windows or Mac desktop to DJI Goggles 2 or DJI Goggles Integra over 
 
 ## DJI Goggles Streamer desktop client
 
-This fork adds **DJI Goggles Streamer 0.2.4**, a Windows x64 graphical client.
+This fork adds **DJI Goggles Streamer 0.2.5**, a Windows x64 graphical client.
 It wraps the SDK with environment and firmware checks, integrated
 driver setup, streaming controls, persistent settings and offline help.
 It offers borderless primary/virtual desktop capture at 720p or 1080p, four frame
@@ -12,7 +12,16 @@ rates up to 100 fps, automatic USB streaming/display lifecycle and sender metric
 The desktop adapter uses NVIDIA NVENC H.264 exclusively, without a software
 fallback; the SDK's original encoder defaults remain unchanged. Window selection and a
 macOS GUI are planned.
-Version 0.2.4 retains one target-rate QPC capture clock, GPU BT.709 NV12 conversion
+Version 0.2.5 uses H.264 High with explicit CABAC and symmetric chroma QP offsets
+of -4 instead of the early Baseline compatibility setting. Generated comparisons
+show improved motion detail and colour edges at the same configured 20 Mbps
+target; actual coded bitrate remains content-dependent. RGB conversion is unchanged.
+It retains qres multipass, the VBV/frame-size guards, no B frames or lookahead,
+one reference frame and the existing startup keyframes. No extra output buffer
+or periodic IDR is introduced. The bundled native binaries and SDK patches are
+unchanged from 0.2.4.
+
+The client retains one target-rate QPC capture clock, GPU BT.709 NV12 conversion
 with correct letterboxing, asynchronous NVENC completion events, and a single
 waiting raw-frame slot. Under overload, newer raw pictures replace waiting ones;
 encoded H.264 references remain ordered. It does not promise zero drops, fixed
@@ -46,7 +55,8 @@ before running the desktop packaging preparation step.
 
 See the [Windows user and build guide](docs/desktop/USER_GUIDE.md),
 [current implementation notes](docs/desktop/IMPLEMENTATION.md),
-[0.2.4 validation record](docs/desktop/VALIDATION-0.2.4.md),
+[0.2.5 validation record](docs/desktop/VALIDATION-0.2.5.md),
+[motion-quality comparison](docs/desktop/evidence/v0.2.5-motion-quality.md),
 [VR timing design and sources](docs/desktop/VR_TIMING.md),
 [protocol and performance limits](docs/desktop/PROTOCOL_LIMITS.md) and
 [third-party notices](docs/desktop/THIRD_PARTY.md). The command-line SDK described

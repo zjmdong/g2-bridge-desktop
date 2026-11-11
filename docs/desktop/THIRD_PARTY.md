@@ -1,4 +1,4 @@
-# Third-party components — 0.2.4
+# Third-party components — 0.2.5
 
 DJI Goggles Streamer and G2 Bridge, including its audited local SDK patches, are GPL-3.0-only. The
 application installer includes LICENSE and this notice. A source archive is
@@ -21,7 +21,10 @@ redistributed in the installer or project source.
 
 FFmpeg is a modified standalone executable, invoked as a separate process; its
 libraries are not linked into the desktop application. This release retains
-the minimal LGPL build introduced in 0.2.3. Native changes
+the same native binaries and source patch as 0.2.4, based on the minimal LGPL
+build introduced in 0.2.3. Version 0.2.5 changes the desktop H.264 policy to
+High/CABAC with symmetric chroma QP offsets of -4, without modifying FFmpeg,
+RGB conversion or adding a runtime dependency. Native changes
 cover the QPC DDA clock with opt-in source-phase alignment, D3D11 SDR
 conversion/letterboxing, opt-in NVENC completion events, and the single-slot
 raw-frame mailbox. Of the 70 recorded G2 Bridge SDK files, 68 match their
@@ -53,7 +56,7 @@ build. Native FFmpeg source, patch, dependency and executable identities are
 recorded separately in `packaging/windows/ffmpeg/manifest.json`.
 
 See the [current implementation notes](IMPLEMENTATION.md),
-[0.2.4 validation record](VALIDATION-0.2.4.md) and
+[0.2.5 validation record](VALIDATION-0.2.5.md) and
 [protocol/performance limits](PROTOCOL_LIMITS.md) for the scope of the changes
 and evidence. The modified build does not establish a new optical latency or
 USB hardware capability merely by retaining these provenance records.

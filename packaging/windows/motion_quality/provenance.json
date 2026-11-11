@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "scope": "Numeric provenance; no captured images or device information",
+  "line_endings": "UTF-8 LF, sha256 of exact bytes",
+  "original_work_sources": {
+    "check_motion_quality.py": {
+      "sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "bytes": 26208
+    },
+    "mailbox_texture_stress.py": {
+      "sha256": "d84f5b66ba776aad8fce2764073bdad7f3e7e19ef032ad915d7329c1c0f313c0",
+      "bytes": 21571
+    },
+    "test_motion_quality.py": {
+      "sha256": "4c541e89d59ceab29911df9e4476be986c76eb3a525119535d9a127a6a660bdf",
+      "bytes": 4442
+    },
+    "baseline-command-v024.json": {
+      "sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "bytes": 1470
+    }
+  },
+  "historical_quality_report_provenance": [
+    {
+      "label": "gpu-baseline.json",
+      "source_code_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd"
+    },
+    {
+      "label": "gpu-high.json",
+      "source_code_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd"
+    },
+    {
+      "label": "gpu-main.json",
+      "source_code_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd"
+    },
+    {
+      "label": "gpu-high-fullres.json",
+      "source_code_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd"
+    },
+    {
+      "label": "gpu-high-aq8.json",
+      "source_code_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd"
+    },
+    {
+      "label": "gpu-high-chroma4.json",
+      "role": "Final High/qres/Cb-Cr -4 candidate, separate from earlier High-only results",
+      "source_code_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "eae9032f1d8bf8c4024d458e76c8bb6b8a977d8c7b11ff46a82f191ed4a00f8c",
+      "template_artifact": "candidate-command-v025.json",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "template_artifact_sha256": "c5d05d7506aceee5caaa04f70e07be23ab08e790032dcfa190b304b31b8a7842",
+      "template_artifact_normalization": "CRLF to LF only; template_sha256 remains the original measured CRLF hash"
+    }
+  ],
+  "original_source_note": "Quality report source hashes are recorded in the historical reports. Other original-source hashes were recorded at publication; their source files were not changed during migration.",
+  "publication_changes": [
+    "Root lookup moves from HERE.parents[1] in work to HERE.parents[2] under packaging/windows.",
+    "Quality run_stream joins and closes the input writer after exceptional receive/parse cleanup.",
+    "Quality command construction rejects explicit CABAC with a Baseline profile.",
+    "Four additional CPU-only tests cover candidate parameters, historical template separation, production option equivalence and exceptional writer cleanup.",
+    "The intermediate template changes only the baseline profile to High and adds explicit CABAC. It is retained as candidate-high-only-v025.json.",
+    "The final candidate additionally sets qp_cb_offset and qp_cr_offset to -4; qres and all other frozen settings remain.",
+    "Documentation distinguishes historical measured hashes from the reusable published tools and final-candidate results from earlier High-only measurements.",
+    "The measured final-candidate template used CRLF. Its public copy uses LF only; both hashes are recorded and normalized bytes reconstruct the measured CRLF hash."
+  ],
+  "restoration_patch": "restore-measured-tools.patch",
+  "published_files": {
+    "check_motion_quality.py": {
+      "sha256": "a78e5f5a9863142e23616bc9e5597e0bc8b1ec1b4aaab481e38f8301535e18a3",
+      "bytes": 26859
+    },
+    "mailbox_texture_stress.py": {
+      "sha256": "4e24027b9dcfe9d18ad569c3d5866243eb81a17e0d9b9b316f5f80203d94469f",
+      "bytes": 21571
+    },
+    "test_motion_quality.py": {
+      "sha256": "0cf1b29cc916a281797c871ecc5b0b32171329b9edb21b0740b99b4a6cf83396",
+      "bytes": 8971
+    },
+    "baseline-command-v024.json": {
+      "sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "bytes": 1470
+    },
+    "candidate-high-only-v025.json": {
+      "sha256": "3769b5e9fd630a6895fdc0faab73617d15ed2749541739472cc6c8ddf197b1c0",
+      "bytes": 1489
+    },
+    "candidate-command-v025.json": {
+      "sha256": "c5d05d7506aceee5caaa04f70e07be23ab08e790032dcfa190b304b31b8a7842",
+      "bytes": 1543
+    },
+    "restore-measured-tools.patch": {
+      "sha256": "b891e368e8f64ff091d4651f966d6371b733d222becd9373fc9d54c8b75863e1",
+      "bytes": 7167
+    },
+    "README.md": {
+      "sha256": "bd2d8177ad4df9a2295fa092e60e7823332363fef2c1087663d56134c01ac037",
+      "bytes": 8849
+    },
+    ".gitattributes": {
+      "sha256": "a287f65ee4f41b94337f0fce59b956dc154cfebfc3f5f1423146ad79675f7c3b",
+      "bytes": 34
+    }
+  },
+  "numerical_reproduction_note": "No claim of byte-identical encoder output, timing or quality across later runs, drivers or source relocation.",
+  "restoration_line_endings_note": "Use per-command core.autocrlf=false and core.eol=lf to preserve original LF bytes on Windows; no global configuration change.",
+  "command_templates": {
+    "baseline-command-v024.json": {
+      "role": "Frozen 0.2.4 baseline",
+      "sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676"
+    },
+    "candidate-high-only-v025.json": {
+      "role": "Historical intermediate candidate, not final 0.2.5 policy",
+      "sha256": "3769b5e9fd630a6895fdc0faab73617d15ed2749541739472cc6c8ddf197b1c0",
+      "changes_from_baseline": {
+        "profile:v": "high",
+        "coder": "cabac"
+      }
+    },
+    "candidate-command-v025.json": {
+      "role": "Final selected 0.2.5 candidate",
+      "sha256": "c5d05d7506aceee5caaa04f70e07be23ab08e790032dcfa190b304b31b8a7842",
+      "changes_from_baseline": {
+        "profile:v": "high",
+        "coder": "cabac",
+        "qp_cb_offset": "-4",
+        "qp_cr_offset": "-4"
+      },
+      "production_semantic_comparison": "All option values match; each flag occurs exactly once; executable path excluded",
+      "original_measured_template_sha256": "eae9032f1d8bf8c4024d458e76c8bb6b8a977d8c7b11ff46a82f191ed4a00f8c"
+    }
+  },
+  "original_work_templates": {
+    "candidate-chroma4-command-v025.json": {
+      "sha256": "eae9032f1d8bf8c4024d458e76c8bb6b8a977d8c7b11ff46a82f191ed4a00f8c",
+      "bytes": 1635,
+      "line_endings": "CRLF",
+      "published_artifact": "candidate-command-v025.json",
+      "published_sha256": "c5d05d7506aceee5caaa04f70e07be23ab08e790032dcfa190b304b31b8a7842",
+      "normalization": "CRLF to LF only; parsed command and option order are unchanged"
+    }
+  }
+}

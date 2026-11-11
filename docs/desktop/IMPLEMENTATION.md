@@ -1,5 +1,56 @@
 # Windows implementation history
 
+## 0.2.5 motion coding quality
+
+The desktop now selects H.264 High, explicitly requests CABAC entropy coding,
+and sets both chroma QP offsets to -4.
+The environment probe, settings-to-SDK adapter, capture command and reported
+profile share this policy. Baseline was retained during early compatibility
+debugging; the receiver supports High, and the separate colour-description-free
+VUI policy remains in place. Input is still 8-bit limited-range BT.709 NV12.
+
+High/CABAC alone produced a six-code-value error at a red letterbox boundary,
+exceeding the existing four-code-value decoded-colour tolerance. The symmetric
+chroma offsets allocate finer quantization to colour components; all six geometry
+checks then passed without relaxing that tolerance. This is an NVENC quantization
+setting, not a change to RGB conversion, scaling or the use of hardware encoding.
+It slightly redistributes the fixed coding budget from luminance to chroma
+relative to the High-only candidate, so the final policy is measured separately.
+
+Keep NVIDIA NVENC, P1/P4, ULL, qres multipass, the configured bitrate and the
+existing VBV/frame-size protection. The default target remains
+1080p100/20 Mbps/P4. There are still no B frames or lookahead, one reference
+frame, startup IDRs at 0, 1 and 2 seconds and no periodic forced IDR or intra
+refresh. Capture scheduling, the raw-frame mailbox and ordered USB output are
+unchanged; this profile change adds no output pacing queue.
+
+At the same configured 20 Mbps, the 540-frame generated GPU-input comparison
+with the final High/CABAC, qres and chroma-offset policy reduced aggregate
+luminance squared error versus Baseline by 46.75% for fast panning, 54.18% for
+scene changes and 25.08% for fine texture. These percentages
+come from aggregated pixel error, not an average of per-frame decibel scores.
+Actual coded byte counts differed, so this is not a comparison at strictly equal
+effective bitrate. Frame identities, reference-chain checks and the 56,000-byte
+frame guard passed for these samples. They do not establish the goggles' visual
+result or optical latency.
+
+Full-resolution multipass and spatial AQ were also compared. Fullres improved
+average detail but produced larger error spikes at scene changes; AQ had mixed
+local results. Neither is enabled by this release. The original qres policy
+keeps the measured motion-quality improvement without those tested regressions.
+See [the quality evidence](evidence/v0.2.5-motion-quality.md) and
+[0.2.5 validation](VALIDATION-0.2.5.md) for conditions and remaining limits.
+
+An identical 500-frame generated input produced byte-identical H.264 access units
+with the 0.2.3 and 0.2.4 native binaries. This does not support attributing the
+reported quality issue to a new native encoding change in 0.2.4. It also does not
+compare changing live desktop inputs. Version 0.2.5 reuses the 0.2.4 FFmpeg
+binaries, source patch and dependency manifest. The two audited SDK patches
+remain unchanged; the quality policy is implemented only in the desktop adapter.
+
+The following sections preserve earlier configurations and measurements,
+including the former Baseline profile. They are not new 0.2.5 acceptance results.
+
 ## 0.2.4 source-phase alignment and GPU scheduling
 
 Retain the 1080p100/20 Mbps/P4 target and the existing capture, colour conversion,
@@ -46,9 +97,6 @@ policies have separate mocked coverage, with real encoder checks in validation.
 reasons. `packaging/windows/verify_sdk.py` rejects unlisted changes,
 stale patch hashes and a patch tied to a different baseline. The desktop changes
 and mocked regression tests remain separate from the SDK protocol implementation.
-
-The following sections preserve earlier implementation and validation history.
-They do not imply that a historical experiment is a new 0.2.4 measurement.
 
 ## 0.2.3 bound raw-frame backlog and repair native capture timing
 

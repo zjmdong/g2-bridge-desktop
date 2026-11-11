@@ -1,0 +1,3067 @@
+{
+  "schema": 1,
+  "scope": "Offline generated GPU-upload/VP/NVENC quality candidates; no DDA, USB or optical latency measurement",
+  "parameters": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 100,
+    "bitrate_target_mbps": 20,
+    "preset": "p4",
+    "frames": 540
+  },
+  "metric_note": "PSNR is derived from arithmetic mean pixel MSE over equal-sized frames, not mean frame PSNR. Coded bitrate is normalized to nominal 100 fps, not wall time.",
+  "caveats": [
+    "One generated source and seed, one run per candidate; no arbitrary-input quality guarantee.",
+    "All candidates share a 20 Mbps target, but actual useful encoded bitrates differ; this is not an equal-actual-bitrate comparison.",
+    "Canonical NV12 source is converted to RGB and back on GPU; absolute error includes the shared conversion, and does not isolate NVENC alone.",
+    "The final overwrite segment is adversarial every-frame new content, not a proxy for every FPV simulator scene.",
+    "Block MSE >100 is a diagnostic threshold, not a validated perceptual threshold.",
+    "Initial slice QP does not expose macroblock quantizers, especially with AQ.",
+    "A passed identity/chain test does not prove the absence of DDA ownership or receiver display problems."
+  ],
+  "cases": {
+    "baseline": {
+      "source_report": "gpu-baseline.json",
+      "source_report_sha256": "c24b6a3a93bec680052af430c208df5ba3fc1a8134fcca0b49f8b83c112376b9",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "generator_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "options": {
+        "-profile:v": "baseline",
+        "-multipass": "qres",
+        "-spatial-aq": "0",
+        "-temporal-aq": "0",
+        "-aq-strength": "8",
+        "-bufsize": "400000",
+        "-bf": "0",
+        "-refs": "1",
+        "-rc-lookahead": "0",
+        "-qp_cb_offset": "0 (default)",
+        "-qp_cr_offset": "0 (default)"
+      },
+      "integrity": {
+        "status": "passed",
+        "frames": 540,
+        "wrong_identity_count": 0,
+        "reference_chain_errors": [],
+        "restart_check": "passed",
+        "maximum_access_unit_bytes": 42854,
+        "oversize_frames": 0
+      },
+      "header_policy": {
+        "profile_idc": 66,
+        "entropy_coding_mode_flag": 0,
+        "transform_8x8_mode_flag": 0,
+        "video_signal_type_present_flag": 0,
+        "max_num_reorder_frames": 0,
+        "max_num_ref_frames": 2
+      },
+      "all": {
+        "frames": 540,
+        "y_mse": 40.102914860003715,
+        "y_psnr_from_aggregate_mse_db": 32.09904420626579,
+        "yuv_mse": 29.37277034572188,
+        "yuv_psnr_from_aggregate_mse_db": 33.45135451147297,
+        "nominal_coded_mbps": 8.358973333333333,
+        "mean_initial_slice_qp": 34.06111111111111,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.12781808549843376,
+        "mean_block_boundary_residual_mae": 4.80572389320091,
+        "maximum_access_unit_bytes": 42854,
+        "worst_y_mse_frames": [
+          {
+            "index": 496,
+            "y_mse": 185.5692013888889,
+            "access_unit_bytes": 19666,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 529,
+            "y_mse": 185.56311342592593,
+            "access_unit_bytes": 20744,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 519,
+            "y_mse": 184.76754774305556,
+            "access_unit_bytes": 20937,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 526,
+            "y_mse": 184.6687032214506,
+            "access_unit_bytes": 20960,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 510,
+            "y_mse": 184.51170283564815,
+            "access_unit_bytes": 20187,
+            "initial_slice_qp": 45
+          }
+        ]
+      },
+      "excluding_overwrite": {
+        "frames": 480,
+        "y_mse": 22.50284685048547,
+        "y_psnr_from_aggregate_mse_db": 34.60842896390048,
+        "yuv_mse": 17.46736892829968,
+        "yuv_psnr_from_aggregate_mse_db": 35.708528677896616,
+        "nominal_coded_mbps": 7.040125,
+        "mean_initial_slice_qp": 32.77916666666667,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.01958747927031509,
+        "mean_block_boundary_residual_mae": 3.2341771642367045,
+        "maximum_access_unit_bytes": 42530,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 168.61256944444443,
+            "access_unit_bytes": 42530,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 421,
+            "y_mse": 146.43572627314813,
+            "access_unit_bytes": 20633,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 422,
+            "y_mse": 137.90328703703705,
+            "access_unit_bytes": 12543,
+            "initial_slice_qp": 40
+          },
+          {
+            "index": 100,
+            "y_mse": 127.26157069830246,
+            "access_unit_bytes": 32971,
+            "initial_slice_qp": 46
+          },
+          {
+            "index": 423,
+            "y_mse": 126.3355897955247,
+            "access_unit_bytes": 19957,
+            "initial_slice_qp": 37
+          }
+        ]
+      },
+      "motion_only": {
+        "frames": 180,
+        "y_mse": 32.3071057339892,
+        "y_psnr_from_aggregate_mse_db": 33.037823078350755,
+        "yuv_mse": 23.35245495220336,
+        "yuv_psnr_from_aggregate_mse_db": 34.44747817886463,
+        "nominal_coded_mbps": 10.393586666666666,
+        "mean_initial_slice_qp": 33.138888888888886,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.04367951907131012,
+        "mean_block_boundary_residual_mae": 4.83682062195407,
+        "maximum_access_unit_bytes": 42530,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 168.61256944444443,
+            "access_unit_bytes": 42530,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 421,
+            "y_mse": 146.43572627314813,
+            "access_unit_bytes": 20633,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 422,
+            "y_mse": 137.90328703703705,
+            "access_unit_bytes": 12543,
+            "initial_slice_qp": 40
+          },
+          {
+            "index": 423,
+            "y_mse": 126.3355897955247,
+            "access_unit_bytes": 19957,
+            "initial_slice_qp": 37
+          },
+          {
+            "index": 424,
+            "y_mse": 115.11594714506172,
+            "access_unit_bytes": 19695,
+            "initial_slice_qp": 39
+          }
+        ]
+      },
+      "phases": {
+        "bootstrap": {
+          "frames": 300,
+          "y_mse": 16.62029152038323,
+          "y_psnr_from_aggregate_mse_db": 35.924417238155186,
+          "yuv_mse": 13.936317313957476,
+          "yuv_psnr_from_aggregate_mse_db": 36.68932334704617,
+          "nominal_coded_mbps": 5.028048,
+          "mean_initial_slice_qp": 32.56333333333333,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.005132255389718076,
+          "mean_block_boundary_residual_mae": 2.2725910896062853,
+          "maximum_access_unit_bytes": 38219,
+          "worst_y_mse_frames": [
+            {
+              "index": 100,
+              "y_mse": 127.26157069830246,
+              "access_unit_bytes": 32971,
+              "initial_slice_qp": 46
+            },
+            {
+              "index": 101,
+              "y_mse": 92.2887533757716,
+              "access_unit_bytes": 16884,
+              "initial_slice_qp": 35
+            },
+            {
+              "index": 102,
+              "y_mse": 69.87708719135803,
+              "access_unit_bytes": 17595,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 200,
+              "y_mse": 61.14180603780864,
+              "access_unit_bytes": 37157,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 0,
+              "y_mse": 59.16809027777778,
+              "access_unit_bytes": 36552,
+              "initial_slice_qp": 42
+            }
+          ],
+          "u_mse": 8.011339255401234,
+          "v_mse": 9.1253985468107
+        },
+        "fast-pan": {
+          "frames": 60,
+          "y_mse": 10.922799856931585,
+          "y_psnr_from_aggregate_mse_db": 37.74746384902352,
+          "yuv_mse": 8.766373612182784,
+          "yuv_psnr_from_aggregate_mse_db": 38.70260385052857,
+          "nominal_coded_mbps": 8.45636,
+          "mean_initial_slice_qp": 30.633333333333333,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.0024108623548922056,
+          "mean_block_boundary_residual_mae": 3.646968487898509,
+          "maximum_access_unit_bytes": 41963,
+          "worst_y_mse_frames": [
+            {
+              "index": 300,
+              "y_mse": 60.78733265817901,
+              "access_unit_bytes": 41963,
+              "initial_slice_qp": 41
+            },
+            {
+              "index": 301,
+              "y_mse": 46.738014081790126,
+              "access_unit_bytes": 20306,
+              "initial_slice_qp": 35
+            },
+            {
+              "index": 302,
+              "y_mse": 38.611513792438274,
+              "access_unit_bytes": 15431,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 303,
+              "y_mse": 33.22197337962963,
+              "access_unit_bytes": 16767,
+              "initial_slice_qp": 35
+            },
+            {
+              "index": 304,
+              "y_mse": 24.78059413580247,
+              "access_unit_bytes": 27355,
+              "initial_slice_qp": 36
+            }
+          ],
+          "u_mse": 3.956165670010288,
+          "v_mse": 4.950876575360082
+        },
+        "cut": {
+          "frames": 60,
+          "y_mse": 25.486489028742284,
+          "y_psnr_from_aggregate_mse_db": 34.06770348877066,
+          "yuv_mse": 18.1518227130487,
+          "yuv_psnr_from_aggregate_mse_db": 35.54160119679035,
+          "nominal_coded_mbps": 14.137693333333335,
+          "mean_initial_slice_qp": 34.06666666666667,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.005570066334991708,
+          "mean_block_boundary_residual_mae": 4.291851618885994,
+          "maximum_access_unit_bytes": 42004,
+          "worst_y_mse_frames": [
+            {
+              "index": 360,
+              "y_mse": 49.73720486111111,
+              "access_unit_bytes": 41822,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 408,
+              "y_mse": 48.87924045138889,
+              "access_unit_bytes": 42004,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 396,
+              "y_mse": 48.233592785493826,
+              "access_unit_bytes": 42002,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 372,
+              "y_mse": 47.906065297067904,
+              "access_unit_bytes": 41981,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 384,
+              "y_mse": 47.672528935185184,
+              "access_unit_bytes": 41840,
+              "initial_slice_qp": 38
+            }
+          ],
+          "u_mse": 3.2430800540123457,
+          "v_mse": 3.7219001093107
+        },
+        "fine": {
+          "frames": 60,
+          "y_mse": 60.51202831629372,
+          "y_psnr_from_aggregate_mse_db": 30.312386504770387,
+          "yuv_mse": 43.1391685313786,
+          "yuv_psnr_from_aggregate_mse_db": 31.78208590655721,
+          "nominal_coded_mbps": 8.586706666666666,
+          "mean_initial_slice_qp": 34.71666666666667,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.12305762852404643,
+          "mean_block_boundary_residual_mae": 6.571641759077708,
+          "maximum_access_unit_bytes": 42530,
+          "worst_y_mse_frames": [
+            {
+              "index": 420,
+              "y_mse": 168.61256944444443,
+              "access_unit_bytes": 42530,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 421,
+              "y_mse": 146.43572627314813,
+              "access_unit_bytes": 20633,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 422,
+              "y_mse": 137.90328703703705,
+              "access_unit_bytes": 12543,
+              "initial_slice_qp": 40
+            },
+            {
+              "index": 423,
+              "y_mse": 126.3355897955247,
+              "access_unit_bytes": 19957,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 424,
+              "y_mse": 115.11594714506172,
+              "access_unit_bytes": 19695,
+              "initial_slice_qp": 39
+            }
+          ],
+          "u_mse": 7.866818094135803,
+          "v_mse": 8.920079828960905
+        },
+        "overwrite": {
+          "frames": 60,
+          "y_mse": 180.9034589361497,
+          "y_psnr_from_aggregate_mse_db": 25.556334900693365,
+          "yuv_mse": 124.61598168509946,
+          "yuv_psnr_from_aggregate_mse_db": 27.175066178018717,
+          "nominal_coded_mbps": 18.90976,
+          "mean_initial_slice_qp": 44.31666666666667,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.9936629353233831,
+          "mean_block_boundary_residual_mae": 17.37809772491455,
+          "maximum_access_unit_bytes": 42854,
+          "worst_y_mse_frames": [
+            {
+              "index": 496,
+              "y_mse": 185.5692013888889,
+              "access_unit_bytes": 19666,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 529,
+              "y_mse": 185.56311342592593,
+              "access_unit_bytes": 20744,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 519,
+              "y_mse": 184.76754774305556,
+              "access_unit_bytes": 20937,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 526,
+              "y_mse": 184.6687032214506,
+              "access_unit_bytes": 20960,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 510,
+              "y_mse": 184.51170283564815,
+              "access_unit_bytes": 20187,
+              "initial_slice_qp": 45
+            }
+          ],
+          "u_mse": 11.903955054012346,
+          "v_mse": 12.178099311985596
+        }
+      }
+    },
+    "high": {
+      "source_report": "gpu-high.json",
+      "source_report_sha256": "9b11a90cd65f4061bad46de0f3d1c5e786bc0701a0e16e55ffa8d7accb731ab0",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "generator_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "options": {
+        "-profile:v": "high",
+        "-multipass": "qres",
+        "-spatial-aq": "0",
+        "-temporal-aq": "0",
+        "-aq-strength": "8",
+        "-bufsize": "400000",
+        "-bf": "0",
+        "-refs": "1",
+        "-rc-lookahead": "0",
+        "-qp_cb_offset": "0 (default)",
+        "-qp_cr_offset": "0 (default)"
+      },
+      "integrity": {
+        "status": "passed",
+        "frames": 540,
+        "wrong_identity_count": 0,
+        "reference_chain_errors": [],
+        "restart_check": "passed",
+        "maximum_access_unit_bytes": 42819,
+        "oversize_frames": 0
+      },
+      "header_policy": {
+        "profile_idc": 100,
+        "entropy_coding_mode_flag": 1,
+        "transform_8x8_mode_flag": 1,
+        "video_signal_type_present_flag": 0,
+        "max_num_reorder_frames": 0,
+        "max_num_ref_frames": 2
+      },
+      "all": {
+        "frames": 540,
+        "y_mse": 30.539009046710678,
+        "y_psnr_from_aggregate_mse_db": 33.282254202407536,
+        "yuv_mse": 22.312749508220925,
+        "yuv_psnr_from_aggregate_mse_db": 34.645272709662564,
+        "nominal_coded_mbps": 8.807730370370372,
+        "mean_initial_slice_qp": 30.925925925925927,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.11755573981942141,
+        "mean_block_boundary_residual_mae": 4.145117777806742,
+        "maximum_access_unit_bytes": 42819,
+        "worst_y_mse_frames": [
+          {
+            "index": 533,
+            "y_mse": 167.08751253858026,
+            "access_unit_bytes": 22329,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 536,
+            "y_mse": 166.8740726273148,
+            "access_unit_bytes": 22761,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 497,
+            "y_mse": 166.73808063271605,
+            "access_unit_bytes": 22711,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 520,
+            "y_mse": 166.69343991126544,
+            "access_unit_bytes": 23096,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 482,
+            "y_mse": 166.59448302469136,
+            "access_unit_bytes": 24972,
+            "initial_slice_qp": 42
+          }
+        ]
+      },
+      "excluding_overwrite": {
+        "frames": 480,
+        "y_mse": 13.812258531860854,
+        "y_psnr_from_aggregate_mse_db": 36.72815662178782,
+        "yuv_mse": 11.00446720411094,
+        "yuv_psnr_from_aggregate_mse_db": 37.71511340413441,
+        "nominal_coded_mbps": 7.491705,
+        "mean_initial_slice_qp": 29.491666666666667,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.008540111940298507,
+        "mean_block_boundary_residual_mae": 2.584919834633668,
+        "maximum_access_unit_bytes": 41820,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 148.38342592592593,
+            "access_unit_bytes": 41820,
+            "initial_slice_qp": 42
+          },
+          {
+            "index": 421,
+            "y_mse": 131.0132166280864,
+            "access_unit_bytes": 19591,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 422,
+            "y_mse": 110.89326244212963,
+            "access_unit_bytes": 24583,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 99.36827353395061,
+            "access_unit_bytes": 21725,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 100,
+            "y_mse": 94.77814911265432,
+            "access_unit_bytes": 29845,
+            "initial_slice_qp": 44
+          }
+        ]
+      },
+      "motion_only": {
+        "frames": 180,
+        "y_mse": 20.449704954882545,
+        "y_psnr_from_aggregate_mse_db": 35.0239331441163,
+        "yuv_mse": 14.96022492462563,
+        "yuv_psnr_from_aggregate_mse_db": 36.38142237741244,
+        "nominal_coded_mbps": 10.86092,
+        "mean_initial_slice_qp": 29.344444444444445,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.019974433388612493,
+        "mean_block_boundary_residual_mae": 3.8008503519826466,
+        "maximum_access_unit_bytes": 41820,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 148.38342592592593,
+            "access_unit_bytes": 41820,
+            "initial_slice_qp": 42
+          },
+          {
+            "index": 421,
+            "y_mse": 131.0132166280864,
+            "access_unit_bytes": 19591,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 422,
+            "y_mse": 110.89326244212963,
+            "access_unit_bytes": 24583,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 99.36827353395061,
+            "access_unit_bytes": 21725,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 424,
+            "y_mse": 90.07493441358025,
+            "access_unit_bytes": 19192,
+            "initial_slice_qp": 38
+          }
+        ]
+      },
+      "phases": {
+        "bootstrap": {
+          "frames": 300,
+          "y_mse": 9.82979067804784,
+          "y_psnr_from_aggregate_mse_db": 38.205360910863014,
+          "yuv_mse": 8.631012571802126,
+          "yuv_psnr_from_aggregate_mse_db": 38.770186116706995,
+          "nominal_coded_mbps": 5.470176,
+          "mean_initial_slice_qp": 29.58,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.0016795190713101162,
+          "mean_block_boundary_residual_mae": 1.8553615242242814,
+          "maximum_access_unit_bytes": 35130,
+          "worst_y_mse_frames": [
+            {
+              "index": 100,
+              "y_mse": 94.77814911265432,
+              "access_unit_bytes": 29845,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 101,
+              "y_mse": 66.4875535300926,
+              "access_unit_bytes": 20135,
+              "initial_slice_qp": 31
+            },
+            {
+              "index": 102,
+              "y_mse": 50.34793740354938,
+              "access_unit_bytes": 17421,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 103,
+              "y_mse": 37.6998259066358,
+              "access_unit_bytes": 23923,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 0,
+              "y_mse": 32.25848861882716,
+              "access_unit_bytes": 34265,
+              "initial_slice_qp": 38
+            }
+          ],
+          "u_mse": 5.775138425925926,
+          "v_mse": 6.691774292695473
+        },
+        "fast-pan": {
+          "frames": 60,
+          "y_mse": 5.260181576324588,
+          "y_psnr_from_aggregate_mse_db": 40.9207962503456,
+          "yuv_mse": 4.416101412465706,
+          "yuv_psnr_from_aggregate_mse_db": 41.68041322784326,
+          "nominal_coded_mbps": 9.381373333333334,
+          "mean_initial_slice_qp": 26.066666666666666,
+          "mean_fraction_of_blocks_with_mse_over_100": 4.145936981757877e-05,
+          "mean_block_boundary_residual_mae": 2.433187256256739,
+          "maximum_access_unit_bytes": 39105,
+          "worst_y_mse_frames": [
+            {
+              "index": 300,
+              "y_mse": 32.19227912808642,
+              "access_unit_bytes": 39105,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 301,
+              "y_mse": 24.95409336419753,
+              "access_unit_bytes": 19598,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 302,
+              "y_mse": 20.552655767746913,
+              "access_unit_bytes": 20935,
+              "initial_slice_qp": 32
+            },
+            {
+              "index": 303,
+              "y_mse": 17.734156057098765,
+              "access_unit_bytes": 21759,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 304,
+              "y_mse": 14.130407503858025,
+              "access_unit_bytes": 23917,
+              "initial_slice_qp": 32
+            }
+          ],
+          "u_mse": 2.4141211419753086,
+          "v_mse": 3.041761027520576
+        },
+        "cut": {
+          "frames": 60,
+          "y_mse": 11.069777552726338,
+          "y_psnr_from_aggregate_mse_db": 37.68941467052794,
+          "yuv_mse": 8.161725651577504,
+          "yuv_psnr_from_aggregate_mse_db": 39.012983685694124,
+          "nominal_coded_mbps": 14.564773333333333,
+          "mean_initial_slice_qp": 29.15,
+          "mean_fraction_of_blocks_with_mse_over_100": 5.182421227197347e-05,
+          "mean_block_boundary_residual_mae": 2.9515588829914727,
+          "maximum_access_unit_bytes": 39694,
+          "worst_y_mse_frames": [
+            {
+              "index": 408,
+              "y_mse": 22.389001736111112,
+              "access_unit_bytes": 39367,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 372,
+              "y_mse": 22.23496383101852,
+              "access_unit_bytes": 39555,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 396,
+              "y_mse": 22.115125868055557,
+              "access_unit_bytes": 39387,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 360,
+              "y_mse": 22.10851707175926,
+              "access_unit_bytes": 39694,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 384,
+              "y_mse": 21.875543499228396,
+              "access_unit_bytes": 39469,
+              "initial_slice_qp": 33
+            }
+          ],
+          "u_mse": 2.141499421296296,
+          "v_mse": 2.5497442772633745
+        },
+        "fine": {
+          "frames": 60,
+          "y_mse": 45.019155735596705,
+          "y_psnr_from_aggregate_mse_db": 31.59683014646094,
+          "yuv_mse": 32.30284770983368,
+          "yuv_psnr_from_aggregate_mse_db": 33.038395509160146,
+          "nominal_coded_mbps": 8.636613333333335,
+          "mean_initial_slice_qp": 32.81666666666667,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.059830016583747925,
+          "mean_block_boundary_residual_mae": 6.017804916699728,
+          "maximum_access_unit_bytes": 41820,
+          "worst_y_mse_frames": [
+            {
+              "index": 420,
+              "y_mse": 148.38342592592593,
+              "access_unit_bytes": 41820,
+              "initial_slice_qp": 42
+            },
+            {
+              "index": 421,
+              "y_mse": 131.0132166280864,
+              "access_unit_bytes": 19591,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 422,
+              "y_mse": 110.89326244212963,
+              "access_unit_bytes": 24583,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 423,
+              "y_mse": 99.36827353395061,
+              "access_unit_bytes": 21725,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 424,
+              "y_mse": 90.07493441358025,
+              "access_unit_bytes": 19192,
+              "initial_slice_qp": 38
+            }
+          ],
+          "u_mse": 6.449138406635803,
+          "v_mse": 7.291324909979424
+        },
+        "overwrite": {
+          "frames": 60,
+          "y_mse": 164.35301316550925,
+          "y_psnr_from_aggregate_mse_db": 25.973026902406048,
+          "yuv_mse": 112.77900794110083,
+          "yuv_psnr_from_aggregate_mse_db": 27.608520908638525,
+          "nominal_coded_mbps": 19.335933333333333,
+          "mean_initial_slice_qp": 42.4,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.9896807628524047,
+          "mean_block_boundary_residual_mae": 16.626701323191323,
+          "maximum_access_unit_bytes": 42819,
+          "worst_y_mse_frames": [
+            {
+              "index": 533,
+              "y_mse": 167.08751253858026,
+              "access_unit_bytes": 22329,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 536,
+              "y_mse": 166.8740726273148,
+              "access_unit_bytes": 22761,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 497,
+              "y_mse": 166.73808063271605,
+              "access_unit_bytes": 22711,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 520,
+              "y_mse": 166.69343991126544,
+              "access_unit_bytes": 23096,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 482,
+              "y_mse": 166.59448302469136,
+              "access_unit_bytes": 24972,
+              "initial_slice_qp": 42
+            }
+          ],
+          "u_mse": 9.399561921296296,
+          "v_mse": 9.862433063271604
+        }
+      }
+    },
+    "main": {
+      "source_report": "gpu-main.json",
+      "source_report_sha256": "c89efc01c4f4d5107bf735e0f245b3950d9d21ddb3e76faae6959c475be8b7bb",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "generator_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "options": {
+        "-profile:v": "main",
+        "-multipass": "qres",
+        "-spatial-aq": "0",
+        "-temporal-aq": "0",
+        "-aq-strength": "8",
+        "-bufsize": "400000",
+        "-bf": "0",
+        "-refs": "1",
+        "-rc-lookahead": "0",
+        "-qp_cb_offset": "0 (default)",
+        "-qp_cr_offset": "0 (default)"
+      },
+      "integrity": {
+        "status": "passed",
+        "frames": 540,
+        "wrong_identity_count": 0,
+        "reference_chain_errors": [],
+        "restart_check": "passed",
+        "maximum_access_unit_bytes": 42929,
+        "oversize_frames": 0
+      },
+      "header_policy": {
+        "profile_idc": 77,
+        "entropy_coding_mode_flag": 1,
+        "transform_8x8_mode_flag": 0,
+        "video_signal_type_present_flag": 0,
+        "max_num_reorder_frames": 0,
+        "max_num_ref_frames": 2
+      },
+      "all": {
+        "frames": 540,
+        "y_mse": 31.01184528160008,
+        "y_psnr_from_aggregate_mse_db": 33.21552752264461,
+        "yuv_mse": 22.90597087191358,
+        "yuv_psnr_from_aggregate_mse_db": 34.531316567497456,
+        "nominal_coded_mbps": 8.047367407407407,
+        "mean_initial_slice_qp": 30.95,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.11767827529021559,
+        "mean_block_boundary_residual_mae": 4.060494407901057,
+        "maximum_access_unit_bytes": 42929,
+        "worst_y_mse_frames": [
+          {
+            "index": 532,
+            "y_mse": 174.81704764660495,
+            "access_unit_bytes": 20185,
+            "initial_slice_qp": 44
+          },
+          {
+            "index": 528,
+            "y_mse": 174.58540268132717,
+            "access_unit_bytes": 20015,
+            "initial_slice_qp": 44
+          },
+          {
+            "index": 530,
+            "y_mse": 174.52526909722224,
+            "access_unit_bytes": 21014,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 537,
+            "y_mse": 174.35490113811727,
+            "access_unit_bytes": 20604,
+            "initial_slice_qp": 44
+          },
+          {
+            "index": 526,
+            "y_mse": 173.88448302469135,
+            "access_unit_bytes": 20723,
+            "initial_slice_qp": 44
+          }
+        ]
+      },
+      "excluding_overwrite": {
+        "frames": 480,
+        "y_mse": 13.806600876294045,
+        "y_psnr_from_aggregate_mse_db": 36.72993590498792,
+        "yuv_mse": 11.231155524610983,
+        "yuv_psnr_from_aggregate_mse_db": 37.62655919642481,
+        "nominal_coded_mbps": 6.633661666666667,
+        "mean_initial_slice_qp": 29.46875,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.008893553067993366,
+        "mean_block_boundary_residual_mae": 2.4956533342599867,
+        "maximum_access_unit_bytes": 42489,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 149.61055314429012,
+            "access_unit_bytes": 42489,
+            "initial_slice_qp": 42
+          },
+          {
+            "index": 421,
+            "y_mse": 131.54344714506172,
+            "access_unit_bytes": 20460,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 422,
+            "y_mse": 111.8891830632716,
+            "access_unit_bytes": 22708,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 101.39248746141975,
+            "access_unit_bytes": 19705,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 424,
+            "y_mse": 91.96717592592593,
+            "access_unit_bytes": 18728,
+            "initial_slice_qp": 38
+          }
+        ]
+      },
+      "motion_only": {
+        "frames": 180,
+        "y_mse": 20.848661171660666,
+        "y_psnr_from_aggregate_mse_db": 34.940021895403305,
+        "yuv_mse": 15.317743291323731,
+        "yuv_psnr_from_aggregate_mse_db": 36.27885573921024,
+        "nominal_coded_mbps": 9.945071111111112,
+        "mean_initial_slice_qp": 29.216666666666665,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.02130735212824765,
+        "mean_block_boundary_residual_mae": 3.7044423431158067,
+        "maximum_access_unit_bytes": 42489,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 149.61055314429012,
+            "access_unit_bytes": 42489,
+            "initial_slice_qp": 42
+          },
+          {
+            "index": 421,
+            "y_mse": 131.54344714506172,
+            "access_unit_bytes": 20460,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 422,
+            "y_mse": 111.8891830632716,
+            "access_unit_bytes": 22708,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 101.39248746141975,
+            "access_unit_bytes": 19705,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 424,
+            "y_mse": 91.96717592592593,
+            "access_unit_bytes": 18728,
+            "initial_slice_qp": 38
+          }
+        ]
+      },
+      "phases": {
+        "bootstrap": {
+          "frames": 300,
+          "y_mse": 9.581364699074074,
+          "y_psnr_from_aggregate_mse_db": 38.316529896738395,
+          "yuv_mse": 8.779202864583333,
+          "yuv_psnr_from_aggregate_mse_db": 38.69625276309084,
+          "nominal_coded_mbps": 4.646816,
+          "mean_initial_slice_qp": 29.62,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.001445273631840796,
+          "mean_block_boundary_residual_mae": 1.770379928946495,
+          "maximum_access_unit_bytes": 33158,
+          "worst_y_mse_frames": [
+            {
+              "index": 100,
+              "y_mse": 87.43319782021605,
+              "access_unit_bytes": 31287,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 101,
+              "y_mse": 64.11436487268519,
+              "access_unit_bytes": 18530,
+              "initial_slice_qp": 32
+            },
+            {
+              "index": 102,
+              "y_mse": 48.426696566358025,
+              "access_unit_bytes": 18052,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 103,
+              "y_mse": 38.15252989969136,
+              "access_unit_bytes": 19616,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 0,
+              "y_mse": 31.14745949074074,
+              "access_unit_bytes": 32605,
+              "initial_slice_qp": 38
+            }
+          ],
+          "u_mse": 6.68661110468107,
+          "v_mse": 7.6631472865226336
+        },
+        "fast-pan": {
+          "frames": 60,
+          "y_mse": 4.83574196244856,
+          "y_psnr_from_aggregate_mse_db": 41.28617242226439,
+          "yuv_mse": 4.152679221322017,
+          "yuv_psnr_from_aggregate_mse_db": 41.947519760595725,
+          "nominal_coded_mbps": 7.772773333333333,
+          "mean_initial_slice_qp": 26.1,
+          "mean_fraction_of_blocks_with_mse_over_100": 4.7678275290215584e-05,
+          "mean_block_boundary_residual_mae": 2.2445656339327495,
+          "maximum_access_unit_bytes": 39067,
+          "worst_y_mse_frames": [
+            {
+              "index": 300,
+              "y_mse": 31.612709297839505,
+              "access_unit_bytes": 39067,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 301,
+              "y_mse": 25.132742091049384,
+              "access_unit_bytes": 19282,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 302,
+              "y_mse": 19.053565779320987,
+              "access_unit_bytes": 21673,
+              "initial_slice_qp": 32
+            },
+            {
+              "index": 303,
+              "y_mse": 15.629815779320987,
+              "access_unit_bytes": 21315,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 304,
+              "y_mse": 12.734696662808641,
+              "access_unit_bytes": 18658,
+              "initial_slice_qp": 32
+            }
+          ],
+          "u_mse": 2.4441196630658437,
+          "v_mse": 3.1289878150720165
+        },
+        "cut": {
+          "frames": 60,
+          "y_mse": 10.087705857767489,
+          "y_psnr_from_aggregate_mse_db": 38.092879504879434,
+          "yuv_mse": 7.458877839934842,
+          "yuv_psnr_from_aggregate_mse_db": 39.404068664491426,
+          "nominal_coded_mbps": 13.839906666666666,
+          "mean_initial_slice_qp": 28.7,
+          "mean_fraction_of_blocks_with_mse_over_100": 3.109452736318408e-05,
+          "mean_block_boundary_residual_mae": 2.7575952718655268,
+          "maximum_access_unit_bytes": 38736,
+          "worst_y_mse_frames": [
+            {
+              "index": 408,
+              "y_mse": 21.30135754243827,
+              "access_unit_bytes": 38706,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 372,
+              "y_mse": 21.01263069058642,
+              "access_unit_bytes": 38576,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 396,
+              "y_mse": 20.809946952160495,
+              "access_unit_bytes": 38476,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 384,
+              "y_mse": 20.758956886574072,
+              "access_unit_bytes": 38736,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 360,
+              "y_mse": 20.660106095679012,
+              "access_unit_bytes": 38724,
+              "initial_slice_qp": 33
+            }
+          ],
+          "u_mse": 2.000213509516461,
+          "v_mse": 2.4022300990226335
+        },
+        "fine": {
+          "frames": 60,
+          "y_mse": 47.62253569476594,
+          "y_psnr_from_aggregate_mse_db": 31.35267844874101,
+          "yuv_mse": 34.341672812714336,
+          "yuv_psnr_from_aggregate_mse_db": 32.772589146662874,
+          "nominal_coded_mbps": 8.222533333333333,
+          "mean_initial_slice_qp": 32.85,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.06384328358208956,
+          "mean_block_boundary_residual_mae": 6.111166123549143,
+          "maximum_access_unit_bytes": 42489,
+          "worst_y_mse_frames": [
+            {
+              "index": 420,
+              "y_mse": 149.61055314429012,
+              "access_unit_bytes": 42489,
+              "initial_slice_qp": 42
+            },
+            {
+              "index": 421,
+              "y_mse": 131.54344714506172,
+              "access_unit_bytes": 20460,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 422,
+              "y_mse": 111.8891830632716,
+              "access_unit_bytes": 22708,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 423,
+              "y_mse": 101.39248746141975,
+              "access_unit_bytes": 19705,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 424,
+              "y_mse": 91.96717592592593,
+              "access_unit_bytes": 18728,
+              "initial_slice_qp": 38
+            }
+          ],
+          "u_mse": 7.2983217271090535,
+          "v_mse": 8.26157237011317
+        },
+        "overwrite": {
+          "frames": 60,
+          "y_mse": 168.65380052404836,
+          "y_psnr_from_aggregate_mse_db": 25.860842286363436,
+          "yuv_mse": 116.30449365033436,
+          "yuv_psnr_from_aggregate_mse_db": 27.47483866003245,
+          "nominal_coded_mbps": 19.35701333333333,
+          "mean_initial_slice_qp": 42.8,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.9879560530679934,
+          "mean_block_boundary_residual_mae": 16.57922299702962,
+          "maximum_access_unit_bytes": 42929,
+          "worst_y_mse_frames": [
+            {
+              "index": 532,
+              "y_mse": 174.81704764660495,
+              "access_unit_bytes": 20185,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 528,
+              "y_mse": 174.58540268132717,
+              "access_unit_bytes": 20015,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 530,
+              "y_mse": 174.52526909722224,
+              "access_unit_bytes": 21014,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 537,
+              "y_mse": 174.35490113811727,
+              "access_unit_bytes": 20604,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 526,
+              "y_mse": 173.88448302469135,
+              "access_unit_bytes": 20723,
+              "initial_slice_qp": 44
+            }
+          ],
+          "u_mse": 11.38410088734568,
+          "v_mse": 11.827658918467078
+        }
+      }
+    },
+    "high-fullres": {
+      "source_report": "gpu-high-fullres.json",
+      "source_report_sha256": "ab59fcd9679d7d29933891780a7724c12ad231683f801c9a01dc78d6cbe17a46",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "generator_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "options": {
+        "-profile:v": "high",
+        "-multipass": "fullres",
+        "-spatial-aq": "0",
+        "-temporal-aq": "0",
+        "-aq-strength": "8",
+        "-bufsize": "400000",
+        "-bf": "0",
+        "-refs": "1",
+        "-rc-lookahead": "0",
+        "-qp_cb_offset": "0 (default)",
+        "-qp_cr_offset": "0 (default)"
+      },
+      "integrity": {
+        "status": "passed",
+        "frames": 540,
+        "wrong_identity_count": 0,
+        "reference_chain_errors": [],
+        "restart_check": "passed",
+        "maximum_access_unit_bytes": 44204,
+        "oversize_frames": 0
+      },
+      "header_policy": {
+        "profile_idc": 100,
+        "entropy_coding_mode_flag": 1,
+        "transform_8x8_mode_flag": 1,
+        "video_signal_type_present_flag": 0,
+        "max_num_reorder_frames": 0,
+        "max_num_ref_frames": 2
+      },
+      "all": {
+        "frames": 540,
+        "y_mse": 26.056346809627914,
+        "y_psnr_from_aggregate_mse_db": 33.97166834818873,
+        "yuv_mse": 18.138792184642202,
+        "yuv_psnr_from_aggregate_mse_db": 35.54471995729765,
+        "nominal_coded_mbps": 17.765943703703705,
+        "mean_initial_slice_qp": 21.983333333333334,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.12121245623733186,
+        "mean_block_boundary_residual_mae": 3.2653021851347552,
+        "maximum_access_unit_bytes": 44204,
+        "worst_y_mse_frames": [
+          {
+            "index": 483,
+            "y_mse": 185.26861304012345,
+            "access_unit_bytes": 13178,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 481,
+            "y_mse": 183.3305111882716,
+            "access_unit_bytes": 16522,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 504,
+            "y_mse": 178.68483989197532,
+            "access_unit_bytes": 15410,
+            "initial_slice_qp": 44
+          },
+          {
+            "index": 506,
+            "y_mse": 178.66193045910495,
+            "access_unit_bytes": 14917,
+            "initial_slice_qp": 44
+          },
+          {
+            "index": 522,
+            "y_mse": 173.79040364583332,
+            "access_unit_bytes": 18614,
+            "initial_slice_qp": 43
+          }
+        ]
+      },
+      "excluding_overwrite": {
+        "frames": 480,
+        "y_mse": 7.942025036972737,
+        "y_psnr_from_aggregate_mse_db": 39.13149109038817,
+        "yuv_mse": 5.739605661651234,
+        "yuv_psnr_from_aggregate_mse_db": 40.54198305552148,
+        "nominal_coded_mbps": 17.931583333333332,
+        "mean_initial_slice_qp": 19.379166666666666,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.012452580845771144,
+        "mean_block_boundary_residual_mae": 1.5452266816360256,
+        "maximum_access_unit_bytes": 44204,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 148.32964120370372,
+            "access_unit_bytes": 42049,
+            "initial_slice_qp": 39
+          },
+          {
+            "index": 421,
+            "y_mse": 136.5191362847222,
+            "access_unit_bytes": 11751,
+            "initial_slice_qp": 37
+          },
+          {
+            "index": 422,
+            "y_mse": 120.74904899691359,
+            "access_unit_bytes": 19296,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 109.10001205632716,
+            "access_unit_bytes": 19238,
+            "initial_slice_qp": 35
+          },
+          {
+            "index": 424,
+            "y_mse": 95.85168499228395,
+            "access_unit_bytes": 23288,
+            "initial_slice_qp": 36
+          }
+        ]
+      },
+      "motion_only": {
+        "frames": 180,
+        "y_mse": 17.635087933491942,
+        "y_psnr_from_aggregate_mse_db": 35.667027313449736,
+        "yuv_mse": 12.463918106281435,
+        "yuv_psnr_from_aggregate_mse_db": 37.17425774046073,
+        "nominal_coded_mbps": 17.688964444444444,
+        "mean_initial_slice_qp": 24.2,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.0300787728026534,
+        "mean_block_boundary_residual_mae": 3.154446123788754,
+        "maximum_access_unit_bytes": 43100,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 148.32964120370372,
+            "access_unit_bytes": 42049,
+            "initial_slice_qp": 39
+          },
+          {
+            "index": 421,
+            "y_mse": 136.5191362847222,
+            "access_unit_bytes": 11751,
+            "initial_slice_qp": 37
+          },
+          {
+            "index": 422,
+            "y_mse": 120.74904899691359,
+            "access_unit_bytes": 19296,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 109.10001205632716,
+            "access_unit_bytes": 19238,
+            "initial_slice_qp": 35
+          },
+          {
+            "index": 424,
+            "y_mse": 95.85168499228395,
+            "access_unit_bytes": 23288,
+            "initial_slice_qp": 36
+          }
+        ]
+      },
+      "phases": {
+        "bootstrap": {
+          "frames": 300,
+          "y_mse": 2.126187299061214,
+          "y_psnr_from_aggregate_mse_db": 44.85478841336402,
+          "yuv_mse": 1.7050181948731138,
+          "yuv_psnr_from_aggregate_mse_db": 45.81351342999318,
+          "nominal_coded_mbps": 18.07715466666667,
+          "mean_initial_slice_qp": 16.486666666666668,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.001876865671641791,
+          "mean_block_boundary_residual_mae": 0.5796950163443884,
+          "maximum_access_unit_bytes": 44204,
+          "worst_y_mse_frames": [
+            {
+              "index": 100,
+              "y_mse": 77.09431905864197,
+              "access_unit_bytes": 42993,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 200,
+              "y_mse": 60.20065586419753,
+              "access_unit_bytes": 44204,
+              "initial_slice_qp": 24
+            },
+            {
+              "index": 0,
+              "y_mse": 54.9180647183642,
+              "access_unit_bytes": 44006,
+              "initial_slice_qp": 23
+            },
+            {
+              "index": 101,
+              "y_mse": 34.64039014274692,
+              "access_unit_bytes": 19944,
+              "initial_slice_qp": 35
+            },
+            {
+              "index": 102,
+              "y_mse": 29.717505304783952,
+              "access_unit_bytes": 10538,
+              "initial_slice_qp": 34
+            }
+          ],
+          "u_mse": 0.7906702224794239,
+          "v_mse": 0.9346897505144033
+        },
+        "fast-pan": {
+          "frames": 60,
+          "y_mse": 2.8637437708976337,
+          "y_psnr_from_aggregate_mse_db": 43.561462033296365,
+          "yuv_mse": 2.160521503129287,
+          "yuv_psnr_from_aggregate_mse_db": 44.785217677749685,
+          "nominal_coded_mbps": 17.73814666666667,
+          "mean_initial_slice_qp": 16.5,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.0017495854063018241,
+          "mean_block_boundary_residual_mae": 1.2665371793011824,
+          "maximum_access_unit_bytes": 43045,
+          "worst_y_mse_frames": [
+            {
+              "index": 300,
+              "y_mse": 41.0615909529321,
+              "access_unit_bytes": 43045,
+              "initial_slice_qp": 27
+            },
+            {
+              "index": 301,
+              "y_mse": 18.400959683641975,
+              "access_unit_bytes": 19126,
+              "initial_slice_qp": 35
+            },
+            {
+              "index": 302,
+              "y_mse": 13.259402488425925,
+              "access_unit_bytes": 25512,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 303,
+              "y_mse": 11.977761863425926,
+              "access_unit_bytes": 15530,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 304,
+              "y_mse": 10.845163483796297,
+              "access_unit_bytes": 19266,
+              "initial_slice_qp": 31
+            }
+          ],
+          "u_mse": 0.6808175154320988,
+          "v_mse": 0.8273364197530864
+        },
+        "cut": {
+          "frames": 60,
+          "y_mse": 17.577973853845165,
+          "y_psnr_from_aggregate_mse_db": 35.681115467175594,
+          "yuv_mse": 12.60305730774177,
+          "yuv_psnr_from_aggregate_mse_db": 37.12604449812237,
+          "nominal_coded_mbps": 18.06106666666667,
+          "mean_initial_slice_qp": 28.8,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.017993366500829187,
+          "mean_block_boundary_residual_mae": 3.368229359885057,
+          "maximum_access_unit_bytes": 43100,
+          "worst_y_mse_frames": [
+            {
+              "index": 408,
+              "y_mse": 85.64184124228395,
+              "access_unit_bytes": 26471,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 384,
+              "y_mse": 85.42150848765432,
+              "access_unit_bytes": 26787,
+              "initial_slice_qp": 29
+            },
+            {
+              "index": 396,
+              "y_mse": 82.94551938657408,
+              "access_unit_bytes": 26489,
+              "initial_slice_qp": 31
+            },
+            {
+              "index": 372,
+              "y_mse": 67.67622106481481,
+              "access_unit_bytes": 33676,
+              "initial_slice_qp": 26
+            },
+            {
+              "index": 409,
+              "y_mse": 35.7723152970679,
+              "access_unit_bytes": 28903,
+              "initial_slice_qp": 36
+            }
+          ],
+          "u_mse": 2.450671296296296,
+          "v_mse": 2.8557771347736627
+        },
+        "fine": {
+          "frames": 60,
+          "y_mse": 32.46354617573302,
+          "y_psnr_from_aggregate_mse_db": 33.016844023575615,
+          "yuv_mse": 22.62817550797325,
+          "yuv_psnr_from_aggregate_mse_db": 34.58430822324697,
+          "nominal_coded_mbps": 17.26768,
+          "mean_initial_slice_qp": 27.3,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.07049336650082919,
+          "mean_block_boundary_residual_mae": 4.828571832180023,
+          "maximum_access_unit_bytes": 42049,
+          "worst_y_mse_frames": [
+            {
+              "index": 420,
+              "y_mse": 148.32964120370372,
+              "access_unit_bytes": 42049,
+              "initial_slice_qp": 39
+            },
+            {
+              "index": 421,
+              "y_mse": 136.5191362847222,
+              "access_unit_bytes": 11751,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 422,
+              "y_mse": 120.74904899691359,
+              "access_unit_bytes": 19296,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 423,
+              "y_mse": 109.10001205632716,
+              "access_unit_bytes": 19238,
+              "initial_slice_qp": 35
+            },
+            {
+              "index": 424,
+              "y_mse": 95.85168499228395,
+              "access_unit_bytes": 23288,
+              "initial_slice_qp": 36
+            }
+          ],
+          "u_mse": 2.7468241062242797,
+          "v_mse": 3.1680442386831276
+        },
+        "overwrite": {
+          "frames": 60,
+          "y_mse": 170.97092099086933,
+          "y_psnr_from_aggregate_mse_db": 25.801581096986315,
+          "yuv_mse": 117.33228436856996,
+          "yuv_psnr_from_aggregate_mse_db": 27.436628347370963,
+          "nominal_coded_mbps": 16.440826666666666,
+          "mean_initial_slice_qp": 42.81666666666667,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.9912914593698176,
+          "mean_block_boundary_residual_mae": 17.025906213124593,
+          "maximum_access_unit_bytes": 42144,
+          "worst_y_mse_frames": [
+            {
+              "index": 483,
+              "y_mse": 185.26861304012345,
+              "access_unit_bytes": 13178,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 481,
+              "y_mse": 183.3305111882716,
+              "access_unit_bytes": 16522,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 504,
+              "y_mse": 178.68483989197532,
+              "access_unit_bytes": 15410,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 506,
+              "y_mse": 178.66193045910495,
+              "access_unit_bytes": 14917,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 522,
+              "y_mse": 173.79040364583332,
+              "access_unit_bytes": 18614,
+              "initial_slice_qp": 43
+            }
+          ],
+          "u_mse": 9.83487879372428,
+          "v_mse": 10.275143454218107
+        }
+      }
+    },
+    "high-aq8": {
+      "source_report": "gpu-high-aq8.json",
+      "source_report_sha256": "46644c1248678302b2a5b9a0be4d88943c5a60474a20b87667e4cd0f9cfbf309",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "generator_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "options": {
+        "-profile:v": "high",
+        "-multipass": "qres",
+        "-spatial-aq": "1",
+        "-temporal-aq": "0",
+        "-aq-strength": "8",
+        "-bufsize": "400000",
+        "-bf": "0",
+        "-refs": "1",
+        "-rc-lookahead": "0",
+        "-qp_cb_offset": "0 (default)",
+        "-qp_cr_offset": "0 (default)"
+      },
+      "integrity": {
+        "status": "passed",
+        "frames": 540,
+        "wrong_identity_count": 0,
+        "reference_chain_errors": [],
+        "restart_check": "passed",
+        "maximum_access_unit_bytes": 42913,
+        "oversize_frames": 0
+      },
+      "header_policy": {
+        "profile_idc": 100,
+        "entropy_coding_mode_flag": 1,
+        "transform_8x8_mode_flag": 1,
+        "video_signal_type_present_flag": 0,
+        "max_num_reorder_frames": 0,
+        "max_num_ref_frames": 2
+      },
+      "all": {
+        "frames": 540,
+        "y_mse": 29.981741271219136,
+        "y_psnr_from_aggregate_mse_db": 33.362235087892174,
+        "yuv_mse": 21.914608575412476,
+        "yuv_psnr_from_aggregate_mse_db": 34.723466428962574,
+        "nominal_coded_mbps": 9.131297777777778,
+        "mean_initial_slice_qp": 33.318518518518516,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.11873525889073153,
+        "mean_block_boundary_residual_mae": 4.0545228075098105,
+        "maximum_access_unit_bytes": 42913,
+        "worst_y_mse_frames": [
+          {
+            "index": 513,
+            "y_mse": 169.6190909529321,
+            "access_unit_bytes": 22423,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 535,
+            "y_mse": 169.30475019290122,
+            "access_unit_bytes": 22478,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 491,
+            "y_mse": 169.17299816743827,
+            "access_unit_bytes": 22105,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 504,
+            "y_mse": 168.8073900462963,
+            "access_unit_bytes": 22670,
+            "initial_slice_qp": 44
+          },
+          {
+            "index": 497,
+            "y_mse": 167.77047501929013,
+            "access_unit_bytes": 23561,
+            "initial_slice_qp": 44
+          }
+        ]
+      },
+      "excluding_overwrite": {
+        "frames": 480,
+        "y_mse": 13.08087677931295,
+        "y_psnr_from_aggregate_mse_db": 36.96443506202614,
+        "yuv_mse": 10.48819954159165,
+        "yuv_psnr_from_aggregate_mse_db": 37.92379419505887,
+        "nominal_coded_mbps": 7.8062,
+        "mean_initial_slice_qp": 31.960416666666667,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.009889096185737977,
+        "mean_block_boundary_residual_mae": 2.4729020237922668,
+        "maximum_access_unit_bytes": 40687,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 155.4505044367284,
+            "access_unit_bytes": 38520,
+            "initial_slice_qp": 44
+          },
+          {
+            "index": 421,
+            "y_mse": 134.90185956790123,
+            "access_unit_bytes": 21835,
+            "initial_slice_qp": 37
+          },
+          {
+            "index": 100,
+            "y_mse": 121.91562065972222,
+            "access_unit_bytes": 26890,
+            "initial_slice_qp": 48
+          },
+          {
+            "index": 422,
+            "y_mse": 113.85903694058642,
+            "access_unit_bytes": 25564,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 101.20031201774691,
+            "access_unit_bytes": 23817,
+            "initial_slice_qp": 37
+          }
+        ]
+      },
+      "motion_only": {
+        "frames": 180,
+        "y_mse": 19.28945470571845,
+        "y_psnr_from_aggregate_mse_db": 35.277604101366634,
+        "yuv_mse": 14.057334915837906,
+        "yuv_psnr_from_aggregate_mse_db": 36.65177368850911,
+        "nominal_coded_mbps": 11.640395555555555,
+        "mean_initial_slice_qp": 31.716666666666665,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.02154436152570481,
+        "mean_block_boundary_residual_mae": 3.6825848940345978,
+        "maximum_access_unit_bytes": 40687,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 155.4505044367284,
+            "access_unit_bytes": 38520,
+            "initial_slice_qp": 44
+          },
+          {
+            "index": 421,
+            "y_mse": 134.90185956790123,
+            "access_unit_bytes": 21835,
+            "initial_slice_qp": 37
+          },
+          {
+            "index": 422,
+            "y_mse": 113.85903694058642,
+            "access_unit_bytes": 25564,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 101.20031201774691,
+            "access_unit_bytes": 23817,
+            "initial_slice_qp": 37
+          },
+          {
+            "index": 424,
+            "y_mse": 94.27703510802469,
+            "access_unit_bytes": 13960,
+            "initial_slice_qp": 38
+          }
+        ]
+      },
+      "phases": {
+        "bootstrap": {
+          "frames": 300,
+          "y_mse": 9.35573002346965,
+          "y_psnr_from_aggregate_mse_db": 38.420026799036336,
+          "yuv_mse": 8.346718317043896,
+          "yuv_psnr_from_aggregate_mse_db": 38.915646035806006,
+          "nominal_coded_mbps": 5.505682666666667,
+          "mean_initial_slice_qp": 32.10666666666667,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.0028959369817578772,
+          "mean_block_boundary_residual_mae": 1.7470923016468685,
+          "maximum_access_unit_bytes": 37648,
+          "worst_y_mse_frames": [
+            {
+              "index": 100,
+              "y_mse": 121.91562065972222,
+              "access_unit_bytes": 26890,
+              "initial_slice_qp": 48
+            },
+            {
+              "index": 101,
+              "y_mse": 79.83498408564814,
+              "access_unit_bytes": 23324,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 102,
+              "y_mse": 59.064308449074076,
+              "access_unit_bytes": 17542,
+              "initial_slice_qp": 40
+            },
+            {
+              "index": 103,
+              "y_mse": 43.434320987654324,
+              "access_unit_bytes": 23391,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 200,
+              "y_mse": 33.95103057484568,
+              "access_unit_bytes": 36039,
+              "initial_slice_qp": 42
+            }
+          ],
+          "u_mse": 5.914117798353909,
+          "v_mse": 6.743272010030864
+        },
+        "fast-pan": {
+          "frames": 60,
+          "y_mse": 5.231853813014403,
+          "y_psnr_from_aggregate_mse_db": 40.94424760316254,
+          "yuv_mse": 4.355658071844993,
+          "yuv_psnr_from_aggregate_mse_db": 41.74026581459898,
+          "nominal_coded_mbps": 9.865746666666666,
+          "mean_initial_slice_qp": 28.733333333333334,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.00016169154228855723,
+          "mean_block_boundary_residual_mae": 2.3786180476347605,
+          "maximum_access_unit_bytes": 40216,
+          "worst_y_mse_frames": [
+            {
+              "index": 300,
+              "y_mse": 33.76661313657407,
+              "access_unit_bytes": 40216,
+              "initial_slice_qp": 39
+            },
+            {
+              "index": 301,
+              "y_mse": 26.49464554398148,
+              "access_unit_bytes": 19426,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 302,
+              "y_mse": 21.210403163580246,
+              "access_unit_bytes": 22695,
+              "initial_slice_qp": 35
+            },
+            {
+              "index": 303,
+              "y_mse": 17.974438657407408,
+              "access_unit_bytes": 23970,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 304,
+              "y_mse": 14.361398051697531,
+              "access_unit_bytes": 24547,
+              "initial_slice_qp": 35
+            }
+          ],
+          "u_mse": 2.3437275913065845,
+          "v_mse": 2.862805587705761
+        },
+        "cut": {
+          "frames": 60,
+          "y_mse": 11.639595470036008,
+          "y_psnr_from_aggregate_mse_db": 37.47142474040641,
+          "yuv_mse": 8.523901481052812,
+          "yuv_psnr_from_aggregate_mse_db": 38.824419393567624,
+          "nominal_coded_mbps": 15.104373333333333,
+          "mean_initial_slice_qp": 32.25,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.0003897180762852405,
+          "mean_block_boundary_residual_mae": 2.9501338829596837,
+          "maximum_access_unit_bytes": 40687,
+          "worst_y_mse_frames": [
+            {
+              "index": 408,
+              "y_mse": 24.07919560185185,
+              "access_unit_bytes": 40325,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 372,
+              "y_mse": 23.889776716820986,
+              "access_unit_bytes": 40435,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 384,
+              "y_mse": 23.771342592592593,
+              "access_unit_bytes": 40338,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 396,
+              "y_mse": 23.710887345679012,
+              "access_unit_bytes": 40313,
+              "initial_slice_qp": 39
+            },
+            {
+              "index": 360,
+              "y_mse": 23.48664303626543,
+              "access_unit_bytes": 40687,
+              "initial_slice_qp": 38
+            }
+          ],
+          "u_mse": 2.0993623006687243,
+          "v_mse": 2.485664705504115
+        },
+        "fine": {
+          "frames": 60,
+          "y_mse": 40.996914834104935,
+          "y_psnr_from_aggregate_mse_db": 32.00329185146657,
+          "yuv_mse": 29.29244519461591,
+          "yuv_psnr_from_aggregate_mse_db": 33.46324734826291,
+          "nominal_coded_mbps": 9.951066666666666,
+          "mean_initial_slice_qp": 34.166666666666664,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.06408167495854063,
+          "mean_block_boundary_residual_mae": 5.719002751509349,
+          "maximum_access_unit_bytes": 38520,
+          "worst_y_mse_frames": [
+            {
+              "index": 420,
+              "y_mse": 155.4505044367284,
+              "access_unit_bytes": 38520,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 421,
+              "y_mse": 134.90185956790123,
+              "access_unit_bytes": 21835,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 422,
+              "y_mse": 113.85903694058642,
+              "access_unit_bytes": 25564,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 423,
+              "y_mse": 101.20031201774691,
+              "access_unit_bytes": 23817,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 424,
+              "y_mse": 94.27703510802469,
+              "access_unit_bytes": 13960,
+              "initial_slice_qp": 38
+            }
+          ],
+          "u_mse": 5.446237429269547,
+          "v_mse": 6.3207744020061725
+        },
+        "overwrite": {
+          "frames": 60,
+          "y_mse": 165.18865720646863,
+          "y_psnr_from_aggregate_mse_db": 25.95100137991075,
+          "yuv_mse": 113.32588084597909,
+          "yuv_psnr_from_aggregate_mse_db": 27.587512574913752,
+          "nominal_coded_mbps": 19.73208,
+          "mean_initial_slice_qp": 44.18333333333333,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.9895045605306799,
+          "mean_block_boundary_residual_mae": 16.707489077250163,
+          "maximum_access_unit_bytes": 42913,
+          "worst_y_mse_frames": [
+            {
+              "index": 513,
+              "y_mse": 169.6190909529321,
+              "access_unit_bytes": 22423,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 535,
+              "y_mse": 169.30475019290122,
+              "access_unit_bytes": 22478,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 491,
+              "y_mse": 169.17299816743827,
+              "access_unit_bytes": 22105,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 504,
+              "y_mse": 168.8073900462963,
+              "access_unit_bytes": 22670,
+              "initial_slice_qp": 44
+            },
+            {
+              "index": 497,
+              "y_mse": 167.77047501929013,
+              "access_unit_bytes": 23561,
+              "initial_slice_qp": 44
+            }
+          ],
+          "u_mse": 9.384770736882716,
+          "v_mse": 9.815885513117284
+        }
+      }
+    },
+    "high-chroma-minus4": {
+      "source_report": "gpu-high-chroma4.json",
+      "source_report_sha256": "1e748ff8ab52e5475155776c3c4d395abe643f04d438328f51ee785d03ea20c1",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "generator_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "template_sha256": "eae9032f1d8bf8c4024d458e76c8bb6b8a977d8c7b11ff46a82f191ed4a00f8c",
+      "options": {
+        "-profile:v": "high",
+        "-coder": "cabac",
+        "-multipass": "qres",
+        "-spatial-aq": "0",
+        "-temporal-aq": "0",
+        "-aq-strength": "8",
+        "-bufsize": "400000",
+        "-bf": "0",
+        "-refs": "1",
+        "-rc-lookahead": "0",
+        "-qp_cb_offset": "-4",
+        "-qp_cr_offset": "-4"
+      },
+      "integrity": {
+        "status": "passed",
+        "frames": 540,
+        "wrong_identity_count": 0,
+        "reference_chain_errors": [],
+        "restart_check": "passed",
+        "maximum_access_unit_bytes": 42742,
+        "oversize_frames": 0
+      },
+      "header_policy": {
+        "profile_idc": 100,
+        "entropy_coding_mode_flag": 1,
+        "transform_8x8_mode_flag": 1,
+        "chroma_qp_index_offset": -4,
+        "second_chroma_qp_index_offset": -4,
+        "video_signal_type_present_flag": 0,
+        "max_num_reorder_frames": 0,
+        "max_num_ref_frames": 2
+      },
+      "all": {
+        "frames": 540,
+        "y_mse": 31.125981895861912,
+        "u_mse": 3.51820143175583,
+        "v_mse": 4.009401002371971,
+        "y_psnr_from_aggregate_mse_db": 33.199573003551706,
+        "yuv_mse": 22.005255002929243,
+        "yuv_psnr_from_aggregate_mse_db": 34.70553955216238,
+        "nominal_coded_mbps": 9.408951111111111,
+        "mean_initial_slice_qp": 31.057407407407407,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.11823383084577115,
+        "mean_block_boundary_residual_mae": 4.207730036863574,
+        "maximum_access_unit_bytes": 42742,
+        "worst_y_mse_frames": [
+          {
+            "index": 497,
+            "y_mse": 168.33247347608025,
+            "access_unit_bytes": 22535,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 482,
+            "y_mse": 168.16617766203703,
+            "access_unit_bytes": 24887,
+            "initial_slice_qp": 42
+          },
+          {
+            "index": 533,
+            "y_mse": 167.3226953125,
+            "access_unit_bytes": 22670,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 531,
+            "y_mse": 167.27345630787036,
+            "access_unit_bytes": 23073,
+            "initial_slice_qp": 43
+          },
+          {
+            "index": 495,
+            "y_mse": 166.99514708719136,
+            "access_unit_bytes": 22645,
+            "initial_slice_qp": 43
+          }
+        ]
+      },
+      "excluding_overwrite": {
+        "frames": 480,
+        "y_mse": 14.370646636083784,
+        "u_mse": 2.8921037246013372,
+        "v_mse": 3.391748147344393,
+        "y_psnr_from_aggregate_mse_db": 36.5560405034227,
+        "yuv_mse": 10.627739736046811,
+        "yuv_psnr_from_aggregate_mse_db": 37.86639450487472,
+        "nominal_coded_mbps": 8.166303333333333,
+        "mean_initial_slice_qp": 29.620833333333334,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.00923714759535655,
+        "mean_block_boundary_residual_mae": 2.65032463632524,
+        "maximum_access_unit_bytes": 42082,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 149.49714554398147,
+            "access_unit_bytes": 42082,
+            "initial_slice_qp": 42
+          },
+          {
+            "index": 421,
+            "y_mse": 132.1480859375,
+            "access_unit_bytes": 20015,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 100,
+            "y_mse": 111.96706211419753,
+            "access_unit_bytes": 26864,
+            "initial_slice_qp": 45
+          },
+          {
+            "index": 422,
+            "y_mse": 111.209676408179,
+            "access_unit_bytes": 25429,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 100.09352478780865,
+            "access_unit_bytes": 21567,
+            "initial_slice_qp": 34
+          }
+        ]
+      },
+      "motion_only": {
+        "frames": 180,
+        "y_mse": 20.944292625814473,
+        "u_mse": 2.3402370113168725,
+        "v_mse": 2.78901372813786,
+        "y_psnr_from_aggregate_mse_db": 34.92014663818951,
+        "yuv_mse": 14.817736873785437,
+        "yuv_psnr_from_aggregate_mse_db": 36.42298482344695,
+        "nominal_coded_mbps": 11.457995555555556,
+        "mean_initial_slice_qp": 29.522222222222222,
+        "mean_fraction_of_blocks_with_mse_over_100": 0.02052722498618021,
+        "mean_block_boundary_residual_mae": 3.883107551601198,
+        "maximum_access_unit_bytes": 42082,
+        "worst_y_mse_frames": [
+          {
+            "index": 420,
+            "y_mse": 149.49714554398147,
+            "access_unit_bytes": 42082,
+            "initial_slice_qp": 42
+          },
+          {
+            "index": 421,
+            "y_mse": 132.1480859375,
+            "access_unit_bytes": 20015,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 422,
+            "y_mse": 111.209676408179,
+            "access_unit_bytes": 25429,
+            "initial_slice_qp": 38
+          },
+          {
+            "index": 423,
+            "y_mse": 100.09352478780865,
+            "access_unit_bytes": 21567,
+            "initial_slice_qp": 34
+          },
+          {
+            "index": 424,
+            "y_mse": 91.22650366512346,
+            "access_unit_bytes": 18320,
+            "initial_slice_qp": 38
+          }
+        ]
+      },
+      "phases": {
+        "bootstrap": {
+          "frames": 300,
+          "y_mse": 10.426459042245371,
+          "u_mse": 3.2232237525720167,
+          "v_mse": 3.7533887988683126,
+          "y_psnr_from_aggregate_mse_db": 37.94943519317243,
+          "yuv_mse": 8.113741453403636,
+          "yuv_psnr_from_aggregate_mse_db": 39.038591961918755,
+          "nominal_coded_mbps": 6.191288,
+          "mean_initial_slice_qp": 29.68,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.0024631011608623548,
+          "mean_block_boundary_residual_mae": 1.9106548871596654,
+          "maximum_access_unit_bytes": 36088,
+          "worst_y_mse_frames": [
+            {
+              "index": 100,
+              "y_mse": 111.96706211419753,
+              "access_unit_bytes": 26864,
+              "initial_slice_qp": 45
+            },
+            {
+              "index": 101,
+              "y_mse": 75.45475597993827,
+              "access_unit_bytes": 23228,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 102,
+              "y_mse": 54.967367380401235,
+              "access_unit_bytes": 17891,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 103,
+              "y_mse": 40.791832079475306,
+              "access_unit_bytes": 24408,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 0,
+              "y_mse": 32.48892119984568,
+              "access_unit_bytes": 34989,
+              "initial_slice_qp": 38
+            }
+          ]
+        },
+        "fast-pan": {
+          "frames": 60,
+          "y_mse": 5.815945433063272,
+          "u_mse": 1.2989221643518518,
+          "v_mse": 1.6363240419238683,
+          "y_psnr_from_aggregate_mse_db": 40.48460037678326,
+          "yuv_mse": 4.366504656421467,
+          "yuv_psnr_from_aggregate_mse_db": 41.729464332434354,
+          "nominal_coded_mbps": 10.320933333333334,
+          "mean_initial_slice_qp": 26.366666666666667,
+          "mean_fraction_of_blocks_with_mse_over_100": 7.462686567164179e-05,
+          "mean_block_boundary_residual_mae": 2.6058027327060698,
+          "maximum_access_unit_bytes": 39648,
+          "worst_y_mse_frames": [
+            {
+              "index": 300,
+              "y_mse": 33.46010079089506,
+              "access_unit_bytes": 39648,
+              "initial_slice_qp": 37
+            },
+            {
+              "index": 301,
+              "y_mse": 26.40011284722222,
+              "access_unit_bytes": 19447,
+              "initial_slice_qp": 31
+            },
+            {
+              "index": 302,
+              "y_mse": 21.274708719135802,
+              "access_unit_bytes": 21716,
+              "initial_slice_qp": 32
+            },
+            {
+              "index": 303,
+              "y_mse": 18.280004822530863,
+              "access_unit_bytes": 21801,
+              "initial_slice_qp": 30
+            },
+            {
+              "index": 304,
+              "y_mse": 15.965074749228394,
+              "access_unit_bytes": 19501,
+              "initial_slice_qp": 33
+            }
+          ]
+        },
+        "cut": {
+          "frames": 60,
+          "y_mse": 11.67908075327932,
+          "u_mse": 1.4014346386316872,
+          "v_mse": 1.704972254372428,
+          "y_psnr_from_aggregate_mse_db": 37.45671699554638,
+          "yuv_mse": 8.3037883176869,
+          "yuv_psnr_from_aggregate_mse_db": 38.938040913693406,
+          "nominal_coded_mbps": 15.198413333333335,
+          "mean_initial_slice_qp": 29.383333333333333,
+          "mean_fraction_of_blocks_with_mse_over_100": 7.669983416252073e-05,
+          "mean_block_boundary_residual_mae": 3.0122259736061094,
+          "maximum_access_unit_bytes": 39961,
+          "worst_y_mse_frames": [
+            {
+              "index": 384,
+              "y_mse": 24.015803915895063,
+              "access_unit_bytes": 39289,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 408,
+              "y_mse": 24.000773051697532,
+              "access_unit_bytes": 39465,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 372,
+              "y_mse": 23.807541956018518,
+              "access_unit_bytes": 39268,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 396,
+              "y_mse": 23.559376929012345,
+              "access_unit_bytes": 39419,
+              "initial_slice_qp": 33
+            },
+            {
+              "index": 360,
+              "y_mse": 23.53138599537037,
+              "access_unit_bytes": 39961,
+              "initial_slice_qp": 33
+            }
+          ]
+        },
+        "fine": {
+          "frames": 60,
+          "y_mse": 45.33785169110082,
+          "u_mse": 4.320354230967078,
+          "v_mse": 5.025744888117284,
+          "y_psnr_from_aggregate_mse_db": 31.566194233924712,
+          "yuv_mse": 31.78291764724794,
+          "yuv_psnr_from_aggregate_mse_db": 33.108865982691135,
+          "nominal_coded_mbps": 8.85464,
+          "mean_initial_slice_qp": 32.81666666666667,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.06143034825870647,
+          "mean_block_boundary_residual_mae": 6.031293948491414,
+          "maximum_access_unit_bytes": 42082,
+          "worst_y_mse_frames": [
+            {
+              "index": 420,
+              "y_mse": 149.49714554398147,
+              "access_unit_bytes": 42082,
+              "initial_slice_qp": 42
+            },
+            {
+              "index": 421,
+              "y_mse": 132.1480859375,
+              "access_unit_bytes": 20015,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 422,
+              "y_mse": 111.209676408179,
+              "access_unit_bytes": 25429,
+              "initial_slice_qp": 38
+            },
+            {
+              "index": 423,
+              "y_mse": 100.09352478780865,
+              "access_unit_bytes": 21567,
+              "initial_slice_qp": 34
+            },
+            {
+              "index": 424,
+              "y_mse": 91.22650366512346,
+              "access_unit_bytes": 18320,
+              "initial_slice_qp": 38
+            }
+          ]
+        },
+        "overwrite": {
+          "frames": 60,
+          "y_mse": 165.16866397408694,
+          "u_mse": 8.52698308899177,
+          "v_mse": 8.950623842592593,
+          "y_psnr_from_aggregate_mse_db": 25.95152705014432,
+          "yuv_mse": 113.02537713798868,
+          "yuv_psnr_from_aggregate_mse_db": 27.599043960248906,
+          "nominal_coded_mbps": 19.350133333333332,
+          "mean_initial_slice_qp": 42.55,
+          "mean_fraction_of_blocks_with_mse_over_100": 0.9902072968490879,
+          "mean_block_boundary_residual_mae": 16.666973241170247,
+          "maximum_access_unit_bytes": 42742,
+          "worst_y_mse_frames": [
+            {
+              "index": 497,
+              "y_mse": 168.33247347608025,
+              "access_unit_bytes": 22535,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 482,
+              "y_mse": 168.16617766203703,
+              "access_unit_bytes": 24887,
+              "initial_slice_qp": 42
+            },
+            {
+              "index": 533,
+              "y_mse": 167.3226953125,
+              "access_unit_bytes": 22670,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 531,
+              "y_mse": 167.27345630787036,
+              "access_unit_bytes": 23073,
+              "initial_slice_qp": 43
+            },
+            {
+              "index": 495,
+              "y_mse": 166.99514708719136,
+              "access_unit_bytes": 22645,
+              "initial_slice_qp": 43
+            }
+          ]
+        }
+      }
+    }
+  },
+  "recommendation": "Prefer High/CABAC with qres and symmetric -4 chroma offsets. Relative to zero-offset High there is a small luma-quality cost, while colour-edge regression passes and motion remains materially better than Baseline. Preserve all earlier candidates and the zero-offset colour-gate failure.",
+  "version": "0.2.5",
+  "selected_policy": {
+    "profile": "high",
+    "entropy_coder": "cabac",
+    "multipass": "qres",
+    "spatial_aq": false,
+    "temporal_aq": false,
+    "chroma_qp_offsets": {
+      "cb": -4,
+      "cr": -4
+    },
+    "basis": "Motion/colour candidate acceptance; not optical acceptance or a claim that every metric improves."
+  },
+  "reproduction": "packaging/windows/motion_quality/README.md",
+  "provenance_note": "Generator hashes identify the exact tools used for these runs. Portable source copies may change ROOT or cleanup code; see reproduction notes rather than assuming a byte-identical tool.",
+  "native_version_comparison": {
+    "source_report": "native-baseline-comparison.json",
+    "source_report_sha256": "e7a7e694dd35ae4d5dc84848dc7d1d11d23f1b324b3b56a0ae8e555cf29e4854",
+    "scope": "Generated testsrc2, identical 1080p100/20M/P4 Baseline parameters; no DDA or USB",
+    "versions": [
+      {
+        "label": "v023",
+        "ffmpeg_sha256": "0e1ff3e6bd92899506a53842773affa9910d5421e98b588ef2f561d1a693acc4",
+        "frames": 500,
+        "coded_sha256": "942378440cc889d07cd8145dd7ca302ab188b5eeb92b035bdf365f92b21e036d",
+        "max_frame_bytes": 44488,
+        "stderr": ""
+      },
+      {
+        "label": "v024",
+        "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+        "frames": 500,
+        "coded_sha256": "942378440cc889d07cd8145dd7ca302ab188b5eeb92b035bdf365f92b21e036d",
+        "max_frame_bytes": 44488,
+        "stderr": ""
+      }
+    ],
+    "identical_access_units": 500
+  },
+  "mailbox_stress": [
+    {
+      "label": "v024-baseline",
+      "source_report": "mailbox-stress-baseline.json",
+      "source_report_sha256": "e3cb5268342397ba8433bfb85c7b352a1565e04e5bb4ca22a2a0eaaee906bdd9",
+      "scope": "D3D11 upload/conversion/pool/latest/NVENC stress; does not exercise DDA or measure normal latency",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "template_sha256": "13b78b510d4865f5e3e196aabdd093289d2427c59a35f4dea8fb33f4ae326676",
+      "status": "passed",
+      "input_frames": 1000,
+      "access_units": 145,
+      "native_raw_replacements": 855,
+      "decoded_frames": 145,
+      "confirmed_mixed_frames": 0,
+      "inconclusive_marker_frames": 0,
+      "duplicate_or_reverse_ids": 0,
+      "minimum_marker_margin": 79.0,
+      "reference_frame_num_errors": [],
+      "slice_count": 145,
+      "reader_backpressure": {
+        "sleep_ms": 4,
+        "chunk_bytes": 4096
+      },
+      "note": "Test-only output backpressure forces raw replacements; not a normal latency or frame-loss benchmark.",
+      "chroma_qp_offsets": {
+        "cb": 0,
+        "cr": 0
+      }
+    },
+    {
+      "label": "v025-high-cabac-qres",
+      "source_report": "mailbox-stress-candidate.json",
+      "source_report_sha256": "3464704b845a6a1f23bbe905640e81ee3915988b3d282fa15d87173f40c16e65",
+      "scope": "D3D11 upload/conversion/pool/latest/NVENC stress; does not exercise DDA or measure normal latency",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "template_sha256": "687c1af8762e69cf0242532c98a042a75dcadb16ba715f98f3dacebdf63cb542",
+      "status": "passed",
+      "input_frames": 1000,
+      "access_units": 161,
+      "native_raw_replacements": 839,
+      "decoded_frames": 161,
+      "confirmed_mixed_frames": 0,
+      "inconclusive_marker_frames": 0,
+      "duplicate_or_reverse_ids": 0,
+      "minimum_marker_margin": 87.0,
+      "reference_frame_num_errors": [],
+      "slice_count": 161,
+      "reader_backpressure": {
+        "sleep_ms": 4,
+        "chunk_bytes": 4096
+      },
+      "header_policy": {
+        "profile_idc": 100,
+        "entropy_coding_mode_flag": 1,
+        "max_num_reorder_frames": 0
+      },
+      "note": "Test-only output backpressure forces raw replacements; not a normal latency or frame-loss benchmark.",
+      "chroma_qp_offsets": {
+        "cb": 0,
+        "cr": 0
+      }
+    },
+    {
+      "label": "v025-final-high-cabac-qres-chroma-minus4",
+      "source_report": "mailbox-stress-final.json",
+      "source_report_sha256": "0860e9e39bdade13ff5af5078107c76f011e9414872808ca90f48590e24ed600",
+      "scope": "D3D11 upload/conversion/pool/latest/NVENC stress; does not exercise DDA or measure normal latency",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "template_sha256": "eae9032f1d8bf8c4024d458e76c8bb6b8a977d8c7b11ff46a82f191ed4a00f8c",
+      "status": "passed",
+      "input_frames": 1000,
+      "access_units": 172,
+      "native_raw_replacements": 828,
+      "decoded_frames": 172,
+      "confirmed_mixed_frames": 0,
+      "inconclusive_marker_frames": 0,
+      "duplicate_or_reverse_ids": 0,
+      "minimum_marker_margin": 78.5,
+      "reference_frame_num_errors": [],
+      "slice_count": 172,
+      "reader_backpressure": {
+        "sleep_ms": 4,
+        "chunk_bytes": 4096
+      },
+      "header_policy": {
+        "profile_idc": 100,
+        "entropy_coding_mode_flag": 1,
+        "max_num_reorder_frames": 0,
+        "chroma_qp_index_offset": -4,
+        "second_chroma_qp_index_offset": -4
+      },
+      "note": "Final release colour-quality candidate, separate from the zero-offset High intermediate. Test-only output backpressure forces raw replacements; not a normal latency or frame-loss benchmark.",
+      "chroma_qp_offsets": {
+        "cb": -4,
+        "cr": -4
+      }
+    }
+  ],
+  "pipeline_isolation": {
+    "cpu_nv12_vs_gpu_upload": {
+      "scope": "Both paths use NVIDIA NVENC High/qres at the same target; CPU NV12 means raw input format, not software encoding.",
+      "cpu_source_report": "cpu-high-qres.json",
+      "cpu_source_report_sha256": "2673faa75b43909894f73fa5484fd07a91de5d62f9fe38c8607a224339cb0c89",
+      "gpu_source_report": "gpu-high.json",
+      "gpu_source_report_sha256": "9b11a90cd65f4061bad46de0f3d1c5e786bc0701a0e16e55ffa8d7accb731ab0",
+      "cpu_status": "passed",
+      "cpu_frames": 540,
+      "cpu_wrong_id_count": 0,
+      "cpu_reference_chain_errors": [],
+      "cpu_reference_restart": "passed",
+      "cpu_maximum_access_unit_bytes": 42819,
+      "cpu_oversize_frames": 0,
+      "all_540_frame_records_identical": true,
+      "sps_pps_identical": true,
+      "cpu_phases": {
+        "bootstrap": {
+          "frames": 300,
+          "y_mse": 9.82979067804784,
+          "y_psnr_from_aggregate_mse_db": 38.205360910863014,
+          "nominal_coded_mbps": 5.470176
+        },
+        "fast-pan": {
+          "frames": 60,
+          "y_mse": 5.260181576324588,
+          "y_psnr_from_aggregate_mse_db": 40.9207962503456,
+          "nominal_coded_mbps": 9.381373333333334
+        },
+        "cut": {
+          "frames": 60,
+          "y_mse": 11.069777552726338,
+          "y_psnr_from_aggregate_mse_db": 37.68941467052794,
+          "nominal_coded_mbps": 14.564773333333333
+        },
+        "fine": {
+          "frames": 60,
+          "y_mse": 45.019155735596705,
+          "y_psnr_from_aggregate_mse_db": 31.59683014646094,
+          "nominal_coded_mbps": 8.636613333333335
+        },
+        "overwrite": {
+          "frames": 60,
+          "y_mse": 164.35301316550925,
+          "y_psnr_from_aggregate_mse_db": 25.973026902406048,
+          "nominal_coded_mbps": 19.335933333333333
+        }
+      },
+      "identity_scope": "Every published per-frame metric, identity, AU size and initial QP agrees. Full encoded or decoded byte hashes were not retained for this cross-path comparison.",
+      "chroma_qp_offsets": {
+        "cb": 0,
+        "cr": 0
+      }
+    },
+    "independent_gpu_raw_conversion": {
+      "source_report": "gpu-raw-motion.json",
+      "source_report_sha256": "d6feb896d3a1f88b4fe111326bcabeac6aeb2bc543972d7405f8f573dd994711",
+      "scope": "Separate upload/VP/readback pass; no NVENC; not DDA or exact encoded input surfaces",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "generator_sha256": "94b9ce8cad5e520d39beb7a48ce9724d00e6920350c17506f9d486fce81d438a",
+      "frames": 240,
+      "wrong_identity_count": 0,
+      "maximum_y_error": 0.0,
+      "maximum_u_error": 0.0,
+      "maximum_v_error": 0.0,
+      "all_planes_match_generated_truth": true,
+      "interpretation": "The 240 generated raw NV12 pictures match all three truth planes. This is a separate pass over generated content, not the exact encoded input surfaces or real DDA capture."
+    }
+  },
+  "selection_status": "High/qres plus symmetric -4 chroma offsets passes motion integrity and the unchanged colour gate; final release timing/installation checks are recorded separately.",
+  "colour_regression_candidates": [
+    {
+      "label": "high-qres-zero-chroma",
+      "chroma_qp_offsets": {
+        "cb": 0,
+        "cr": 0
+      },
+      "source_report": "release-gpu-pixels.json",
+      "source_report_sha256": "ff212dbceb75c206b55c0cf29baf63ec7fe59c37f65afb09a307eb7cb69d2aaa",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "status": "failed",
+      "raw_component_tolerance": 2,
+      "decoded_component_tolerance": 4,
+      "validation_frame_counts": {
+        "cpu_raw": 144,
+        "gpu_raw": 144,
+        "cpu_encoded": 96,
+        "gpu_encoded": 144,
+        "cpu_decoded": 96,
+        "gpu_decoded": 96
+      },
+      "cases": [
+        {
+          "source": [
+            128,
+            72
+          ],
+          "target": [
+            1280,
+            720
+          ],
+          "status": "passed",
+          "aspect_fit_rect": [
+            0,
+            0,
+            1280,
+            720
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 32734,
+            "oversized_access_units": 0
+          },
+          "gpu_decoded": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 1,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 1
+          }
+        },
+        {
+          "source": [
+            128,
+            72
+          ],
+          "target": [
+            1920,
+            1080
+          ],
+          "status": "passed",
+          "aspect_fit_rect": [
+            0,
+            0,
+            1920,
+            1080
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 4161,
+            "oversized_access_units": 0
+          },
+          "gpu_decoded": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          }
+        },
+        {
+          "source": [
+            344,
+            144
+          ],
+          "target": [
+            1280,
+            720
+          ],
+          "status": "failed",
+          "aspect_fit_rect": [
+            0,
+            92,
+            1280,
+            534
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 29469,
+            "oversized_access_units": 0
+          }
+        }
+      ],
+      "failure": "RuntimeError: Frame 8, sample 23: component error 6 exceeds 4; expected [63, 102, 240], received [66, 107, 234]"
+    },
+    {
+      "label": "high-qres-chroma-minus4",
+      "chroma_qp_offsets": {
+        "cb": -4,
+        "cr": -4
+      },
+      "source_report": "gpu-pixels-chroma4.json",
+      "source_report_sha256": "dc8c6dd59485f7c02113fd21511d2fe19d08d029443482ce6aba6b067551f5f1",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "status": "passed",
+      "raw_component_tolerance": 2,
+      "decoded_component_tolerance": 4,
+      "validation_frame_counts": {
+        "cpu_raw": 288,
+        "gpu_raw": 288,
+        "cpu_encoded": 288,
+        "gpu_encoded": 288,
+        "cpu_decoded": 288,
+        "gpu_decoded": 288
+      },
+      "cases": [
+        {
+          "source": [
+            128,
+            72
+          ],
+          "target": [
+            1280,
+            720
+          ],
+          "status": "passed",
+          "aspect_fit_rect": [
+            0,
+            0,
+            1280,
+            720
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 32779,
+            "oversized_access_units": 0
+          },
+          "gpu_decoded": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          }
+        },
+        {
+          "source": [
+            128,
+            72
+          ],
+          "target": [
+            1920,
+            1080
+          ],
+          "status": "passed",
+          "aspect_fit_rect": [
+            0,
+            0,
+            1920,
+            1080
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 4297,
+            "oversized_access_units": 0
+          },
+          "gpu_decoded": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          }
+        },
+        {
+          "source": [
+            344,
+            144
+          ],
+          "target": [
+            1280,
+            720
+          ],
+          "status": "passed",
+          "aspect_fit_rect": [
+            0,
+            92,
+            1280,
+            534
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 29469,
+            "oversized_access_units": 0
+          },
+          "gpu_decoded": {
+            "frames": 48,
+            "maximum_component_error": 3,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 1,
+            "repeated_colour_error": 3
+          }
+        },
+        {
+          "source": [
+            344,
+            144
+          ],
+          "target": [
+            1920,
+            1080
+          ],
+          "status": "passed",
+          "aspect_fit_rect": [
+            0,
+            138,
+            1920,
+            802
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 3159,
+            "oversized_access_units": 0
+          },
+          "gpu_decoded": {
+            "frames": 48,
+            "maximum_component_error": 2,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 1
+          }
+        },
+        {
+          "source": [
+            108,
+            192
+          ],
+          "target": [
+            1280,
+            720
+          ],
+          "status": "passed",
+          "aspect_fit_rect": [
+            438,
+            0,
+            404,
+            720
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 27951,
+            "oversized_access_units": 0
+          },
+          "gpu_decoded": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          }
+        },
+        {
+          "source": [
+            108,
+            192
+          ],
+          "target": [
+            1920,
+            1080
+          ],
+          "status": "passed",
+          "aspect_fit_rect": [
+            656,
+            0,
+            606,
+            1080
+          ],
+          "gpu_raw": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          },
+          "gpu_encoded": {
+            "frames": 48,
+            "maximum_access_unit_bytes": 2822,
+            "oversized_access_units": 0
+          },
+          "gpu_decoded": {
+            "frames": 48,
+            "maximum_component_error": 1,
+            "maximum_gray_chroma_error": 0,
+            "maximum_uniform_field_spread": 0,
+            "maximum_black_bar_error": 0,
+            "repeated_colour_error": 0
+          }
+        }
+      ]
+    }
+  ],
+  "chroma_candidate_tradeoff": {
+    "bootstrap": {
+      "y_mse_reduction_from_baseline_percent": 37.266689760174806,
+      "y_mse_change_from_high_only_percent": 6.070000712528167,
+      "y_psnr_delta_from_high_only_db": -0.25592571769058736,
+      "yuv_psnr_delta_from_high_only_db": 0.2684058452117597,
+      "combined_chroma_mse_reduction_from_high_only_percent": 44.0389717253767
+    },
+    "fast-pan": {
+      "y_mse_reduction_from_baseline_percent": 46.7540785399223,
+      "y_mse_change_from_high_only_percent": 10.565488066801842,
+      "y_psnr_delta_from_high_only_db": -0.43619587356234035,
+      "yuv_psnr_delta_from_high_only_db": 0.04905110459109352,
+      "combined_chroma_mse_reduction_from_high_only_percent": 46.200337267420636
+    },
+    "cut": {
+      "y_mse_reduction_from_baseline_percent": 54.17540352416417,
+      "y_mse_change_from_high_only_percent": 5.504204557416048,
+      "y_psnr_delta_from_high_only_db": -0.23269767498155858,
+      "yuv_psnr_delta_from_high_only_db": -0.07494277200071764,
+      "combined_chroma_mse_reduction_from_high_only_percent": 33.782870969635205
+    },
+    "fine": {
+      "y_mse_reduction_from_baseline_percent": 25.07629813014719,
+      "y_mse_change_from_high_only_percent": 0.7079118883878355,
+      "y_psnr_delta_from_high_only_db": -0.03063591253622633,
+      "yuv_psnr_delta_from_high_only_db": 0.0704704735309889,
+      "combined_chroma_mse_reduction_from_high_only_percent": 31.981193765257654
+    },
+    "overwrite": {
+      "y_mse_reduction_from_baseline_percent": 8.697896134543448,
+      "y_mse_change_from_high_only_percent": 0.49627980215749545,
+      "y_psnr_delta_from_high_only_db": -0.02149985226172646,
+      "yuv_psnr_delta_from_high_only_db": -0.009476948389618656,
+      "combined_chroma_mse_reduction_from_high_only_percent": 9.263775919436867
+    }
+  }
+}
