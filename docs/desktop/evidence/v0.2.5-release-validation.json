@@ -1427,5 +1427,29 @@
     "optical_latency_ms": null,
     "one_percent_end_to_end_jitter_proven": false,
     "zero_end_to_end_frame_loss_proven": false
+  },
+  "delivery": {
+    "version": "0.2.5",
+    "installed_file_hash_matches": 213,
+    "settings_bytes_preserved": true,
+    "source_archive_entries": 259,
+    "source_archive_crc_and_contents": "passed",
+    "installer_bytes": 53074073,
+    "installer_sha256": "ffaf118cba66865c9cb3d9e4e229497ba4c9b5c1d4b08b97dd8e04a2ed57b30a",
+    "desktop_tests_passed": 85,
+    "sdk_baseline_files": 70,
+    "existing_exact_sdk_patches": 2,
+    "packaged_worker_probe": "passed",
+    "installed_worker_probe": "passed",
+    "installed_usb_presence_watcher": "passed; status only, no USB writes",
+    "gui_title": "DJI Goggles Streamer 0.2.5",
+    "gui_responding": true,
+    "original_primary_restored": {
+      "width": 3440,
+      "height": 1440,
+      "hz": 100,
+      "only_active_display": true
+    },
+    "source_archive_hash_location": "DJI-Goggles-Streamer-0.2.5-SHA256SUMS.txt beside deliverables; excluded here to avoid self-reference"
   }
 }
