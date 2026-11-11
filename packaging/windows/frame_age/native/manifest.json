@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "scope": "Historical research sources; never ship these instrumented binaries",
+  "source_archive": "ffmpeg-upstream-n9.0.2.tar.gz",
+  "source_archive_sha256": "c1d85f248a1c5e0a106f501f6893b2cdfe902607446d39df562e5f82eefc910e",
+  "base_repository_commit": "99506c2",
+  "base_patch": "base-0.2.3-goggles.patch",
+  "base_patch_sha256": "1b27154f3afbe7ffeb4964e2ee6731db71374a3ca9ed067d4930719ff81c8f06",
+  "compiler": "gcc 16.2.0 (Rev6, Built by MSYS2 project)",
+  "ffnvcodec_headers": "13.0.19.0",
+  "source_date_epoch": 1789687190,
+  "source_hash_format": "sha256 of UTF-8 text normalized to LF",
+  "binary_hash_note": "These are the binaries actually measured. Different build directories may change retained source-path diagnostic strings; historical builds omitted the production prefix-remap ECFLAGS.",
+  "stages": [
+    {
+      "name": "before-source-clock",
+      "patch": "probe-before-source-clock.patch",
+      "patch_sha256": "26d44012662eef82f6e32858e3a8707492aa199ab39c67c4ea14056c11452570",
+      "measured_binary_sha256": "dc6d84466214b8a7037741ba0905b3f75cff0f38a67a5c506cded3dcdb8f1b10",
+      "changed_source_hashes": {
+        "fftools/ffmpeg.c": "4a375fa6d7a534e3166f7a2083bd3f2c9093f06a60bdeccc6a1e38b601350e26",
+        "fftools/ffmpeg.h": "2468df3c252e9fa493e6020adf5c327167d02ed3a40e2a69005e32b6acf52941",
+        "fftools/ffmpeg_enc.c": "4d98cca85f0552386ddf2474f7606d6d2ed6f2ae848898b2e793ac08f2d9c37c",
+        "fftools/ffmpeg_filter.c": "dd097574acda2048e97e837c2b676e833f91949fa17a5464a0c245b11b1ee18e",
+        "fftools/ffmpeg_mux.c": "1ba1c92dd3da5b29b649138bc7d2f7b281e7e59f768da8abbf2b3365d2cad225",
+        "fftools/ffmpeg_opt.c": "379e1b5723347a143ebe59dc57a23ef72a738f44f0699b00e7280c34bdb72a07",
+        "fftools/ffmpeg_sched.c": "a7c515ae8ae63044c75ae5783b0bac179e9244c27fd3b84bdc8e61da6bda3aa5",
+        "fftools/ffmpeg_sched.h": "64239ce23eb632532989e6a65c08a269a905fd031ad425452a9e8f0f539dae0f",
+        "fftools/frame_age_probe.h": "4a0d509cd3381210b1d0a1f45a3b9c43c020ea46378da90f59665aed028c1a73",
+        "fftools/win_mmcss.h": "abd8bbcb3de7fa374a2fb4834f36aa190f6382c1c2be3ece23688b1719068381",
+        "libavfilter/ddagrab_clock.h": "1197864245c7b2e92230c2158c4a0fb9c19c996c898d23821154ad07ce8ca51c",
+        "libavfilter/vf_scale_d3d11.c": "69edbf60f7b18151ebe91227362c0681b3967a7a3852f7e1d62783cb9671806a",
+        "libavfilter/vsrc_ddagrab.c": "01dddfc39b0d8b48b91754f5b601020986a627a6e69359c0913eb8ee3e7861c8"
+      }
+    },
+    {
+      "name": "source-clock-v1",
+      "patch": "probe-source-clock-v1.patch",
+      "patch_sha256": "109869ba1af7fb40fd9e1a567661fc411237a3813395801c794f7c346908ecc3",
+      "measured_binary_sha256": "e5b59b40c83c98ac846ab737cb934de6a8e9bc5dae65d7e2f9b6006a6adbb7d4",
+      "changed_source_hashes": {
+        "fftools/ffmpeg.c": "4a375fa6d7a534e3166f7a2083bd3f2c9093f06a60bdeccc6a1e38b601350e26",
+        "fftools/ffmpeg.h": "2468df3c252e9fa493e6020adf5c327167d02ed3a40e2a69005e32b6acf52941",
+        "fftools/ffmpeg_enc.c": "4d98cca85f0552386ddf2474f7606d6d2ed6f2ae848898b2e793ac08f2d9c37c",
+        "fftools/ffmpeg_filter.c": "dd097574acda2048e97e837c2b676e833f91949fa17a5464a0c245b11b1ee18e",
+        "fftools/ffmpeg_mux.c": "1ba1c92dd3da5b29b649138bc7d2f7b281e7e59f768da8abbf2b3365d2cad225",
+        "fftools/ffmpeg_opt.c": "379e1b5723347a143ebe59dc57a23ef72a738f44f0699b00e7280c34bdb72a07",
+        "fftools/ffmpeg_sched.c": "a7c515ae8ae63044c75ae5783b0bac179e9244c27fd3b84bdc8e61da6bda3aa5",
+        "fftools/ffmpeg_sched.h": "64239ce23eb632532989e6a65c08a269a905fd031ad425452a9e8f0f539dae0f",
+        "fftools/frame_age_probe.h": "4a0d509cd3381210b1d0a1f45a3b9c43c020ea46378da90f59665aed028c1a73",
+        "fftools/win_mmcss.h": "abd8bbcb3de7fa374a2fb4834f36aa190f6382c1c2be3ece23688b1719068381",
+        "libavfilter/ddagrab_clock.h": "514abc360dbc34d96f511f2a7a2de335a72b2299ca1181163ece6709f03f5489",
+        "libavfilter/ddagrab_phase.h": "20a8cd62d4ce05a8fa86f3816297a0f040535f65fab956be9d7a2af373942f00",
+        "libavfilter/vf_scale_d3d11.c": "69edbf60f7b18151ebe91227362c0681b3967a7a3852f7e1d62783cb9671806a",
+        "libavfilter/vsrc_ddagrab.c": "764159b26e88b6162c503a06e12085487f3f8edba5801121140baf5f6914e715"
+      }
+    },
+    {
+      "name": "source-clock-v2",
+      "patch": "probe-source-clock-v2.patch",
+      "patch_sha256": "c29b4eaa48cc09a314c9271d97d8168fe9959d67698c7ceb5d3d2f0488683c5f",
+      "measured_binary_sha256": "6c013620406d1dc577dd0d3767b563c980b246b7443a89cd196326cc29455d4e",
+      "changed_source_hashes": {
+        "fftools/ffmpeg.c": "4a375fa6d7a534e3166f7a2083bd3f2c9093f06a60bdeccc6a1e38b601350e26",
+        "fftools/ffmpeg.h": "2468df3c252e9fa493e6020adf5c327167d02ed3a40e2a69005e32b6acf52941",
+        "fftools/ffmpeg_enc.c": "4d98cca85f0552386ddf2474f7606d6d2ed6f2ae848898b2e793ac08f2d9c37c",
+        "fftools/ffmpeg_filter.c": "dd097574acda2048e97e837c2b676e833f91949fa17a5464a0c245b11b1ee18e",
+        "fftools/ffmpeg_mux.c": "1ba1c92dd3da5b29b649138bc7d2f7b281e7e59f768da8abbf2b3365d2cad225",
+        "fftools/ffmpeg_opt.c": "379e1b5723347a143ebe59dc57a23ef72a738f44f0699b00e7280c34bdb72a07",
+        "fftools/ffmpeg_sched.c": "a7c515ae8ae63044c75ae5783b0bac179e9244c27fd3b84bdc8e61da6bda3aa5",
+        "fftools/ffmpeg_sched.h": "64239ce23eb632532989e6a65c08a269a905fd031ad425452a9e8f0f539dae0f",
+        "fftools/frame_age_probe.h": "4a0d509cd3381210b1d0a1f45a3b9c43c020ea46378da90f59665aed028c1a73",
+        "fftools/win_mmcss.h": "abd8bbcb3de7fa374a2fb4834f36aa190f6382c1c2be3ece23688b1719068381",
+        "libavfilter/ddagrab_clock.h": "514abc360dbc34d96f511f2a7a2de335a72b2299ca1181163ece6709f03f5489",
+        "libavfilter/ddagrab_phase.h": "04375251e76f3a8daf177e115eb1399cef28fe3c6c8980ea2c5191ab5a29f723",
+        "libavfilter/vf_scale_d3d11.c": "69edbf60f7b18151ebe91227362c0681b3967a7a3852f7e1d62783cb9671806a",
+        "libavfilter/vsrc_ddagrab.c": "764159b26e88b6162c503a06e12085487f3f8edba5801121140baf5f6914e715"
+      }
+    }
+  ],
+  "production_instrumentation": {
+    "base_patch": "packaging/windows/ffmpeg/ffmpeg-n9.0.2-goggles.patch",
+    "base_patch_sha256": "3b8db5928ca8ac2beb6b0d1a20cb9407eec7f7f6c717adfb06e599ec9b3941a9",
+    "patch": "instrument-production-v024.patch",
+    "patch_sha256": "e9f6c5844876303ce9c6770890071a94418bb3fc7c423bccd55136b0dc1f39b5",
+    "validation": "Forward dry-run against independent final production source passed; not built or measured as a distinct diagnostic binary."
+  },
+  "historical_reconstruction_validation": {
+    "before-source-clock": 13,
+    "source-clock-v1": 14,
+    "source-clock-v2": 14,
+    "method": "Forward apply of each complete stage patch to an independent frozen 0.2.3 base; all canonical source hashes matched."
+  }
+}

@@ -1,0 +1,219 @@
+{
+  "schema": 1,
+  "version": "0.2.4",
+  "scope": "Actual release binary; USB completion is host API acceptance, not goggles presentation",
+  "release_binaries": {
+    "ffmpeg.exe": {
+      "bytes": 5758976,
+      "sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "pe_timestamp": 1789687190,
+      "private_build_path": false
+    },
+    "ffprobe.exe": {
+      "bytes": 5567488,
+      "sha256": "a625e94dafe54cc363d0fca74f7ea18f52f5088f9d55363651cc7a2e5bcd8ec5",
+      "pe_timestamp": 1789687190,
+      "private_build_path": false
+    }
+  },
+  "usb": [
+    {
+      "name": "extended-generated-texture-60s",
+      "raw_file_sha256": "7cba6e3dae75f01851eddf6ca542e3a496222dd3f4a404baa55730cfd2742366",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "scope": "complete VerifiedTransport.write call on host; preflight control writes excluded",
+      "optical_latency": "not measured",
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "usb_write_size": 16384
+      },
+      "source_dimensions": [
+        1920,
+        1080
+      ],
+      "duration_requested_seconds": 60.0,
+      "warmup_seconds": 3,
+      "completed_video_count": 6003,
+      "steady_video_count": 5702,
+      "failed_write_count": 0,
+      "failure_reported": false,
+      "cleanup_errors_count": 0,
+      "all_transports_closed": true,
+      "records_dropped": 0,
+      "gpu_priority_class": 4,
+      "gpu_priority_api_applied": true,
+      "completion_interval_ms": {
+        "count": 5702,
+        "min": 7.0163,
+        "mean": 10.000364135391091,
+        "p50": 10.0201,
+        "p95": 11.5425,
+        "p99": 12.0724,
+        "p999": 12.605,
+        "max": 13.1252
+      },
+      "derived_completion_fps": 99.99635877867884,
+      "usb_api_write_ms": {
+        "count": 5702,
+        "min": 0.6388,
+        "mean": 0.877632216766047,
+        "p50": 0.8804,
+        "p95": 0.9483,
+        "p99": 0.9782,
+        "p999": 1.0209,
+        "max": 2.9496
+      },
+      "intervals_outside_one_percent": 4545,
+      "interval_one_percent_target_met": false,
+      "one_second_wire_mbps": {
+        "count": 57,
+        "mean": 20.441465122807013,
+        "min": 20.330304,
+        "max": 20.547056,
+        "maximum_deviation_from_mean_percent": 0.5438021303227757
+      },
+      "one_second_encoded_mbps_estimate": {
+        "count": 57,
+        "mean": 19.528561964912278,
+        "min": 19.421304,
+        "max": 19.628336,
+        "maximum_deviation_from_mean_percent": 0.5492363703225727
+      },
+      "one_second_frame_counts": {
+        "count": 57,
+        "mean": 100.0,
+        "min": 100,
+        "max": 100,
+        "maximum_deviation_from_mean_percent": 0.0
+      },
+      "encoded_bytes_method": "full PC DUML V1 wire length minus 45 bytes per 1023-byte-maximum fragment",
+      "maximum_reported_oversize_frames": 0,
+      "maximum_reported_queue_ms_p95": 0.04,
+      "maximum_reported_frame_bytes": 35174,
+      "source_context": {
+        "available": true,
+        "scope": "Same-session QPC window correlation only, not exact picture identity",
+        "renderer_frames": 5702,
+        "renderer_fps": 100.0000927908246,
+        "renderer_gaps_over_15ms": 0,
+        "renderer_maximum_interval_ms": 11.6011,
+        "source_covers_window": true
+      }
+    },
+    {
+      "name": "ultrawide-primary-desktop-20s",
+      "raw_file_sha256": "5c8c3c5fe5fb033d4836586c5a50ab7b79780fe584ee7bb29fedc9ae1d3a7141",
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "scope": "complete VerifiedTransport.write call on host; preflight control writes excluded",
+      "optical_latency": "not measured",
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "usb_write_size": 16384
+      },
+      "source_dimensions": [
+        3440,
+        1440
+      ],
+      "duration_requested_seconds": 20.0,
+      "warmup_seconds": 3,
+      "completed_video_count": 2006,
+      "steady_video_count": 1704,
+      "failed_write_count": 0,
+      "failure_reported": false,
+      "cleanup_errors_count": 0,
+      "all_transports_closed": true,
+      "records_dropped": 0,
+      "gpu_priority_class": 4,
+      "gpu_priority_api_applied": true,
+      "completion_interval_ms": {
+        "count": 1704,
+        "min": 7.1321,
+        "mean": 9.999671185446008,
+        "p50": 9.9808,
+        "p95": 11.5799,
+        "p99": 12.2535,
+        "p999": 12.7984,
+        "max": 13.0492
+      },
+      "derived_completion_fps": 100.00328825366249,
+      "usb_api_write_ms": {
+        "count": 1704,
+        "min": 0.2043,
+        "mean": 0.27992036384976526,
+        "p50": 0.277,
+        "p95": 0.324,
+        "p99": 0.3583,
+        "p999": 0.398,
+        "max": 0.5365
+      },
+      "intervals_outside_one_percent": 1387,
+      "interval_one_percent_target_met": false,
+      "one_second_wire_mbps": {
+        "count": 17,
+        "mean": 4.606283294117647,
+        "min": 4.446304,
+        "max": 4.902064,
+        "maximum_deviation_from_mean_percent": 6.421244352471186
+      },
+      "one_second_encoded_mbps_estimate": {
+        "count": 17,
+        "mean": 4.3784456470588236,
+        "min": 4.224904,
+        "max": 4.665184,
+        "maximum_deviation_from_mean_percent": 6.5488617663619975
+      },
+      "one_second_frame_counts": {
+        "count": 17,
+        "mean": 100.0,
+        "min": 100,
+        "max": 100,
+        "maximum_deviation_from_mean_percent": 0.0
+      },
+      "encoded_bytes_method": "full PC DUML V1 wire length minus 45 bytes per 1023-byte-maximum fragment",
+      "maximum_reported_oversize_frames": 0,
+      "maximum_reported_queue_ms_p95": 0.04,
+      "maximum_reported_frame_bytes": 42892,
+      "source_context": null
+    }
+  ],
+  "correctness": {
+    "generated_pixels": {
+      "status": "passed",
+      "raw_file_sha256": "d12218e86827c9d174ccee9ca74863f4af220f1fd7cde1bf588e0238d9687e46",
+      "frame_counts": {
+        "cpu_raw": 288,
+        "gpu_raw": 288,
+        "cpu_encoded": 288,
+        "gpu_encoded": 288,
+        "cpu_decoded": 288,
+        "gpu_decoded": 288
+      },
+      "raw_component_tolerance": 2,
+      "decoded_component_tolerance": 4
+    },
+    "codec_modes": {
+      "passed": true,
+      "raw_file_sha256": "d3ff6991e784d1688cd54ea2d6ab7c6bd719afe775138990be5ce0e4c5505d81",
+      "modes": 16,
+      "encoded_frames": 3980,
+      "decoded_frames": 3980,
+      "maximum_frame_bytes": 52709
+    }
+  },
+  "caveats": [
+    "Host write completion does not establish USB wire timing, goggles decoding or optical presentation.",
+    "The primary-desktop scene is not the generated texture; its low coded bitrate cannot be used as a quality comparison.",
+    "Windows deliberately terminates the SDK encoder on stop; teardown status is assessed through explicit failure/cleanup fields.",
+    "No source identity, process handle, device address, absolute counter or private filesystem path is published."
+  ]
+}

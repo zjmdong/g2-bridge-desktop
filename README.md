@@ -4,15 +4,15 @@ Stream your Windows or Mac desktop to DJI Goggles 2 or DJI Goggles Integra over 
 
 ## DJI Goggles Streamer desktop client
 
-This fork adds **DJI Goggles Streamer 0.2.3**, a Windows x64 graphical client.
-It wraps the unchanged SDK with environment and firmware checks, integrated
+This fork adds **DJI Goggles Streamer 0.2.4**, a Windows x64 graphical client.
+It wraps the SDK with environment and firmware checks, integrated
 driver setup, streaming controls, persistent settings and offline help.
 It offers borderless primary/virtual desktop capture at 720p or 1080p, four frame
 rates up to 100 fps, automatic USB streaming/display lifecycle and sender metrics.
 The desktop adapter uses NVIDIA NVENC H.264 exclusively, without a software
 fallback; the SDK's original encoder defaults remain unchanged. Window selection and a
 macOS GUI are planned.
-Version 0.2.3 uses one target-rate QPC capture clock, GPU BT.709 NV12 conversion
+Version 0.2.4 retains one target-rate QPC capture clock, GPU BT.709 NV12 conversion
 with correct letterboxing, asynchronous NVENC completion events, and a single
 waiting raw-frame slot. Under overload, newer raw pictures replace waiting ones;
 encoded H.264 references remain ordered. It does not promise zero drops, fixed
@@ -21,17 +21,36 @@ displays use the same pipeline, with their actual source refresh rates still
 limiting how many distinct pictures they can supply. The default target remains
 1080p100/20 Mbps/P4, with the SDK's qres rate control and VBV/frame-size guards.
 
-The 70 recorded SDK files remain unchanged. Native capture/encoder changes live
+The desktop enables source-phase alignment (`source_clock=1`,
+`source_guard_us=3000`): consistent real desktop updates steer future capture
+deadlines by at most 100 microseconds per correction. The 3 ms phase target
+does not add an encoded-frame buffer or adaptive bitrate reduction. Native
+FFmpeg keeps this option off by default; it does not synchronize to the
+headset's unreported display clock.
+
+The desktop client requests High GPU scheduling class 4 for its encoder instead
+of Realtime class 5. The SDK exposes this as an optional per-engine policy;
+its command-line default remains class 5. The request is best-effort and records
+both the requested class and whether Windows accepted it.
+
+Of the 70 recorded SDK files, 68 remain unchanged. Two exact audited patches
+cover the engine's optional GPU scheduling hook and a test that incorrectly
+required successful GPU scheduling without creating a D3D context. The engine
+is the only changed runtime SDK file. Original baseline hashes are preserved,
+and packaging verifies both exact patched hashes through
+[sdk-patches.json](docs/desktop/sdk-patches.json). Native capture/encoder changes live
 in a bundled minimal LGPL FFmpeg n9.0.2 build; its complete upstream source,
 patch, build recipe, dependency manifest and notices accompany the installer
 and source archive. Follow the [native build instructions](packaging/windows/ffmpeg/README.md)
 before running the desktop packaging preparation step.
 
 See the [Windows user and build guide](docs/desktop/USER_GUIDE.md),
-[0.2.3 validation record](docs/desktop/VALIDATION-0.2.3.md),
+[current implementation notes](docs/desktop/IMPLEMENTATION.md),
+[0.2.4 validation record](docs/desktop/VALIDATION-0.2.4.md),
+[VR timing design and sources](docs/desktop/VR_TIMING.md),
 [protocol and performance limits](docs/desktop/PROTOCOL_LIMITS.md) and
 [third-party notices](docs/desktop/THIRD_PARTY.md). The command-line SDK described
-below remains available unchanged. Upstream latency measurements below describe
+below retains its existing defaults. Upstream latency measurements below describe
 the SDK's original hardware tests, not a new measurement of the desktop client.
 
 The bridge detects the model when it connects:

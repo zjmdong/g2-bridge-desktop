@@ -1,4 +1,20 @@
-# 0.2.3 sender evidence
+# Sender evidence
+
+## 0.2.4
+
+- [Host timing findings](v0.2.4-host-research.md) explains source freshness,
+  controlled comparisons, selected changes and the limits of the measurements.
+- [Host research summaries](v0.2.4-host-research.json) preserves 38 completed
+  generated-motion cases, including rejected candidates and source correlation.
+- [Release validation](v0.2.4-release-validation.json) records the uninstrumented
+  binary hashes, generated pixel/codec checks and actual USB timing for the
+  extended and primary displays.
+- [Reproduction tools](../../../packaging/windows/frame_age/README.md) include
+  frozen baseline commands, historical native patches, a generated-pattern
+  renderer and opt-in provenance/identity diagnostics. They are not shipped in
+  the app's streaming path.
+
+## 0.2.3
 
 These artifacts contain numeric measurements, commands and source changes only.
 They contain no desktop pictures, headset recordings, USB payload captures or

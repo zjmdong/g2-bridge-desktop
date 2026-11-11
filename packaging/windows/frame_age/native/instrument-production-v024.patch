@@ -1,0 +1,319 @@
+--- a/libavfilter/vsrc_ddagrab.c
++++ b/libavfilter/vsrc_ddagrab.c
+@@ -114,6 +114,9 @@
+     int        clock_spin_us;
+     int        source_clock;
+     int        source_guard_us;
++    int        frame_age_probe;
++    int64_t    probe_frequency, probe_sequence, probe_present, probe_mouse;
++    int64_t    probe_acquire_start, probe_acquire_end, probe_accumulated, probe_flags;
+ } DdagrabContext;
+ 
+ #define OFFSET(x) offsetof(DdagrabContext, x)
+@@ -149,10 +152,19 @@
+                                                    OFFSET(source_clock), AV_OPT_TYPE_BOOL,     { .i64 = 0    },       0,       1, FLAGS },
+     { "source_guard_us", "target guard after robust desktop-present phase",
+                                                    OFFSET(source_guard_us), AV_OPT_TYPE_INT,   { .i64 = 2000 },       0,    5000, FLAGS },
++    { "frame_age_probe", "attach QPC provenance (research only)",
++      OFFSET(frame_age_probe), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, FLAGS },
+     { NULL }
+ };
+ 
+ AVFILTER_DEFINE_CLASS(ddagrab);
++
++static int64_t ddagrab_probe_qpc(void)
++{
++    LARGE_INTEGER value;
++    return QueryPerformanceCounter(&value) ? value.QuadPart : 0;
++}
++
+ 
+ static inline void release_resource(void *resource)
+ {
+@@ -726,11 +738,27 @@
+ 
+     dda->source_present = 0;
+     dda->source_accumulated = 0;
++    if (dda->frame_age_probe)
++        dda->probe_acquire_start = ddagrab_probe_qpc();
+     hr = IDXGIOutputDuplication_AcquireNextFrame(
+         dda->dxgi_outdupl,
+         need_frame || !dda->dup_frames ? FFMAX(1, dda->time_timeout) : dda->time_timeout,
+         &frame_info,
+         &desktop_resource);
++    if (dda->frame_age_probe) {
++        dda->probe_acquire_end = ddagrab_probe_qpc();
++        if (SUCCEEDED(hr)) {
++            dda->probe_accumulated = frame_info.AccumulatedFrames;
++            if (frame_info.LastPresentTime.QuadPart) {
++                dda->probe_present = frame_info.LastPresentTime.QuadPart;
++                dda->probe_flags |= 1; /* New desktop image, not merely cursor. */
++            }
++            if (frame_info.LastMouseUpdateTime.QuadPart) {
++                dda->probe_mouse = frame_info.LastMouseUpdateTime.QuadPart;
++                dda->probe_flags |= 4;
++            }
++        }
++    }
+     if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
+         return AVERROR(EAGAIN);
+     } else if (FAILED(hr)) {
+@@ -1149,6 +1177,7 @@
+ 
+     int64_t time_frame = dda->time_frame;
+     int64_t now, delay;
++    int64_t probe_sample = 0;
+     AVFrame *frame = NULL;
+     HRESULT hr;
+     int ret;
+@@ -1177,6 +1206,18 @@
+     }
+     }
+ 
++    if (dda->frame_age_probe) {
++        LARGE_INTEGER frequency;
++        probe_sample = ddagrab_probe_qpc();
++        if (!dda->probe_frequency && QueryPerformanceFrequency(&frequency))
++            dda->probe_frequency = frequency.QuadPart;
++        if (!dda->probed_texture) {
++            dda->probe_acquire_start = dda->probe_acquire_end = 0;
++            dda->probe_accumulated = dda->probe_flags = 0;
++        } else {
++            dda->probe_flags |= 8; /* Texture acquired during initialization. */
++        }
++    }
+     if (!dda->first_pts)
+         dda->first_pts = now;
+     now -= dda->first_pts;
+@@ -1216,6 +1257,8 @@
+             return ret;
+         }
+ 
++        if (dda->frame_age_probe)
++            dda->probe_flags |= 2;
+         av_log(avctx, AV_LOG_DEBUG, "Duplicated output frame\n");
+ 
+         goto frame_done;
+@@ -1299,6 +1342,16 @@
+         return ret;
+ 
+ frame_done:
++    if (dda->frame_age_probe) {
++        char value[384];
++        snprintf(value, sizeof(value),
++            "v1,%"PRId64",%"PRId64",%"PRId64",%"PRId64",%"PRId64",%"PRId64",%"PRId64",%"PRId64",%"PRId64",%"PRId64,
++            dda->probe_frequency, ++dda->probe_sequence, dda->probe_present,
++            probe_sample, dda->probe_acquire_start, dda->probe_acquire_end,
++            ddagrab_probe_qpc(), dda->probe_accumulated, dda->probe_mouse, dda->probe_flags);
++        ret = av_dict_set(&frame->metadata, "g2.frame_age", value, 0);
++        if (ret < 0) { av_frame_free(&frame); return ret; }
++    }
+     frame->pts = now;
+     dda->time_frame = time_frame;
+ 
+--- a/fftools/ffmpeg.h
++++ b/fftools/ffmpeg.h
+@@ -691,6 +691,8 @@
+     int bitexact;
+ } OutputFile;
+ 
++#include "frame_age_probe.h"
++
+ // optionally attached as opaque_ref to decoded AVFrames
+ typedef struct FrameData {
+     // demuxer-estimated dts in AV_TIME_BASE_Q,
+@@ -710,6 +712,7 @@
+     int        bits_per_raw_sample;
+ 
+     int64_t wallclock[LATENCY_PROBE_NB];
++    G2FrameAge g2age;
+ 
+     AVCodecParameters *par_enc;
+ 
+--- a/fftools/ffmpeg.c
++++ b/fftools/ffmpeg.c
+@@ -311,6 +311,76 @@
+ 
+ const AVIOInterruptCB int_cb = { decode_interrupt_cb, NULL };
+ 
++
++/* This independent research build exports numeric records only after workers
++ * have stopped. Opaque FrameData ownership remains entirely with fftools. */
++#define G2AGE_MAX_RECORDS 16384
++typedef struct G2AgeRecord {
++    G2FrameAge age;
++    int64_t mux_start, mux_end, pts;
++    int bytes, result, output, stream;
++} G2AgeRecord;
++static G2AgeRecord g2_age_records[G2AGE_MAX_RECORDS];
++static atomic_uint g2_age_count;
++
++void g2_age_from_frame(G2FrameAge *age, const AVFrame *frame)
++{
++    const AVDictionaryEntry *entry = av_dict_get(frame->metadata, "g2.frame_age", NULL, 0);
++    G2FrameAge value = { 0 };
++    if (!entry)
++        return;
++    if (sscanf(entry->value,
++        "v1,%"SCNd64",%"SCNd64",%"SCNd64",%"SCNd64",%"SCNd64",%"SCNd64",%"SCNd64",%"SCNd64",%"SCNd64",%"SCNd64,
++        &value.frequency, &value.sequence, &value.present, &value.sample,
++        &value.acquire_start, &value.acquire_end, &value.emit,
++        &value.accumulated, &value.mouse, &value.flags) != 10 ||
++        value.frequency <= 0 || value.sequence <= 0 || value.sample <= 0 || value.emit < value.sample) {
++        av_log(NULL, AV_LOG_ERROR, "G2AGE malformed frame provenance\n");
++        memset(age, 0, sizeof(*age));
++        return;
++    }
++    value.filter_out = g2_age_qpc();
++    *age = value;
++}
++
++void g2_age_record(const G2FrameAge *age, int64_t mux_start, int64_t mux_end,
++                   int bytes, int result, int output, int stream, int64_t pts)
++{
++    unsigned index;
++    if (!age->sequence)
++        return;
++    index = atomic_fetch_add_explicit(&g2_age_count, 1, memory_order_relaxed);
++    if (index < G2AGE_MAX_RECORDS)
++        g2_age_records[index] = (G2AgeRecord){ *age, mux_start, mux_end, pts,
++                                             bytes, result, output, stream };
++}
++
++void g2_age_dump(void)
++{
++    unsigned count = atomic_load_explicit(&g2_age_count, memory_order_relaxed);
++    if (!count)
++        return;
++    fprintf(stderr, "G2AGE_HEADER version=1 records=%u capacity=%u dropped=%u\n",
++            count, G2AGE_MAX_RECORDS, count > G2AGE_MAX_RECORDS ? count - G2AGE_MAX_RECORDS : 0);
++    for (unsigned i = 0; i < FFMIN(count, G2AGE_MAX_RECORDS); ++i) {
++        const G2AgeRecord *r = &g2_age_records[i];
++        const G2FrameAge *a = &r->age;
++        fprintf(stderr,
++          "G2AGE_RECORD index=%u frequency=%"PRId64" sequence=%"PRId64
++          " present=%"PRId64" sample=%"PRId64" acquire_start=%"PRId64
++          " acquire_end=%"PRId64" emit=%"PRId64" accumulated=%"PRId64
++          " mouse=%"PRId64" flags=%"PRId64" filter_out=%"PRId64
++          " dequeue=%"PRId64" encode_start=%"PRId64" packet_ready=%"PRId64
++          " mux_start=%"PRId64" mux_end=%"PRId64" pts=%"PRId64
++          " bytes=%d result=%d output=%d stream=%d\n",
++          i, a->frequency, a->sequence, a->present, a->sample,
++          a->acquire_start, a->acquire_end, a->emit, a->accumulated, a->mouse,
++          a->flags, a->filter_out, a->dequeue, a->encode_start, a->packet_ready,
++          r->mux_start, r->mux_end, r->pts, r->bytes, r->result, r->output, r->stream);
++    }
++    fprintf(stderr, "G2AGE_END records=%u\n", FFMIN(count, G2AGE_MAX_RECORDS));
++}
++
+ static void ffmpeg_cleanup(int ret)
+ {
+     if ((print_graphs || print_graphs_file) && nb_output_files > 0)
+@@ -343,6 +413,7 @@
+     }
+     av_freep(&vstats_filename);
+     of_enc_stats_close();
++    g2_age_dump();
+ 
+     hw_device_free_all();
+ 
+--- a/fftools/ffmpeg_filter.c
++++ b/fftools/ffmpeg_filter.c
+@@ -2830,6 +2830,7 @@
+     }
+ 
+     fd->wallclock[LATENCY_PROBE_FILTER_POST] = av_gettime_relative();
++    g2_age_from_frame(&fd->g2age, frame);
+ 
+     // only use bits_per_raw_sample passed through from the decoder
+     // if the filtergraph did not touch the frame data
+--- a/fftools/ffmpeg_enc.c
++++ b/fftools/ffmpeg_enc.c
+@@ -642,6 +642,11 @@
+             enc->sample_aspect_ratio = frame->sample_aspect_ratio;
+     }
+ 
++    if (frame && frame->opaque_ref) {
++        FrameData *fd = (FrameData *)frame->opaque_ref->data;
++        if (fd->g2age.sequence)
++            fd->g2age.encode_start = g2_age_qpc();
++    }
+     update_benchmark(NULL);
+ 
+     ret = avcodec_send_frame(enc, frame);
+@@ -679,6 +684,8 @@
+         if (!fd)
+             return AVERROR(ENOMEM);
+         fd->wallclock[LATENCY_PROBE_ENC_POST] = av_gettime_relative();
++        if (fd->g2age.sequence)
++            fd->g2age.packet_ready = g2_age_qpc();
+ 
+         // attach stream parameters to first packet if requested
+         avcodec_parameters_free(&fd->par_enc);
+@@ -891,6 +898,12 @@
+             goto finish;
+         }
+ 
++        {
++            FrameData *fd = frame_data(et.frame);
++            if (!fd) { ret = AVERROR(ENOMEM); goto finish; }
++            if (fd->g2age.sequence)
++                fd->g2age.dequeue = g2_age_qpc();
++        }
+         if (!name_set) {
+             enc_thread_set_name(ost);
+             name_set = 1;
+--- a/fftools/ffmpeg_mux.c
++++ b/fftools/ffmpeg_mux.c
+@@ -228,7 +228,17 @@
+     if (ms->stats.io)
+         enc_stats_write(ost, &ms->stats, NULL, pkt, frame_num);
+ 
+-    ret = av_interleaved_write_frame(s, pkt);
++    {
++        const FrameData *fd = pkt->opaque_ref ? (const FrameData *)pkt->opaque_ref->data : NULL;
++        G2FrameAge age = fd ? fd->g2age : (G2FrameAge){ 0 };
++        int bytes = pkt->size;
++        int64_t pts = pkt->pts;
++        int64_t begin = age.sequence ? g2_age_qpc() : 0;
++        ret = av_interleaved_write_frame(s, pkt);
++        if (age.sequence)
++            g2_age_record(&age, begin, g2_age_qpc(), bytes, ret,
++                          mux->of.index, ost->index, pts);
++    }
+     if (ret < 0) {
+         av_log(ost, AV_LOG_ERROR,
+                "Error submitting a packet to the muxer: %s\n",
+--- /dev/null
++++ b/fftools/frame_age_probe.h
+@@ -0,0 +1,30 @@
++/* Opt-in research frame-age probe, not part of the production patch. */
++#ifndef FFTOOLS_FRAME_AGE_PROBE_H
++#define FFTOOLS_FRAME_AGE_PROBE_H
++#include <stdint.h>
++#ifdef _WIN32
++#include <windows.h>
++#endif
++
++typedef struct G2FrameAge {
++    int64_t frequency, sequence, present, sample, acquire_start, acquire_end, emit;
++    int64_t accumulated, mouse, flags;
++    int64_t filter_out, dequeue, encode_start, packet_ready;
++} G2FrameAge;
++
++static inline int64_t g2_age_qpc(void)
++{
++#ifdef _WIN32
++    LARGE_INTEGER value;
++    return QueryPerformanceCounter(&value) ? value.QuadPart : 0;
++#else
++    return 0;
++#endif
++}
++
++struct AVFrame;
++void g2_age_from_frame(G2FrameAge *age, const struct AVFrame *frame);
++void g2_age_record(const G2FrameAge *age, int64_t mux_start, int64_t mux_end,
++                   int bytes, int result, int output, int stream, int64_t pts);
++void g2_age_dump(void);
++#endif

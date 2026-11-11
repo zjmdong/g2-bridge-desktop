@@ -8,5 +8,7 @@
 # Unified diff context lines intentionally contain a single space.
 /packaging/windows/ffmpeg/*.patch -whitespace
 /docs/desktop/evidence/*.patch -whitespace
+/packaging/windows/frame_age/** text eol=lf
+/packaging/windows/frame_age/native/*.patch -whitespace
 # Preserve upstream license whitespace.
 /packaging/windows/ffmpeg/licenses/** -whitespace

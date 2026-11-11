@@ -1,5 +1,55 @@
 # Windows implementation history
 
+## 0.2.4 source-phase alignment and GPU scheduling
+
+Retain the 1080p100/20 Mbps/P4 target and the existing capture, colour conversion,
+NVENC and ordered USB path. The desktop client requests GPU scheduling class 4
+(High) for its own encoder, replacing its previous class 5 (Realtime) request.
+The setting applies once after the first encoded frame and is best-effort;
+unsupported or rejected policy requests do not stop streaming. This change does
+not establish zero drops, a constant optical latency or a universal 1% bound.
+
+The desktop enables `ddagrab` source alignment with `source_clock=1` and
+`source_guard_us=3000`. A qualified window of real DXGI desktop updates provides
+a robust phase estimate; repeated, stale, mouse-only and inconsistent samples
+cannot steer the clock. Each correction moves only future capture deadlines,
+by at most ±100 microseconds. The 3 ms guard places the sampling phase after
+the estimated desktop update; it is not an encoded-frame buffer. Substantially
+late wakes discard missed timing slots instead of producing catch-up bursts.
+The native option remains off by default, preserving existing native callers.
+This aligns to the source, not to an unreported headset VSync.
+
+The selected guard provides additional sampling margin over the 2 ms candidate.
+The release comparisons, including source-identity and actual USB-write
+observations, are documented in [0.2.4 validation](VALIDATION-0.2.4.md).
+These observations cover the tested host and source; they do not guarantee
+fixed optical timing or identical behavior under all GPU loads. There is no
+new post-encode pacing queue or adaptive bitrate reduction.
+See [VR timing design and primary sources](VR_TIMING.md).
+
+The SDK adds optional `BridgeEngine(..., gpu_priority_class=5)` and
+`prioritize_gpu(process, priority_class=5)` arguments. `None` leaves the OS
+policy untouched; otherwise only integers 0 through 5 are accepted. The default
+remains 5 for existing callers and the command-line client. DLL loading is
+restricted to System32, invalid/closed/pseudo handles are rejected, and NTSTATUS
+uses its explicit 32-bit ABI. Streaming events record `gpu_priority_class` and
+`gpu_priority_applied`; `gpu_realtime` is true only for a successful class 5 request.
+
+The original 70-file SDK baseline remains recorded without replacing its hashes:
+68 files still match the original baseline. The sole runtime change is in
+`goggles_bridge/engine.py`. A second patch corrects `tests/test_engine.py`:
+querying a User32 desktop window does not create a D3D context, so a best-effort
+GPU scheduling request may legitimately return false. That test now verifies
+the boolean result and closes the child stdout; successful and rejected
+policies have separate mocked coverage, with real encoder checks in validation.
+`sdk-patches.json` records both original hashes, exact patched hashes and
+reasons. `packaging/windows/verify_sdk.py` rejects unlisted changes,
+stale patch hashes and a patch tied to a different baseline. The desktop changes
+and mocked regression tests remain separate from the SDK protocol implementation.
+
+The following sections preserve earlier implementation and validation history.
+They do not imply that a historical experiment is a new 0.2.4 measurement.
+
 ## 0.2.3 bound raw-frame backlog and repair native capture timing
 
 Keep all 70 SDK baseline files at `a34690a58d48f0cd9b43cdeddf39b5efaf024b9c`
@@ -201,8 +251,12 @@ Behavior-preserving fixes/tests: increment patch. CLI versioning is independent.
 
 ## Boundaries
 
-Do not modify existing goggles_bridge/, scripts/, tools/research/ or tests/ files.
-New tests live in desktop_tests/. Only desktop sources are exposed in this release.
+Preserve the original SDK baseline and review any required exception as an exact
+patch in docs/desktop/sdk-patches.json; the current exceptions are the engine's
+optional GPU scheduling hook and correction of an existing test's false D3D
+context assumption. Protocol, scripts, tools/research and all other baseline
+files remain unchanged. New desktop tests live in desktop_tests/.
+Only desktop sources are exposed in this release.
 The SDK defaults remain 1920x1080. The application adapter can output 720p;
 its hardware acceptance evidence is tracked independently of the SDK baseline.
 Third-party driver binaries are not committed or redistributed without permission.

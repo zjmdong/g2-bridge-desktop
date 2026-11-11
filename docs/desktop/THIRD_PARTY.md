@@ -1,6 +1,6 @@
-# Third-party components — 0.2.3
+# Third-party components — 0.2.4
 
-DJI Goggles Streamer and the unchanged G2 Bridge SDK are GPL-3.0-only. The
+DJI Goggles Streamer and G2 Bridge, including its audited local SDK patches, are GPL-3.0-only. The
 application installer includes LICENSE and this notice. A source archive is
 delivered alongside the installer. No DJI executable, driver or firmware is
 redistributed in the installer or project source.
@@ -20,11 +20,15 @@ redistributed in the installer or project source.
 | Virtual Display Driver | 25.7.23 package, driver 11.30.4.434 | MIT, https://github.com/VirtualDrivers/Virtual-Display-Driver/tree/25.7.23 ; bundled VDD-LICENSE.txt |
 
 FFmpeg is a modified standalone executable, invoked as a separate process; its
-libraries are not linked into the desktop application. This release replaces
-the previous Gyan essentials binary with a minimal LGPL build. Native changes
-cover the QPC DDA clock, D3D11 SDR conversion/letterboxing, opt-in NVENC completion
-events, and the single-slot raw-frame mailbox. The 70 recorded G2 Bridge SDK
-files and the goggles USB protocol remain unchanged.
+libraries are not linked into the desktop application. This release retains
+the minimal LGPL build introduced in 0.2.3. Native changes
+cover the QPC DDA clock with opt-in source-phase alignment, D3D11 SDR
+conversion/letterboxing, opt-in NVENC completion events, and the single-slot
+raw-frame mailbox. Of the 70 recorded G2 Bridge SDK files, 68 match their
+original hashes. Two exact audited patches recorded in `sdk-patches.json` cover
+the engine's optional GPU scheduling policy and correction of an invalid D3D
+context assumption in an existing test. The engine is the only modified SDK
+runtime file. The original baseline and goggles USB protocol are preserved.
 
 The installer includes FFmpeg's license and notice under
 `_internal/vendor/ffmpeg`, plus the complete upstream archive
@@ -48,7 +52,8 @@ and SHA-256 hashes in `build-inputs.json`; it never downloads a floating latest
 build. Native FFmpeg source, patch, dependency and executable identities are
 recorded separately in `packaging/windows/ffmpeg/manifest.json`.
 
-See the [0.2.3 validation record](VALIDATION-0.2.3.md) and
+See the [current implementation notes](IMPLEMENTATION.md),
+[0.2.4 validation record](VALIDATION-0.2.4.md) and
 [protocol/performance limits](PROTOCOL_LIMITS.md) for the scope of the changes
 and evidence. The modified build does not establish a new optical latency or
 USB hardware capability merely by retaining these provenance records.
