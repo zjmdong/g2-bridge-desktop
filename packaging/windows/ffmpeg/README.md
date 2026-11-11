@@ -1,7 +1,8 @@
 # Windows capture build
 
 This builds the modified FFmpeg used for Desktop Duplication and NVIDIA H.264
-encoding. It changes capture timing and the D3D11 scaler, adds opt-in asynchronous
+encoding. It changes capture timing and the D3D11 scaler, adds opt-in source-phase
+alignment, asynchronous
 NVENC output and a bounded raw-frame mailbox, and preserves the existing FFmpeg
 command interface. It does not alter the goggles USB protocol.
 
@@ -53,7 +54,8 @@ bash packaging/windows/ffmpeg/build.sh
 ```
 
 The script checks the source hash, applies the patch to a fresh work directory,
-builds FFmpeg/ffprobe, runs the clock arithmetic and raw-frame mailbox tests,
+builds FFmpeg/ffprobe, runs the clock arithmetic, source-phase acquisition/recovery,
+and raw-frame mailbox tests,
 performs a tiny synthetic CPU encode, and records output hashes. It does not capture the screen, open USB,
 start a stream, or require a connected NVIDIA device merely to build.
 

@@ -1009,10 +1009,18 @@ index 1203111c499fa09689c543cfa1ec15c9b53f7910..d49b1e6a0b22aa0300d65a6a72825441
  };
  
 diff --git a/libavfilter/vsrc_ddagrab.c b/libavfilter/vsrc_ddagrab.c
-index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..73cca8a3fcb0045d4247d212fe7d4cee2cc9c72d 100644
+index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e48ae725f 100644
 --- a/libavfilter/vsrc_ddagrab.c
 +++ b/libavfilter/vsrc_ddagrab.c
-@@ -47,6 +47,7 @@
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "config.h"
++#include <inttypes.h>
+ 
+ #if !defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0A00
+ #undef _WIN32_WINNT
+@@ -47,6 +48,7 @@
  #include "video.h"
  
  #include "vsrc_ddagrab_shaders.h"
@@ -1020,25 +1028,29 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..73cca8a3fcb0045d4247d212fe7d4cee
  
  // avutil/time.h takes and returns time in microseconds
  #define TIMER_RES 1000000
-@@ -77,6 +78,7 @@ typedef struct DdagrabContext {
+@@ -77,6 +79,9 @@ typedef struct DdagrabContext {
      int64_t time_frame;
      int64_t time_timeout;
      int64_t first_pts;
 +    DdaFrameClock frame_clock;
++    int64_t source_present;
++    unsigned source_accumulated;
  
      DXGI_FORMAT raw_format;
      int raw_width;
-@@ -104,6 +106,9 @@ typedef struct DdagrabContext {
+@@ -104,6 +109,11 @@ typedef struct DdagrabContext {
      int        allow_fallback;
      int        force_fmt;
      int        dup_frames;
 +    int        precise_clock;
 +    int        acquire_timeout;
 +    int        clock_spin_us;
++    int        source_clock;
++    int        source_guard_us;
  } DdagrabContext;
  
  #define OFFSET(x) offsetof(DdagrabContext, x)
-@@ -129,6 +134,12 @@ static const AVOption ddagrab_options[] = {
+@@ -129,6 +139,16 @@ static const AVOption ddagrab_options[] = {
                                                     OFFSET(force_fmt),  AV_OPT_TYPE_BOOL,       { .i64 = 0    },       0,       1, FLAGS },
      { "dup_frames", "duplicate frames to maintain framerate",
                                                     OFFSET(dup_frames), AV_OPT_TYPE_BOOL,       { .i64 = 1    },       0,       1, FLAGS },
@@ -1048,20 +1060,38 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..73cca8a3fcb0045d4247d212fe7d4cee
 +                                                   OFFSET(acquire_timeout), AV_OPT_TYPE_INT,   { .i64 = 0    },      -1,    1000, FLAGS },
 +    { "clock_spin_us", "maximum busy wait tail before a capture deadline",
 +                                                   OFFSET(clock_spin_us), AV_OPT_TYPE_INT,     { .i64 = 500  },       0,    1000, FLAGS },
++    { "source_clock", "adapt future capture phase to consistent real desktop updates",
++                                                   OFFSET(source_clock), AV_OPT_TYPE_BOOL,     { .i64 = 0    },       0,       1, FLAGS },
++    { "source_guard_us", "target guard after robust desktop-present phase",
++                                                   OFFSET(source_guard_us), AV_OPT_TYPE_INT,   { .i64 = 2000 },       0,    5000, FLAGS },
      { NULL }
  };
  
-@@ -147,6 +158,8 @@ static av_cold void ddagrab_uninit(AVFilterContext *avctx)
+@@ -147,6 +167,18 @@ static av_cold void ddagrab_uninit(AVFilterContext *avctx)
  {
      DdagrabContext *dda = avctx->priv;
  
++    if (dda->source_clock && dda->frame_clock.frequency > 0) {
++        const DdaSourcePhase *phase = &dda->frame_clock.source_phase;
++        av_log(avctx, AV_LOG_INFO,
++               "DDA_SOURCE_CLOCK locked=%d window=%d corrections=%"PRIu64
++               " repeats=%"PRIu64" rejects=%"PRIu64" total_slew_us=%"PRId64" guard_us=%d\n",
++               phase->locked, phase->count, phase->corrections, phase->repeats,
++               phase->rejects,
++               dda_clock_rescale(phase->total_slew, 1000000, dda->frame_clock.frequency),
++               dda->source_guard_us);
++    }
 +    dda_clock_close(&dda->frame_clock);
 +
      release_resource(&dda->blend_state);
      release_resource(&dda->blend_state_xor);
      release_resource(&dda->sampler_state);
-@@ -694,7 +707,7 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
+@@ -692,9 +724,11 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
+     HRESULT hr;
+     int ret;
  
++    dda->source_present = 0;
++    dda->source_accumulated = 0;
      hr = IDXGIOutputDuplication_AcquireNextFrame(
          dda->dxgi_outdupl,
 -        dda->time_timeout,
@@ -1069,21 +1099,38 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..73cca8a3fcb0045d4247d212fe7d4cee
          &frame_info,
          &desktop_resource);
      if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
-@@ -907,6 +920,13 @@ static int ddagrab_config_props(AVFilterLink *outlink)
+@@ -735,6 +769,8 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
+         return 0;
+     }
+ 
++    dda->source_present = frame_info.LastPresentTime.QuadPart;
++    dda->source_accumulated = frame_info.AccumulatedFrames;
+     hr = IDXGIResource_QueryInterface(desktop_resource, &IID_ID3D11Texture2D, (void**)desktop_texture);
+     release_resource(&desktop_resource);
+     if (FAILED(hr)) {
+@@ -907,6 +943,21 @@ static int ddagrab_config_props(AVFilterLink *outlink)
      dda->time_base  = av_inv_q(dda->framerate);
      dda->time_frame = av_gettime_relative() / av_q2d(dda->time_base);
      dda->time_timeout = av_rescale_q(1, dda->time_base, (AVRational) { 1, 1000 }) / 2;
 +    if (dda->acquire_timeout >= 0)
 +        dda->time_timeout = dda->acquire_timeout;
++    if (dda->source_clock && !dda->precise_clock) {
++        av_log(avctx, AV_LOG_ERROR, "source_clock requires precise_clock\n");
++        return AVERROR(EINVAL);
++    }
 +    if (dda->precise_clock && !dda_clock_init(&dda->frame_clock, dda->framerate.num, dda->framerate.den)) {
 +        av_log(avctx, AV_LOG_ERROR, "Could not create the capture deadline timer\n");
 +        return AVERROR_EXTERNAL;
 +    }
 +    dda->frame_clock.spin_us = dda->clock_spin_us;
++    if (dda->precise_clock)
++        dda_phase_init(&dda->frame_clock.source_phase, dda->frame_clock.frequency,
++                       dda->framerate.num, dda->framerate.den,
++                       dda->source_clock, dda->source_guard_us);
  
      if (dda->draw_mouse) {
          ret = init_render_resources(avctx);
-@@ -1108,6 +1128,10 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+@@ -1108,6 +1159,10 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
       * The only time rounding error occurs is when multiplying to calculate
       * the delay. So any rounding error there corrects itself over time.
       */
@@ -1094,7 +1141,7 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..73cca8a3fcb0045d4247d212fe7d4cee
      time_frame += TIMER_RES64;
      for (;;) {
          now = av_gettime_relative();
-@@ -1120,6 +1144,7 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+@@ -1120,6 +1175,7 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
          }
          av_usleep(delay);
      }
@@ -1102,17 +1149,31 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..73cca8a3fcb0045d4247d212fe7d4cee
  
      if (!dda->first_pts)
          dda->first_pts = now;
-@@ -1135,6 +1160,9 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+@@ -1132,9 +1188,23 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+     } else {
+         cur_texture = dda->probed_texture;
+         dda->probed_texture = NULL;
++        /* The probe can predate expensive filter/encoder initialization. It
++         * must not establish the phase of the subsequent live capture. */
++        dda->source_present = 0;
++        dda->source_accumulated = 0;
          ret = 0;
      }
  
 +    /* Time both a newly acquired and a repeated picture at the same boundary. */
 +    now = (dda->precise_clock ? dda_clock_us(&dda->frame_clock) : av_gettime_relative()) - dda->first_pts;
++    if (dda->source_clock) {
++        int64_t capture = dda_clock_ticks();
++        int64_t shift = dda_phase_observe(&dda->frame_clock.source_phase,
++                                         dda->source_present, dda->source_accumulated,
++                                         capture, dda->frame_clock.last_deadline);
++        dda->frame_clock.origin += shift;
++    }
 +
      if (ret == AVERROR(EAGAIN) && dda->last_frame->buf[0]) {
          frame = av_frame_alloc();
          if (!frame)
-@@ -1158,7 +1186,7 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+@@ -1158,7 +1228,7 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
  
      // AcquireNextFrame sometimes has bursts of delay.
      // This increases accuracy of the timestamp, but might upset consumers due to more jittery framerate?
@@ -1526,7 +1587,7 @@ diff --git a/libavfilter/ddagrab_clock.h b/libavfilter/ddagrab_clock.h
 new file mode 100644
 --- /dev/null
 +++ b/libavfilter/ddagrab_clock.h
-@@ -0,0 +1,118 @@
+@@ -0,0 +1,136 @@
 +/*
 + * High-resolution, non-catching-up Desktop Duplication clock.
 + * Copyright (c) 2026 DJI Goggles Streamer contributors
@@ -1538,6 +1599,7 @@ new file mode 100644
 +#include <stdint.h>
 +#include <windows.h>
 +#include <timeapi.h>
++#include "ddagrab_phase.h"
 +
 +#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
 +#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
@@ -1552,6 +1614,8 @@ new file mode 100644
 +    int fps_den;
 +    int spin_us;
 +    int period_requested;
++    int64_t last_deadline;
++    DdaSourcePhase source_phase;
 +} DdaFrameClock;
 +
 +/* Positive rational conversion without overflowing on a long QPC uptime. */
@@ -1575,6 +1639,20 @@ new file mode 100644
 +static inline int64_t dda_clock_deadline(DdaFrameClock *clock, int64_t now)
 +{
 +    const int64_t numerator = clock->frequency * clock->fps_den;
++    if (clock->source_phase.enabled) {
++        int64_t deadline = clock->origin +
++                           dda_clock_rescale(clock->next_slot, numerator, clock->fps_num);
++        /* A seriously delayed source consumes one current frame, then waits a
++         * complete period. It must not replay missed slots or squeeze a short
++         * catch-up capture in just before the next old-grid deadline. */
++        if (now - deadline > clock->source_phase.period / 4) {
++            clock->origin = now;
++            clock->next_slot = 0;
++            dda_phase_reset(&clock->source_phase);
++            return now;
++        }
++        return deadline;
++    }
 +    int64_t due = dda_clock_rescale(now - clock->origin, clock->fps_num, numerator);
 +    /* A slow consumer misses slots. Never replay those slots as a catch-up burst. */
 +    if (due > clock->next_slot)
@@ -1600,6 +1678,7 @@ new file mode 100644
 +    clock->frequency = frequency.QuadPart;
 +    clock->fps_num = num;
 +    clock->fps_den = den;
++    dda_phase_init(&clock->source_phase, clock->frequency, num, den, 0, 2000);
 +    clock->spin_us = 500;
 +    clock->timer = CreateWaitableTimerExW(NULL, NULL,
 +        CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
@@ -1638,10 +1717,465 @@ new file mode 100644
 +        now = dda_clock_ticks();
 +    }
 +    /* Rebase directly to the current slot if the OS delayed the wake itself. */
-+    dda_clock_deadline(clock, now);
++    clock->last_deadline = dda_clock_deadline(clock, now);
 +    clock->next_slot++;
 +    *now_us = dda_clock_rescale(now, 1000000, clock->frequency);
 +    return 1;
 +}
 +
 +#endif
+diff --git a/libavfilter/ddagrab_phase.h b/libavfilter/ddagrab_phase.h
+new file mode 100644
+--- /dev/null
++++ b/libavfilter/ddagrab_phase.h
+@@ -0,0 +1,183 @@
++/*
++ * Bounded source-present phase estimator for Desktop Duplication.
++ * This file is part of FFmpeg, licensed under GNU LGPL version 2.1 or later.
++ * Pure integer arithmetic: no waits, allocation, device calls, or logging.
++ */
++#ifndef AVFILTER_DDAGRAB_PHASE_H
++#define AVFILTER_DDAGRAB_PHASE_H
++
++#include <stdint.h>
++
++#define DDA_PHASE_WINDOW 16
++
++typedef struct DdaSourcePhase {
++    int enabled;
++    int locked;
++    int count;
++    int next;
++    int64_t period;
++    int64_t guard;
++    int64_t max_slew;
++    int64_t last_present;
++    int64_t last_fresh_capture;
++    int64_t source_index;
++    int64_t presents[DDA_PHASE_WINDOW];
++    int64_t indices[DDA_PHASE_WINDOW];
++    unsigned char cadence_evidence[DDA_PHASE_WINDOW];
++    uint64_t corrections;
++    uint64_t repeats;
++    uint64_t rejects;
++    int64_t total_slew;
++} DdaSourcePhase;
++
++static inline int64_t dda_phase_rescale(int64_t value, int64_t num, int64_t den)
++{
++    return (value / den) * num + (value % den) * num / den;
++}
++
++static inline void dda_phase_init(DdaSourcePhase *phase, int64_t frequency,
++                                 int fps_num, int fps_den, int enabled, int guard_us)
++{
++    *phase = (DdaSourcePhase){ 0 };
++    phase->enabled = enabled;
++    phase->period = dda_phase_rescale(frequency, fps_den, fps_num);
++    phase->guard = dda_phase_rescale(frequency, guard_us, 1000000);
++    phase->max_slew = dda_phase_rescale(frequency, 100, 1000000);
++    if (phase->max_slew < 1)
++        phase->max_slew = 1;
++}
++
++static inline void dda_phase_reset(DdaSourcePhase *phase)
++{
++    phase->locked = phase->count = phase->next = 0;
++    phase->last_present = phase->last_fresh_capture = 0;
++    phase->source_index = 0;
++}
++
++static inline void dda_phase_restart(DdaSourcePhase *phase, int64_t present, int64_t capture)
++{
++    phase->locked = 0;
++    phase->count = 1;
++    phase->next = 1;
++    phase->presents[0] = present;
++    phase->indices[0] = phase->source_index = 0;
++    phase->cadence_evidence[0] = 0;
++    phase->last_present = present;
++    phase->last_fresh_capture = capture;
++}
++
++/* Return a correction for FUTURE deadlines only. The capture clock remains the
++ * cadence authority. A source timestamp is not a future presentation promise.
++ *
++ * Require 16 genuine updates, with at least 12 of 15 intervals near one nominal
++ * period or near two periods with DXGI confirming two accumulated updates.
++ * A missed acquisition must not prevent the phase adjustment needed to recover
++ * from it. A real 50 Hz source has only one update in two periods, so it cannot
++ * masquerade as 100 Hz by normalizing all intervals. Their cumulative
++ * frequency must match the cadence within 3%; individual intervals may jitter.
++ * Repeats/mouse-only events never steer the clock or keep it locked.
++ * A median of phase residuals rejects DWM's individual +/-2 ms timestamp jitter.
++ */
++static inline int64_t dda_phase_observe(DdaSourcePhase *phase, int64_t present,
++                                       unsigned accumulated, int64_t capture,
++                                       int64_t deadline)
++{
++    int64_t values[DDA_PHASE_WINDOW];
++    int64_t delta, nominal, error, tolerance, predicted, shift;
++    int oldest, step, supported_intervals = 0;
++
++    if (!phase->enabled)
++        return 0;
++    if (present <= 0 || present == phase->last_present || !accumulated) {
++        phase->repeats++;
++        phase->locked = 0;
++        if (phase->last_fresh_capture && capture - phase->last_fresh_capture >= 3 * phase->period)
++            dda_phase_reset(phase);
++        return 0;
++    }
++    if (present > capture || present < phase->last_present ||
++        capture - present > 2 * phase->period || capture < deadline ||
++        capture - deadline > phase->period / 4) {
++        phase->rejects++;
++        phase->locked = phase->count = phase->next = 0;
++        return 0;
++    }
++
++    delta = present - phase->last_present;
++    step = delta >= phase->period + phase->period / 2 ? 2 : 1;
++    if (!phase->last_present || !phase->count || accumulated > 2 ||
++        (accumulated > 1 && step == 1) || delta < phase->period / 2 ||
++        delta > 2 * phase->period + phase->period / 2) {
++        if (phase->last_present)
++            phase->rejects++;
++        dda_phase_restart(phase, present, capture);
++        return 0;
++    }
++
++    phase->last_present = present;
++    phase->last_fresh_capture = capture;
++    phase->source_index += step;
++    phase->presents[phase->next] = present;
++    phase->indices[phase->next] = phase->source_index;
++    phase->cadence_evidence[phase->next] = step == 1 || accumulated == 2;
++    phase->next = (phase->next + 1) % DDA_PHASE_WINDOW;
++    if (phase->count < DDA_PHASE_WINDOW)
++        phase->count++;
++    if (phase->count < DDA_PHASE_WINDOW)
++        return 0;
++
++    oldest = phase->next;
++    for (int i = 1; i < DDA_PHASE_WINDOW; i++)
++        supported_intervals += phase->cadence_evidence[(oldest + i) % DDA_PHASE_WINDOW];
++    nominal = (phase->source_index - phase->indices[oldest]) * phase->period;
++    error = present - phase->presents[oldest] - nominal;
++    tolerance = (nominal / 100) * 3 + (nominal % 100) * 3 / 100;
++    if (supported_intervals < DDA_PHASE_WINDOW - 4 || error < -tolerance || error > tolerance) {
++        phase->locked = 0;
++        phase->rejects++;
++        return 0;
++    }
++
++    /* Project each observed present onto the newest frame's nominal slot, then
++     * take the median. This tracks phase drift without copying raw interval
++     * jitter into the capture timer. All samples are QPC values from one output. */
++    for (int i = 0; i < DDA_PHASE_WINDOW; i++) {
++        int64_t value = phase->presents[(oldest + i) % DDA_PHASE_WINDOW] +
++                        (phase->source_index - phase->indices[(oldest + i) % DDA_PHASE_WINDOW]) * phase->period;
++        int j = i;
++        while (j > 0 && values[j - 1] > value) {
++            values[j] = values[j - 1];
++            j--;
++        }
++        values[j] = value;
++    }
++    /* A near-100 average does not establish a useful phase for broad VRR or
++     * irregular bursts. Reject a wide middle half, while ignoring isolated
++     * timestamp outliers at either end of the sorted residual window. */
++    if (values[3 * DDA_PHASE_WINDOW / 4] - values[DDA_PHASE_WINDOW / 4] > phase->period / 4) {
++        phase->locked = 0;
++        phase->rejects++;
++        return 0;
++    }
++    predicted = values[DDA_PHASE_WINDOW / 2 - 1] +
++                (values[DDA_PHASE_WINDOW / 2] - values[DDA_PHASE_WINDOW / 2 - 1]) / 2;
++    error = (predicted + phase->guard - deadline) % phase->period;
++    if (error > phase->period / 2)
++        error -= phase->period;
++    else if (error < -phase->period / 2)
++        error += phase->period;
++
++    phase->locked = 1;
++    shift = error / 8;
++    if (shift > phase->max_slew)
++        shift = phase->max_slew;
++    else if (shift < -phase->max_slew)
++        shift = -phase->max_slew;
++    if (shift) {
++        phase->corrections++;
++        phase->total_slew += shift;
++    }
++    return shift;
++}
++
++#endif
+diff --git a/libavfilter/tests/ddagrab_source_clock.c b/libavfilter/tests/ddagrab_source_clock.c
+new file mode 100644
+--- /dev/null
++++ b/libavfilter/tests/ddagrab_source_clock.c
+@@ -0,0 +1,262 @@
++/* This file is part of FFmpeg, licensed under GNU LGPL version 2.1 or later. */
++/* Integer-time tests of the actual capture clock/phase headers. No waits,
++ * desktop capture, GPU or USB calls are performed. QPC units are microseconds. */
++#include "ddagrab_clock.h"
++#include <assert.h>
++#include <stdio.h>
++#include <stdlib.h>
++
++typedef struct Source {
++    int num, den;
++    int jitter;
++    int availability;
++} Source;
++
++typedef struct Result {
++    int unique, repeats, locks;
++    int64_t min_interval, max_interval, last_age, final_deadline;
++    uint64_t corrections;
++} Result;
++
++static const int jitter_us[] = { -900, 900, -600, 600, -300, 300, 0, 0 };
++
++static int64_t present_at(Source source, int64_t index)
++{
++    return 1000000 + index * 1000000 * source.den / source.num +
++           (source.jitter ? jitter_us[index % 8] : 0);
++}
++
++static DdaFrameClock make_clock(int phase_enabled, int guard)
++{
++    DdaFrameClock clock = { .frequency = 1000000, .origin = 1007000,
++                           .next_slot = 1, .fps_num = 100, .fps_den = 1 };
++    dda_phase_init(&clock.source_phase, clock.frequency, 100, 1, phase_enabled, guard);
++    return clock;
++}
++
++static Result simulate_at_phase(Source source, int guard, int enabled, int count,
++                                int initial_phase)
++{
++    DdaFrameClock clock = make_clock(enabled, guard);
++    clock.origin = 1000000 + initial_phase;
++    Result result = { .min_interval = INT64_MAX };
++    int64_t previous_deadline = 0, previous_index = -1;
++
++    for (int i = 0; i < count; i++) {
++        int64_t expected = clock.origin + clock.next_slot * 10000;
++        int64_t deadline = dda_clock_deadline(&clock, expected);
++        int64_t index = (deadline - source.availability - 1000000) * source.num /
++                        (1000000 * source.den);
++        int64_t present = 0, shift;
++        unsigned accumulated = 0;
++
++        while (present_at(source, index) > deadline - source.availability)
++            index--;
++        while (present_at(source, index + 1) <= deadline - source.availability)
++            index++;
++        assert(index >= previous_index);
++        if (index > previous_index) {
++            present = present_at(source, index);
++            accumulated = previous_index < 0 ? 1 : index - previous_index;
++            previous_index = index;
++            result.unique++;
++        } else {
++            result.repeats++;
++        }
++        if (previous_deadline) {
++            int64_t interval = deadline - previous_deadline;
++            assert(interval >= 9900 && interval <= 10100);
++            if (interval < result.min_interval) result.min_interval = interval;
++            if (interval > result.max_interval) result.max_interval = interval;
++        }
++        previous_deadline = deadline;
++        clock.last_deadline = deadline;
++        clock.next_slot++;
++        shift = dda_phase_observe(&clock.source_phase, present, accumulated, deadline, deadline);
++        assert(llabs(shift) <= 100);
++        if (!present) assert(shift == 0);
++        clock.origin += shift;
++        result.locks += clock.source_phase.locked;
++        result.last_age = deadline - present_at(source, index);
++        result.final_deadline = deadline;
++    }
++    result.corrections = clock.source_phase.corrections;
++    return result;
++}
++
++static Result simulate(Source source, int guard, int enabled, int count)
++{
++    return simulate_at_phase(source, guard, enabled, count, 7000);
++}
++
++static void acquisition_recovery(void)
++{
++    /* The initial 1 ms capture phase is earlier than some DWM copies become
++     * available (up to 1.8 ms). Initial repeated pictures must not permanently
++     * disqualify their following two-update acquisition from the phase fit. */
++    for (int guard = 2000; guard <= 3000; guard += 1000) {
++        Result result = simulate_at_phase((Source){100, 1, 1, 900}, guard, 1, 10000, 1000);
++        fprintf(stdout, "Acquisition recovery guard=%d us: repeats=%d locks=%d corrections=%llu final_age=%lld us\n",
++                guard, result.repeats, result.locks, (unsigned long long)result.corrections,
++                (long long)result.last_age);
++        fflush(stdout);
++        assert(result.locks > 9000 && result.repeats < 100);
++        assert(result.last_age >= guard - 1000 && result.last_age <= guard + 1000);
++    }
++
++    DdaSourcePhase phase;
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    /* Every other acquisition misses, but DXGI counts both actual updates.
++     * The same 20 ms timestamps with only one accumulated image must not lock. */
++    for (int i = 0; i < 100; i++) {
++        int64_t present = 1000000 + i * 20000;
++        dda_phase_observe(&phase, present, 2, present + 3000, present + 3000);
++    }
++    assert(phase.locked && phase.corrections > 0);
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    for (int i = 0; i < 100; i++) {
++        int64_t present = 1000000 + i * 20000;
++        assert(!dda_phase_observe(&phase, present, 1, present + 3000, present + 3000));
++    }
++    assert(!phase.locked && !phase.corrections);
++    puts("PASS: bad startup phase recovers using accumulated-update evidence; 50 Hz with one update stays rejected");
++}
++
++static void valid_rates_and_guards(void)
++{
++    const int guards[] = { 500, 1000, 2000, 3000 };
++    for (unsigned i = 0; i < sizeof(guards)/sizeof(guards[0]); i++) {
++        int guard = guards[i];
++        Result exact = simulate((Source){100, 1, 0, 150}, guard, 1, 10000);
++        Result drift = simulate((Source){9995, 100, 0, 150}, guard, 1, 10000);
++        assert(exact.locks > 9000 && exact.corrections > 0);
++        assert(exact.last_age >= guard - 10 && exact.last_age <= guard + 10);
++        assert(exact.repeats < 3);
++        assert(drift.locks > 9000 && drift.repeats < 5);
++        assert(llabs(drift.last_age - guard) < 200);
++    }
++    Result jitter = simulate((Source){100, 1, 1, 150}, 2000, 1, 10000);
++    assert(jitter.locks > 9000 && jitter.repeats < 5);
++    assert(jitter.last_age >= 1000 && jitter.last_age <= 3000);
++    puts("PASS: exact 100 Hz, 99.95 Hz drift, +/-0.9 ms present jitter, 0.5/1/2/3 ms guards");
++}
++
++static void mismatched_rates(void)
++{
++    const int rates[] = { 50, 60, 75, 90, 240 };
++    for (unsigned i = 0; i < sizeof(rates)/sizeof(rates[0]); i++) {
++        Result result = simulate((Source){rates[i], 1, 0, 150}, 2000, 1, 5000);
++        assert(result.locks == 0 && result.corrections == 0);
++        assert(result.min_interval == 10000 && result.max_interval == 10000);
++    }
++    Result disabled = simulate((Source){100, 1, 1, 150}, 2000, 0, 5000);
++    assert(disabled.locks == 0 && disabled.corrections == 0);
++    puts("PASS: 50/60/75/90/240 Hz remain free running; disabled mode is unchanged");
++}
++
++static void invalid_repeat_and_restart(void)
++{
++    DdaSourcePhase phase;
++    uint64_t corrections;
++    int64_t total;
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    for (int i = 0; i < 40; i++)
++        dda_phase_observe(&phase, 1000000 + i*10000, 1,
++                          1005000+i*10000, 1005000+i*10000);
++    assert(phase.locked);
++    corrections = phase.corrections;
++    total = phase.total_slew;
++    /* Mouse-only and static timeouts must never accumulate corrections. */
++    for (int i = 0; i < 2000; i++)
++        assert(!dda_phase_observe(&phase, 0, 0, 1410000+i*10000, 1410000+i*10000));
++    assert(!phase.locked && phase.count == 0);
++    assert(phase.corrections == corrections && phase.total_slew == total);
++    assert(!dda_phase_observe(&phase, 24000001, 1, 24000000, 24000000));
++    assert(!phase.locked);
++    for (int i = 0; i < 40; i++)
++        dda_phase_observe(&phase, 25000000+i*10000, 1, 25002000+i*10000, 25002000+i*10000);
++    assert(phase.locked);
++    corrections = phase.corrections;
++    assert(!dda_phase_observe(&phase, 25000000, 1, 25410000, 25410000));
++    assert(!phase.locked && phase.corrections == corrections);
++    dda_phase_reset(&phase);
++    assert(!phase.locked && !phase.count && !phase.last_present);
++    puts("PASS: cursor-only, static, future/backward/stale timestamps, reset and requalification");
++}
++
++static void missing_updates_and_outlier(void)
++{
++    DdaSourcePhase phase;
++    int64_t previous_present = 0;
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    for (int i = 0; i < 300; i++) {
++        int64_t present = 1000000+i*10000;
++        int64_t capture = present+2000;
++        int64_t shift;
++        if (i % 17 == 9) {
++            assert(!dda_phase_observe(&phase, 0, 0, capture, capture));
++            continue;
++        }
++        shift = dda_phase_observe(&phase, present,
++            previous_present && present-previous_present==20000 ? 2 : 1, capture, capture);
++        assert(shift == 0);
++        previous_present = present;
++    }
++    assert(phase.locked);
++    /* Isolated large jumps and stalls cannot apply a phase correction. */
++    assert(!dda_phase_observe(&phase, 5000000, 1, 5002000, 5002000));
++    assert(!phase.locked);
++    assert(!dda_phase_observe(&phase, 5010000, 1, 5016000, 5012000));
++    assert(!phase.locked);
++    assert(!dda_phase_observe(&phase, 5020000, 1, 5050000, 5050000));
++    assert(!phase.locked);
++    puts("PASS: occasional real missed slots qualify without treating a 50 Hz source as 100 Hz; spikes do not steer");
++}
++
++static void broad_vrr_and_isolated_jitter(void)
++{
++    DdaSourcePhase phase;
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    /* Same long-term 100 Hz average, but alternating 6/14 ms presents have no
++     * narrow phase. A cumulative-frequency-only test would accept this. */
++    for (int i = 0; i < 100; i++) {
++        int64_t present = 1000000+i*10000+(i%2 ? 4000 : 0);
++        assert(!dda_phase_observe(&phase, present, 1, present+2000, present+2000));
++    }
++    assert(!phase.locked && !phase.corrections);
++    dda_phase_reset(&phase);
++    for (int i = 0; i < 100; i++) {
++        int64_t present = 5000000+i*10000+(i==40 ? 1000 : 0);
++        int64_t capture = 5002000+i*10000;
++        assert(!dda_phase_observe(&phase, present, 1, capture, capture));
++    }
++    assert(phase.locked);
++    puts("PASS: broad 6/14 ms VRR rejected despite 100 Hz average; one present outlier does not steer");
++}
++
++static void deadline_recovery(void)
++{
++    DdaFrameClock clock = make_clock(1, 2000);
++    for (int n = 0; n < 10000; n++) {
++        int64_t expected = clock.origin + clock.next_slot*10000;
++        int64_t late = expected + (n % 3 == 0 ? 2501 : n % 3 == 1 ? 53000 : 5000000);
++        int64_t deadline = dda_clock_deadline(&clock, late);
++        assert(deadline == late && !clock.source_phase.locked);
++        clock.next_slot++;
++        assert(dda_clock_deadline(&clock, late) == late+10000);
++        clock.next_slot++;
++    }
++    puts("PASS: 10,000 late wakes/multi-second gaps emit one current slot then a complete period; no short catch-up");
++}
++
++int main(void)
++{
++    valid_rates_and_guards();
++    acquisition_recovery();
++    mismatched_rates();
++    invalid_repeat_and_restart();
++    missing_updates_and_outlier();
++    broad_vrr_and_isolated_jitter();
++    deadline_recovery();
++    return 0;
++}

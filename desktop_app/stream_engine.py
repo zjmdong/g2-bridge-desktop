@@ -1,4 +1,4 @@
-"""Keep diagnostic disk I/O out of the unchanged SDK's session thread."""
+"""Desktop scheduling and asynchronous diagnostics around the SDK session."""
 from collections import deque
 import json
 import math
@@ -9,6 +9,7 @@ import time
 from goggles_bridge.engine import BridgeEngine
 from goggles_bridge.session import SessionLost
 from goggles_bridge.usb_transport import UsbTransportError
+from .scheduling import STREAM_GPU_PRIORITY_CLASS
 
 
 class AsyncSessionLog:
@@ -103,6 +104,7 @@ class DesktopBridgeEngine(BridgeEngine):
     or postpone device cleanup indefinitely. State callbacks stay on the caller.
     """
     def __init__(self, *args, log_factory=AsyncSessionLog, presence_probe=None, **kwargs):
+        kwargs.setdefault('gpu_priority_class', STREAM_GPU_PRIORITY_CLASS)
         super().__init__(*args, **kwargs)
         self.log_factory = log_factory
         self.presence_probe = presence_probe

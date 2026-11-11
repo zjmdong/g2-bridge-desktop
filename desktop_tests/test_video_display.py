@@ -94,6 +94,7 @@ class VideoTests(unittest.TestCase):
                 self.assertNotIn(',fps=', graph)
                 self.assertIn(f'framerate={fps}:', graph)
                 self.assertIn('precise_clock=1:acquire_timeout=0:clock_spin_us=500', graph)
+                self.assertIn('source_clock=1:source_guard_us=3000', graph)
                 self.assertNotIn('select=', graph)
                 self.assertNotIn('framerate=240', graph)
                 self.assertNotIn('hwdownload', graph)

@@ -5,7 +5,7 @@ Push-Location $projectRoot
 try {
     $python = Join-Path $projectRoot '.venv\Scripts\python.exe'
     & $python packaging/windows/verify_sdk.py
-    if ($LASTEXITCODE) { throw 'SDK baseline differs' }
+    if ($LASTEXITCODE) { throw 'SDK baseline or audited patch verification failed' }
     & $python packaging/windows/prepare.py
     if ($LASTEXITCODE) { throw 'Dependency preparation failed' }
     Copy-Item -LiteralPath (Join-Path (Split-Path $Iscc) 'license.txt') -Destination 'vendor/licenses/InnoSetup-LICENSE.txt'
@@ -19,5 +19,5 @@ try {
     if ($LASTEXITCODE) { throw 'Installer build failed' }
     & $python packaging/windows/source_bundle.py
     if ($LASTEXITCODE) { throw 'Source bundle failed' }
-    Get-FileHash 'dist\DJI-Goggles-Streamer-0.2.3-Setup.exe' -Algorithm SHA256
+    Get-FileHash 'dist\DJI-Goggles-Streamer-0.2.4-Setup.exe' -Algorithm SHA256
 } finally { Pop-Location }

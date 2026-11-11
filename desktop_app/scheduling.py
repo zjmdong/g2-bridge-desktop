@@ -8,6 +8,13 @@ import ctypes as C
 import sys
 
 
+# High, not Realtime: the desktop compositor and virtual display also need GPU
+# execution time. Paired 100 fps measurements found repeated 30-46 ms output
+# gaps at Realtime, while High and Normal avoided those tails on the same host.
+# This is a per-encoder request, never a global driver setting.
+STREAM_GPU_PRIORITY_CLASS = 4
+
+
 # Win32 ABI: ULONG is 32-bit on both 32-bit and 64-bit Windows.
 class _PowerThrottlingState(C.Structure):
     _fields_ = [('Version', C.c_uint32), ('ControlMask', C.c_uint32),

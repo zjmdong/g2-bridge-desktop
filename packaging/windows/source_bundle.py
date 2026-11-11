@@ -8,7 +8,7 @@ from ffmpeg_inputs import verify_ffmpeg_sources
 root = Path(__file__).resolve().parents[2]
 paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'],
                                 cwd=root).decode().split('\0')
-target = root/'dist/DJI-Goggles-Streamer-0.2.3-Source.zip'
+target = root/'dist/DJI-Goggles-Streamer-0.2.4-Source.zip'
 native = json.loads((root/'packaging/windows/ffmpeg/manifest.json').read_text(encoding='utf-8'))
 verify_ffmpeg_sources(root, native)
 partial = target.with_suffix('.partial.zip')

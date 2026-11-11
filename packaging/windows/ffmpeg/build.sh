@@ -80,6 +80,9 @@ make -j "${GOGGLES_FFMPEG_JOBS:-8}" ECFLAGS="$REMAP_FLAGS"
 make install DESTDIR="$OUTPUT" ECFLAGS="$REMAP_FLAGS"
 gcc -O2 -static -I "$SOURCE/libavfilter" "$HERE/check_clock.c" -o check_clock.exe -lwinmm
 ./check_clock.exe
+gcc -std=c17 -O2 -static -I "$SOURCE/libavfilter" \
+    "$SOURCE/libavfilter/tests/ddagrab_source_clock.c" -o check_source_clock.exe -lwinmm
+./check_source_clock.exe
 gcc -std=c17 -O2 -Wall -Wextra -Werror \
     -Wno-unused-parameter -Wno-cast-function-type -U__STRICT_ANSI__ -DWIN32_LEAN_AND_MEAN \
     -I . -I "$SOURCE" "$SOURCE/fftools/tests/thread_queue_mailbox.c" \

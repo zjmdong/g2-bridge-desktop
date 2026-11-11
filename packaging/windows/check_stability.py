@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from desktop_app.dxgi import outputs
 from desktop_app.video import compatible_command, ENCODER_PRIORITY
-from desktop_app.scheduling import configure_encoder_process
+from desktop_app.scheduling import configure_encoder_process, STREAM_GPU_PRIORITY_CLASS
 from goggles_bridge.engine import BridgeSettings, encoder_command, prioritize_gpu, NO_WINDOW
 from goggles_bridge.avi import AviPacketStream
 from goggles_bridge.pc_video import PcVideoPacketizer
@@ -108,7 +108,7 @@ def main():
                 for frame in reader.feed(data):
                     completed = time.perf_counter()
                     if not records:
-                        priority = prioritize_gpu(process)
+                        priority = prioritize_gpu(process, STREAM_GPU_PRIORITY_CLASS)
                     wire_size, packet_ms = None, None
                     if args.packetize:
                         begin = time.perf_counter()

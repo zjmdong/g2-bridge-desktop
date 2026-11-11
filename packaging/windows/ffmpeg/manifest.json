@@ -174,8 +174,8 @@
   },
   "patch": {
     "path": "packaging/windows/ffmpeg/ffmpeg-n9.0.2-goggles.patch",
-    "bytes": 62907,
-    "sha256": "1b27154f3afbe7ffeb4964e2ee6731db71374a3ca9ed067d4930719ff81c8f06"
+    "bytes": 85412,
+    "sha256": "3b8db5928ca8ac2beb6b0d1a20cb9407eec7f7f6c717adfb06e599ec9b3941a9"
   },
   "recipe": {
     "build_script": "packaging/windows/ffmpeg/build.sh",
@@ -183,7 +183,7 @@
     "source_date_epoch": 1789687190,
     "pe_timestamp": 1789687190,
     "reproducibility_note": "Pinned inputs, remapped source/build __FILE__ macros and disabled PE link timestamps; compare clean-build hashes before claiming bit-for-bit reproducibility.",
-    "build_script_sha256": "c2aca29deb10230751f546ea94d1b82f717de3163cbe12f0be63f760e86340ee",
+    "build_script_sha256": "0831b27ca82b14b7be5e34ccae84fc9f48737c71ef318afc32a4cad623c9c963",
     "clock_test_sha256": "b61559673e213710eaab1c8a1da0fd8ebab34328f18526ed4f7069a10bbf99f1"
   },
   "patched_source_files": {
@@ -201,19 +201,21 @@
     "libavcodec/nvenc.c": "103d96d8e38c2b3f6ad5b518d847136025e45aeed5740c1758c1202f43c4d688",
     "libavcodec/nvenc.h": "f7eb884b7ec268f62bba0dd490c336fca797866bab98516bea812af2cf335a4b",
     "libavcodec/nvenc_h264.c": "f0c83c60d7c89b606e1c8c2aa99fcd71a54cb1fcc540a3f78cb9b30c61e5b5b1",
-    "libavfilter/ddagrab_clock.h": "1197864245c7b2e92230c2158c4a0fb9c19c996c898d23821154ad07ce8ca51c",
+    "libavfilter/ddagrab_clock.h": "514abc360dbc34d96f511f2a7a2de335a72b2299ca1181163ece6709f03f5489",
+    "libavfilter/ddagrab_phase.h": "04375251e76f3a8daf177e115eb1399cef28fe3c6c8980ea2c5191ab5a29f723",
+    "libavfilter/tests/ddagrab_source_clock.c": "0898a6973890123faba6be8341a9476e4478a43800e7aa1f5c569f9a3b0b9b3a",
     "libavfilter/vf_scale_d3d11.c": "f42c0f34c122bdca812ee83b3e852c7d6c2e60bf29874dddf40165528323b53a",
-    "libavfilter/vsrc_ddagrab.c": "078bbb67bbe054366a96d5271669dd1ad536dcfeb3e1a60de2414d958b86d2fe"
+    "libavfilter/vsrc_ddagrab.c": "ad342c2ea6ac1a9508aa79c7a951044e11412f365d911cc0f57587e9a3d7be58"
   },
   "source_hash_line_endings": "LF",
   "release_binaries": {
     "ffmpeg.exe": {
-      "bytes": 5755904,
-      "sha256": "0e1ff3e6bd92899506a53842773affa9910d5421e98b588ef2f561d1a693acc4"
+      "bytes": 5758976,
+      "sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd"
     },
     "ffprobe.exe": {
-      "bytes": 5563904,
-      "sha256": "be3ace6b092dc5b34961afd04024105f596c171300ed1aef13bbe3e13ab50080"
+      "bytes": 5567488,
+      "sha256": "a625e94dafe54cc363d0fca74f7ea18f52f5088f9d55363651cc7a2e5bcd8ec5"
     }
   }
 }

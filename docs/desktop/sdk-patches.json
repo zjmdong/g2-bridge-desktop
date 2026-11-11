@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "baseline_commit": "a34690a58d48f0cd9b43cdeddf39b5efaf024b9c",
+  "files": {
+    "goggles_bridge/engine.py": {
+      "original_sha256": "df04d8eec0c70ca683a6738ae18ace8d9ce25998a3a16abaf949432d42d15206",
+      "patched_sha256": "6a381faa0cdfa11a5320ddf22047176b7a7729b3d7b20a992e769a5ce2dcd491",
+      "reason": "Expose optional per-encoder GPU scheduling class while preserving the CLI realtime default; validate policy, restrict DLL resolution to System32, reject invalid handles, and log requested/applied policy. Desktop policy is chosen separately from this SDK hook."
+    },
+    "tests/test_engine.py": {
+      "original_sha256": "8b892a992033bccf05d744a3804f0f385c6865fa9de5277d7025eb59bb4471b8",
+      "patched_sha256": "a2d58a850e30e7285ebb57d6a046904aa497fcef59e4217f32727903530ad8c5",
+      "reason": "Correct the existing best-effort GPU test: a User32 window query does not create a D3D graphics context, so an unsupported scheduling request may legitimately return False. Close the owned child stdout after cleanup. Mock policy and real encoded-process checks cover successful scheduling separately."
+    }
+  }
+}

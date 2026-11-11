@@ -1,6 +1,6 @@
 """Windows capture compatibility adapter at the SDK's public process boundary.
 
-The SDK and its USB packet framing remain unchanged. Capture uses DXGI and an
+USB packet framing remains unchanged. Capture uses DXGI and an
 explicit GPU RGB -> limited-range NV12 conversion. NVIDIA NVENC is the only encoder;
 failure is reported without a software fallback. The SDK frame-size guard stays.
 """
@@ -48,7 +48,8 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
             result[1:1] = ['-init_hw_device', f"d3d11va=cap:{output['adapter']}", '-filter_hw_device', 'cap']
         source_index = result.index('-i')+1
         result[source_index] += (':output_fmt=bgra:dup_frames=1:precise_clock=1:'
-                                 'acquire_timeout=0:clock_spin_us=500')
+                                 'acquire_timeout=0:clock_spin_us=500:'
+                                 'source_clock=1:source_guard_us=3000')
         filter_index = result.index('-vf')+1
         # The pinned FFmpeg patch fixes D3D11 texture views and explicitly
         # converts full-range SDR RGB to limited BT.709, with aspect-fit padding.
@@ -83,7 +84,10 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     if source.startswith('ddagrab='):
         # The SDK's GOP is fps * keyframe_seconds; source carries the actual rate.
         fps = re.search(r'framerate=(\d+)', source).group(1)
-        # DDA owns the only cadence clock. Re-sampling a 240 Hz polling source
+        # DDA owns the only cadence clock and gently aligns it to genuine source
+        # updates when their measured rate matches. A 3 ms source guard avoids
+        # sampling around the compositor's update boundary; it does not buffer
+        # encoded frames or wait after NVENC. Re-sampling a 240 Hz polling source
         # created 8.33/12.5 ms intervals at 100 fps. Compact PTS still prevent CFR
         # from replaying past pictures after a missed deadline.
         result[filter_index] = f'setpts=N/({fps}*TB):strip_fps=1,' + result[filter_index]
