@@ -74,7 +74,7 @@ def download_assistant(stop, emit):
         return target
     partial = target.with_suffix('.partial')
     request = urllib.request.Request(urllib.parse.quote(ASSISTANT_URL, safe=':/'),
-                                     headers={'User-Agent': 'DJI-Goggles-Streamer/0.2.4'})
+                                     headers={'User-Agent': 'DJI-Goggles-Streamer/0.2.5'})
     try:
         with urllib.request.urlopen(request, timeout=20) as response, partial.open('wb') as output:
             parsed = urllib.parse.urlparse(response.url)

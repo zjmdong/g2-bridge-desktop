@@ -15,6 +15,7 @@ from .settings import Settings
 from .system import Cancelled, driver_status, environment, run_cancellable
 from .video import start_encoder, check_capture
 from .stream_engine import DesktopBridgeEngine
+from .encoding import H264_ENTROPY_CODER, H264_CHROMA_QP_OFFSET
 
 
 def stream(settings, stop, emit):
@@ -33,7 +34,8 @@ def stream(settings, stop, emit):
         bridge = settings.bridge(display_index=output['output'])
         options = dict(output=output, dimensions=settings.dimensions)
         emit('capture_source', **target, source=settings.source,
-             color='8-bit limited NV12 / BT.709', profile='baseline', encoder='h264_nvenc',
+             color='8-bit limited NV12 / BT.709', profile=bridge.h264_profile, encoder='h264_nvenc',
+             entropy_coder=H264_ENTROPY_CODER, chroma_qp_offset=H264_CHROMA_QP_OFFSET,
              capture='Desktop Duplication', output_resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}',
              bootstrap_idr_seconds=[0,1,2], periodic_idr=False, reference_frames=1,
              capture_sampling_fps=settings.fps, frame_selection='native deadline / latest desktop',
@@ -58,7 +60,8 @@ def stream(settings, stop, emit):
                     # DesktopBridgeEngine journals this same row after callback.
                     # Persist the adapter policy, not the SDK's unchanged defaults.
                     row.update(intra_refresh=False, multipass='qres', encoder='h264_nvenc',
-                               adapter='desktop-native-latest-v4',
+                               adapter='desktop-native-latest-v5',
+                               entropy_coder=H264_ENTROPY_CODER, chroma_qp_offset=H264_CHROMA_QP_OFFSET,
                                nvenc_async=True, raw_frame_queue='latest single slot',
                                sender_pacing=False, input_graph='direct',
                                resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}')

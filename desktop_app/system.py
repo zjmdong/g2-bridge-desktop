@@ -10,6 +10,7 @@ import time
 
 from goggles_bridge.usb_transport import find_dll, VERIFIED_DLL_SHA256
 from .paths import ffmpeg_path
+from .encoding import H264_PROFILE, H264_ENTROPY_CODER, H264_CHROMA_QP_OFFSET
 
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 
@@ -102,7 +103,10 @@ def environment(stop):
         command = [str(encoder), '-hide_banner', '-nostdin', '-v', 'error', '-f', 'lavfi',
                    '-i', 'color=size=1920x1080:rate=100', '-frames:v', '2', '-an',
                    '-c:v', 'h264_nvenc', '-preset', 'p1', '-tune', 'ull',
-                   '-profile:v', 'baseline', '-bf', '0', '-rc-lookahead', '0',
+                   '-profile:v', H264_PROFILE, '-coder', H264_ENTROPY_CODER,
+                   '-qp_cb_offset', str(H264_CHROMA_QP_OFFSET),
+                   '-qp_cr_offset', str(H264_CHROMA_QP_OFFSET),
+                   '-bf', '0', '-rc-lookahead', '0',
                    '-zerolatency', '1', '-delay', '0', '-f', 'null', '-']
         try:
             check = run_cancellable(command, stop, timeout=20)

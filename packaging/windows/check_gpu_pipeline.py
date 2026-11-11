@@ -342,7 +342,7 @@ def encode(command, path):
                 headers[nal[0] & 31].add(nal)
     require(all(len(values) == 1 for values in headers.values()), 'Missing/changing SPS or PPS')
     require(is_idr(frames[0]), 'Stream does not begin with an IDR')
-    require(next(iter(headers[7]))[1] == 66, 'Expected production H.264 Baseline SPS')
+    require(next(iter(headers[7]))[1] == 100, 'Expected production 8-bit H.264 High SPS')
     with path.open('wb') as stream:
         for frame in frames:
             stream.write(frame)

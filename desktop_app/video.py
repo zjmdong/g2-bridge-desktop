@@ -9,6 +9,7 @@ import re
 
 from .system import run_cancellable
 from .scheduling import configure_encoder_process
+from .encoding import H264_PROFILE, H264_ENTROPY_CODER, H264_CHROMA_QP_OFFSET
 
 ENCODER_PRIORITY = getattr(subprocess, 'ABOVE_NORMAL_PRIORITY_CLASS', 0)
 
@@ -104,11 +105,17 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     for option, value in (('-intra-refresh', '0'),
                           ('-single-slice-intra-refresh', '0')):
         result[result.index(option)+1] = value
-    result[result.index('-profile:v')+1] = 'baseline'
+    # High/CABAC uses the same 8-bit NV12 input and no frame reordering. The
+    # early Baseline workaround needlessly spent the fixed bitrate on less
+    # efficient coding, especially during motion. Preserve colour-VUI handling.
+    result[result.index('-profile:v')+1] = H264_PROFILE
     # Repeat headers during decoder startup, then avoid periodic full-IDR pulses.
     # USB is ordered/reliable; SDK recovery restarts this bootstrap on link loss.
     result[result.index('-g')+1] = '1000000'
-    result[-3:-3] = ['-async_encode', '1', '-force_key_frames', '0,1,2', '-refs', '1',
+    result[-3:-3] = ['-coder', H264_ENTROPY_CODER,
+                     '-qp_cb_offset', str(H264_CHROMA_QP_OFFSET),
+                     '-qp_cr_offset', str(H264_CHROMA_QP_OFFSET),
+                     '-async_encode', '1', '-force_key_frames', '0,1,2', '-refs', '1',
                      '-rc-lookahead', '0', '-no-scenecut', '1',
                      '-color_range', 'tv', '-color_primaries', 'unknown',
                      '-color_trc', 'unknown', '-colorspace', 'unknown']
