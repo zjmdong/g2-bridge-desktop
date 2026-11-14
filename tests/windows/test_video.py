@@ -82,6 +82,37 @@ class VideoAdapterTests(unittest.TestCase):
                     for name in ('-b:v', '-maxrate', '-bufsize', '-preset'):
                         self.assertEqual(option(result, name), option(original, name))
 
+    def test_desktop_advanced_options_change_the_real_native_command(self):
+        for interval in (1, 3):
+            for profile, coder in (('high', 'cabac'), ('baseline', 'cavlc')):
+                original = encoder_command(settings(keyframe_seconds=interval, h264_profile=profile,
+                                                     adaptive_quant=True, low_latency=False))
+                result = video.compatible_command(original, startup_only=False)
+                for name in ('-g', '-force_key_frames', '-spatial-aq', '-temporal-aq', '-profile:v'):
+                    self.assertEqual(option(result, name), option(original, name))
+                self.assertEqual(option(result, '-coder'), coder)
+                self.assertEqual(result[-3:], ['-f', 'h264', 'pipe:1'])
+                self.assertNotIn('-thread_queue_size', result)
+
+    def test_wgc_preserves_upstream_encoder_choices_and_uses_stable_monitor(self):
+        for profile in ('high', 'baseline'):
+            original = encoder_command(BridgeSettings(None, Path('stock.exe'), capture='gfxcapture',
+                h264_profile=profile, keyframe_seconds=1, adaptive_quant=True, low_latency=False))
+            result = video.compatible_command(original, hmonitor=123, dimensions=(1280, 720), startup_only=False)
+            source = option(result, '-i')
+            self.assertIn('gfxcapture=hmonitor=123:', source)
+            self.assertIn('width=1280:height=720', source)
+            self.assertIn('display_border=0', source)
+            self.assertNotIn('monitor_idx=', source)
+            for name in ('-vf', '-g', '-force_key_frames', '-profile:v', '-spatial-aq', '-temporal-aq', '-intra-refresh'):
+                self.assertEqual(option(result, name), option(original, name))
+            for name in ('-latest_frame', '-async_encode', '-filter_complex'):
+                self.assertNotIn(name, result)
+            self.assertEqual(result[-3:], ['-f', 'h264', 'pipe:1'])
+        startup = video.compatible_command(original, hmonitor=123, startup_only=True)
+        self.assertEqual(option(startup, '-force_key_frames'), '0,1,2')
+        self.assertEqual(option(startup, '-g'), '1000000')
+
     def test_non_nvidia_capture_explicitly_transfers_to_nvenc(self):
         result = video.compatible_command(encoder_command(settings()),
             output=dict(adapter=1, output=2, vendor_id=0x1002))

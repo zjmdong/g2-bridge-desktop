@@ -24,8 +24,11 @@ CHUNK_SIZE = 1024 * 1024
 
 
 def sha256(path):
+    digest = hashlib.sha256()
     with Path(path).open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+        for block in iter(lambda: stream.read(1 << 20), b''):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def beneath(root, relative):

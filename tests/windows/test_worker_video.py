@@ -3,6 +3,8 @@ from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
 import subprocess
+import io
+import json
 import threading
 from types import SimpleNamespace
 import unittest
@@ -86,6 +88,74 @@ class WorkerVideoTests(unittest.TestCase):
         with patch.object(display_session, 'capture_target') as capture:
             worker.stream(self.request(), stop, Mock())
         capture.assert_not_called()
+
+    def test_physical_sources_honour_advanced_values_in_preflight_and_live_encode(self):
+        for method in ('ddagrab', 'gfxcapture'):
+            commands = []
+            bridge = BridgeSettings(None, Path('encoder.exe'), capture=method, fps=100,
+                h264_profile='baseline', adaptive_quant=True, low_latency=False,
+                keyframe_seconds=1, usb_write_size=2048)
+            request = dict(settings=asdict(bridge), options=dict(source='display', resolution='720p',
+                keyframe_seconds=1), log='unused.jsonl')
+            @contextmanager
+            def capture(*args):
+                yield dict(device='physical', hmonitor=987, hz=100)
+
+            class Engine:
+                def __init__(self, settings, log, **kwargs):
+                    self.settings, self.kwargs = settings, kwargs
+                def run(self):
+                    self.kwargs['on_event'](dict(event='starting'))
+                    self.kwargs['process_factory'](encoder_command(self.settings))
+                    commands.append(self.settings)
+
+            with patch.object(display_session, 'capture_target', capture), \
+                 patch.object(dxgi, 'select_output', return_value=dict(adapter=1, output=2, vendor_id=0x10de)), \
+                 patch.object(stream_engine, 'DesktopBridgeEngine', Engine), \
+                 patch.object(video, 'run_cancellable', return_value=subprocess.CompletedProcess([], 0, '', '')) as check, \
+                 patch.object(video.subprocess, 'Popen', return_value=SimpleNamespace()) as start, \
+                 patch.object(video, 'configure_encoder_process', return_value={}):
+                worker.stream(request, threading.Event(), Mock())
+            self.assertEqual(commands[0].capture, method)
+            self.assertFalse(commands[0].low_latency)
+            self.assertEqual(commands[0].usb_write_size, 2048)
+            for command in (check.call_args.args[0], start.call_args.args[0]):
+                self.assertEqual(command[command.index('-profile:v')+1], 'baseline')
+                self.assertEqual(command[command.index('-spatial-aq')+1], '1')
+                self.assertEqual(command[command.index('-g')+1], '100')
+                self.assertNotEqual(command[command.index('-force_key_frames')+1], '0,1,2')
+                if method == 'gfxcapture':
+                    self.assertIn('hmonitor=987', command[command.index('-i')+1])
+                    self.assertNotIn('-async_encode', command)
+                else:
+                    self.assertEqual(command[command.index('-coder')+1], 'cavlc')
+
+    def test_stop_does_not_hide_real_worker_or_cleanup_failures(self):
+        from goggles_bridge.app.windows import events
+        from goggles_bridge.app.windows.system import Cancelled
+
+        class Pipe(io.StringIO):
+            def reconfigure(self, **kwargs):
+                pass
+
+        for kind, expected in (('cancelled', 0), ('error_after_stop', 1), ('cleanup_after_cancel', 1)):
+            emitted = []
+            journal = SimpleNamespace(emit=lambda event, **row: emitted.append(dict(event=event, **row)), close=lambda: None)
+            def run(request, stop, emit):
+                stop.set()
+                if kind == 'cleanup_after_cancel':
+                    emit('display_cleanup_error', message='cleanup failed')
+                raise RuntimeError('encoder failed') if kind == 'error_after_stop' else Cancelled()
+            with patch.object(worker.sys, 'argv', ['worker']), \
+                 patch.object(worker.sys, 'stdin', Pipe(json.dumps({})+'\n')), \
+                 patch.object(worker.sys, 'stdout', Pipe()), \
+                 patch.object(events, 'EventWriter', return_value=journal), \
+                 patch.object(worker, 'stream', side_effect=run):
+                self.assertEqual(worker.main(), expected)
+            if expected:
+                self.assertTrue(any(row['event'] == 'error' for row in emitted))
+            if kind == 'cleanup_after_cancel':
+                self.assertEqual(emitted[-1]['message'], 'cleanup failed')
 
 
 if __name__ == '__main__':

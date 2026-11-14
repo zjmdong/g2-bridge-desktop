@@ -8,10 +8,10 @@
     screencapturekit: 'ScreenCaptureKit', avfoundation: 'AVFoundation',
   };
   const NAMES = {
-    source: { display: 'Computer display', virtual: 'Separate display' },
+    source: { display: 'Computer display', virtual: '虚拟屏' },
     resolution: { '720p': '1280 × 720', '1080p': '1920 × 1080' },
     capture: CAPTURE,
-    keyframe_seconds: { 1: '1 second', 3: '3 seconds' },
+    keyframe_seconds: { 0: 'On start only', 1: '1 second', 3: '3 seconds' },
     h264_profile: { high: 'High', baseline: 'Baseline' },
     preset: { p1: 'p1', p4: 'p4' },
     usb_write_size: { 16384: '16 KB', 2048: '2 KB' },
@@ -33,7 +33,7 @@
     { key: 'capture', label: 'Capture method', kind: 'select', windows: true,
       info: 'The method used to capture the selected display. Windows uses NVIDIA hardware encoding.' },
     { key: 'keyframe_seconds', label: 'Keyframe interval', kind: 'select',
-      info: 'Time between complete pictures. The goggles need a complete picture to start or recover the image.' },
+      info: 'Time between complete pictures. On start only repeats complete pictures during startup, then avoids periodic refresh. The 1 and 3 second options repeat them throughout the stream.' },
     { key: 'h264_profile', label: 'H.264 profile', kind: 'select',
       info: 'High compresses more efficiently. Baseline is simpler to decode.' },
     { key: 'preset', label: 'Encoder preset', kind: 'select', windows: true,
@@ -121,7 +121,7 @@
     if (row.capability && !capable(s, row.capability)) return false;
     if (row.key === 'display_index') return !virtual(s);
     if (row.key === 'capture' && (s.capabilities?.captures || s.choices.capture).length < 2) return false;
-    return !(capable(s, 'fixed_encoder_options') && ['keyframe_seconds', 'h264_profile', 'adaptive_quant', 'low_latency', 'usb_write_size'].includes(row.key));
+    return !(virtual(s) && ['capture', 'keyframe_seconds', 'h264_profile', 'adaptive_quant', 'low_latency'].includes(row.key));
   };
   const firmware = d => (d.version ? `Firmware ${d.version}` : `Firmware build ${d.build}`);
   const untested = d => `Firmware build ${d.build} hasn't been tested with Goggles Bridge.`;
@@ -376,6 +376,9 @@
     fill('resolution', ['720p', '1080p'], NAMES.resolution, o.resolution || '1080p');
     $('#tip-bitrate_mbps').textContent = capable(s, 'virtual_display') ? BASIC.find(row => row.key === 'bitrate_mbps').info
       : 'Video data sent each second. Automatic selects the highest bitrate tested at the chosen frame rate.';
+    $('#tip-keyframe_seconds').textContent = s.choices.keyframe_seconds.includes(0)
+      ? ADVANCED.find(row => row.key === 'keyframe_seconds').info
+      : 'Time between complete pictures. The goggles need a complete picture to start or recover the image.';
     once('fps', s.choices.fps, () => {
       controls.fps.append(...s.choices.fps.map(fps => {
         const input = el('input', { type: 'radio', name: 'fps', value: fps });

@@ -19,6 +19,13 @@ def ffmpeg_path():
                                                   resources()/'vendor'/'ffmpeg'/'ffmpeg.exe')
 
 
+def stock_ffmpeg_path():
+    """The upstream-tested build provides WGC; the native DDA build stays separate."""
+    bundled = Path(sys.executable).parent/'ffmpeg-stock'/'ffmpeg.exe'
+    return bundled if bundled.is_file() else Path(os.environ.get('GOGGLES_STOCK_FFMPEG') or
+                                                  resources()/'vendor'/'ffmpeg-stock'/'ffmpeg.exe')
+
+
 def worker_command():
     if getattr(sys, 'frozen', False):
         return str(Path(sys.executable).parent/'GogglesBridgeWorker.exe'), ['--windows-maintenance']

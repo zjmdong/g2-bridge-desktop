@@ -9,7 +9,7 @@ import re
 
 from .system import run_cancellable
 from .scheduling import configure_encoder_process
-from .encoding import H264_PROFILE, H264_ENTROPY_CODER, H264_CHROMA_QP_OFFSET
+from .encoding import H264_ENTROPY_CODER, H264_CHROMA_QP_OFFSET
 
 ENCODER_PRIORITY = getattr(subprocess, 'ABOVE_NORMAL_PRIORITY_CLASS', 0)
 # One capture clock also supplies the native muxer's absolute release deadline.
@@ -18,7 +18,16 @@ FRESH_WAIT_US = 2000
 DELIVERY_DELAY_US = 8000
 
 
-def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920, 1080)):
+def _startup_keyframes(command):
+    """Replace one SDK policy explicitly; never rely on duplicate option order."""
+    command[command.index('-g')+1] = '1000000'
+    while '-force_key_frames' in command:
+        index = command.index('-force_key_frames')
+        del command[index:index+2]
+    command[-3:-3] = ['-force_key_frames', '0,1,2']
+
+
+def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920, 1080), startup_only=True):
     result = list(command)
     if '-c:v' not in result or result[result.index('-c:v')+1] != 'h264_nvenc':
         raise ValueError('Unsupported desktop encoder')
@@ -30,6 +39,19 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     width, height = dimensions
     if dimensions not in ((1280, 720), (1920, 1080)):
         raise ValueError('Unsupported stream dimensions')
+    if source.startswith('gfxcapture='):
+        if type(hmonitor) is not int or hmonitor <= 0:
+            raise ValueError('Windows Graphics Capture requires a stable monitor handle')
+        # WGC uses the upstream-tested stock build. Preserve the upstream
+        # capture graph and encoder choices; native-only switches cannot run here.
+        source = re.sub(r'monitor_idx=-?\d+', f'hmonitor={hmonitor}', source)
+        source = re.sub(r'width=-?\d+', f'width={width}', source)
+        source = re.sub(r'height=-?\d+', f'height={height}', source)
+        result[source_index] = source + ':display_border=0'
+        if startup_only:
+            _startup_keyframes(result)
+            result[result.index('-intra-refresh')+1] = '0'
+        return result
     if source.startswith('ddagrab='):
         if hmonitor is not None:
             raise ValueError('Desktop Duplication requires a DXGI adapter/output identity')
@@ -97,22 +119,19 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     for option, value in (('-intra-refresh', '0'),
                           ('-single-slice-intra-refresh', '0')):
         result[result.index(option)+1] = value
-    # High/CABAC uses the same 8-bit NV12 input and no frame reordering. The
-    # early Baseline workaround needlessly spent the fixed bitrate on less
-    # efficient coding, especially during motion. Preserve colour-VUI handling.
-    result[result.index('-profile:v')+1] = H264_PROFILE
+    # Honour the chosen profile. Baseline cannot use CABAC; colour conversion
+    # and the frame-size budget remain identical for either choice.
+    profile = result[result.index('-profile:v')+1]
+    if profile not in ('high', 'baseline'):
+        raise ValueError('Unsupported desktop H.264 profile')
     # Repeat headers during decoder startup, then avoid periodic full-IDR pulses.
     # USB is ordered/reliable; SDK recovery restarts this bootstrap on link loss.
-    result[result.index('-g')+1] = '1000000'
-    # The upstream CLI supplies its own recovery expression. Replace it at
-    # this app boundary rather than relying on FFmpeg's duplicate-option order.
-    while '-force_key_frames' in result:
-        index = result.index('-force_key_frames')
-        del result[index:index+2]
-    result[-3:-3] = ['-coder', H264_ENTROPY_CODER,
+    if startup_only:
+        _startup_keyframes(result)
+    result[-3:-3] = ['-coder', H264_ENTROPY_CODER if profile == 'high' else 'cavlc',
                      '-qp_cb_offset', str(H264_CHROMA_QP_OFFSET),
                      '-qp_cr_offset', str(H264_CHROMA_QP_OFFSET),
-                     '-async_encode', '1', '-force_key_frames', '0,1,2', '-refs', '1',
+                     '-async_encode', '1', '-refs', '1',
                      '-rc-lookahead', '0', '-no-scenecut', '1',
                      '-color_range', 'tv', '-color_primaries', 'unknown',
                      '-color_trc', 'unknown', '-colorspace', 'unknown']
@@ -133,12 +152,14 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
     return result
 
 
-def start_encoder(command, *, hmonitor=None, output=None, dimensions=(1920, 1080), **kwargs):
+def start_encoder(command, *, hmonitor=None, output=None, dimensions=(1920, 1080), startup_only=True, **kwargs):
     kwargs['creationflags'] = kwargs.get('creationflags', 0) | ENCODER_PRIORITY
-    process = subprocess.Popen(compatible_command(command, hmonitor=hmonitor, output=output, dimensions=dimensions), **kwargs)
+    process = subprocess.Popen(compatible_command(command, hmonitor=hmonitor, output=output,
+                                                 dimensions=dimensions, startup_only=startup_only), **kwargs)
     process.desktop_scheduling = configure_encoder_process(process)
     return process
 
 
-def check_capture(command, *, stop, hmonitor=None, output=None, dimensions=(1920, 1080), **kwargs):
-    return run_cancellable(compatible_command(command, hmonitor=hmonitor, output=output, dimensions=dimensions), stop, **kwargs)
+def check_capture(command, *, stop, hmonitor=None, output=None, dimensions=(1920, 1080), startup_only=True, **kwargs):
+    return run_cancellable(compatible_command(command, hmonitor=hmonitor, output=output,
+                                              dimensions=dimensions, startup_only=startup_only), stop, **kwargs)

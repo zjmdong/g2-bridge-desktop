@@ -64,6 +64,9 @@ class WindowsAppTests(unittest.TestCase):
         patcher = mock.patch.object(virtual_driver, 'status', return_value=dict(VIRTUAL))
         self.virtual_status = patcher.start()
         self.addCleanup(patcher.stop)
+        patcher = mock.patch('goggles_bridge.app.windows.paths.stock_ffmpeg_path', return_value=self.present)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def app(self, *, default_path=False, runtime_adapter=None):
         app = backend.Desktop(settings_path=None if default_path else self.settings,
@@ -86,11 +89,55 @@ class WindowsAppTests(unittest.TestCase):
         self.assertTrue(snapshot['capabilities']['fixed_encoder_options'])
         self.assertEqual(snapshot['capabilities']['captures'], ['ddagrab'])
         self.assertEqual(snapshot['choices']['bitrates']['100']['auto'], 32)
+        self.assertEqual(snapshot['options']['capture'], 'gfxcapture')
+        self.assertEqual(snapshot['options']['h264_profile'], 'baseline')
+        self.assertTrue(snapshot['options']['adaptive_quant'])
+        app.set_options(dict(source='display'))
+        desktop = app._settings({})
+        self.assertEqual((desktop.capture, desktop.capture_fps, desktop.h264_profile,
+                          desktop.adaptive_quant, desktop.low_latency),
+                         ('gfxcapture', 1000, 'baseline', True, False))
+        self.assertFalse(app.snapshot()['capabilities']['fixed_encoder_options'])
+        self.assertEqual(app.snapshot()['capabilities']['captures'], ['gfxcapture', 'ddagrab'])
+        self.assertEqual(app.snapshot()['choices']['keyframe_seconds'], (0, 1, 3))
         for invalid in ({'source': 'window'}, {'resolution': '4k'}, {'auto_start': 'yes'},
                         {'display_device': 'x'*257}):
             before = dict(app._options)
             self.assertIn('error', app.set_options(invalid))
             self.assertEqual(app._options, before)
+
+    def test_startup_policy_is_app_only_and_sdk_preferences_are_validated(self):
+        app = self.app()
+        self.assertEqual(app._options['capture'], 'gfxcapture')
+        self.assertEqual(app.set_options(dict(capture='ddagrab', keyframe_seconds=0,
+            h264_profile='baseline', low_latency=False, adaptive_quant=True, usb_write_size=2048)), dict(ok=True))
+        effective = app._settings({})
+        self.assertEqual(effective.keyframe_seconds, 3)
+        self.assertEqual(app._options['keyframe_seconds'], 0)
+        self.assertEqual(effective.usb_write_size, 2048)
+        app.set_options(dict(source='virtual'))
+        before = dict(app._options)
+        for invalid in (dict(capture='screencapturekit'), dict(keyframe_seconds=False),
+                        dict(keyframe_seconds=2), dict(h264_profile='invalid')):
+            self.assertIn('error', app.set_options(invalid))
+            self.assertEqual(app._options, before)
+        app.set_options(dict(source='display'))
+        self.assertEqual(app._options['keyframe_seconds'], 0)
+        self.assertEqual(app._options['h264_profile'], 'baseline')
+
+    def test_030_migration_preserves_actual_startup_policy_but_upstream_is_unchanged(self):
+        self.settings.parent.mkdir()
+        for saved, expected in ((dict(capture='ddagrab', source='display', keyframe_seconds=3), 0),
+                                (dict(capture='gfxcapture', keyframe_seconds=1), 1),
+                                (dict(capture='ddagrab', source='display', keyframe_seconds=3,
+                                      windows_options_version=1), 3)):
+            self.settings.write_text(json.dumps(saved), encoding='utf-8')
+            app = self.app()
+            self.assertEqual(app._options['keyframe_seconds'], expected)
+            app.set_options(dict(show_cursor=False))
+            persisted = json.loads(self.settings.read_text(encoding='utf-8'))
+            self.assertEqual(persisted['windows_options_version'], 1)
+            self.assertEqual(self.app()._options['keyframe_seconds'], expected)
 
     def test_active_stream_and_setup_reject_option_changes_without_saving(self):
         app = self.app()

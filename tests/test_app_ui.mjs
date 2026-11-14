@@ -45,7 +45,7 @@ async function open(query = '', width = 1120, height = 740) {
   const loaded = event('Page.loadEventFired');
   await call('Page.navigate', { url: `${page}?demo&${query}` });
   await loaded;
-  await until(() => evaluate("document.querySelector('#version').textContent.includes('0.3.0')"), 'UI ready');
+  await until(() => evaluate("document.querySelector('#version').textContent.includes('0.3.1')"), 'UI ready');
 }
 async function capture(name) {
   if (!captures) return;
@@ -98,10 +98,12 @@ after(async () => {
   }
 });
 
-uiTest('windows exposes only settings the optimized stream supports', async () => {
+uiTest('physical desktop retains every upstream advanced control', async () => {
   await open();
   for (const key of ['source', 'resolution', 'auto_start', 'preset', 'fps', 'bitrate_mbps']) assert.equal(await visible(key), true, key);
-  for (const key of ['capture', 'keyframe_seconds', 'h264_profile', 'adaptive_quant', 'low_latency', 'usb_write_size']) assert.equal(await visible(key), false, key);
+  for (const key of ['capture', 'keyframe_seconds', 'h264_profile', 'adaptive_quant', 'low_latency', 'usb_write_size']) assert.equal(await visible(key), true, key);
+  assert.equal(await evaluate("document.querySelector('#opt-source option[value=virtual]').textContent"), '虚拟屏');
+  assert.deepEqual(await evaluate("[...document.querySelector('#opt-capture').options].map(o => o.value)"), ['gfxcapture', 'ddagrab']);
   assert.equal(await evaluate("document.querySelector('#opt-bitrate_mbps option').textContent"), 'Automatic (32 Mbps)');
   await capture('windows-display');
 });
@@ -109,6 +111,8 @@ uiTest('windows exposes only settings the optimized stream supports', async () =
 uiTest('logical separate display is selectable before it exists and uses selected resolution', async () => {
   await open('state=novirtual');
   assert.equal(await visible('display_index'), false);
+  for (const key of ['capture', 'keyframe_seconds', 'h264_profile', 'adaptive_quant', 'low_latency']) assert.equal(await visible(key), false, key);
+  for (const key of ['preset', 'usb_write_size']) assert.equal(await visible(key), true, key);
   assert.equal(await evaluate("document.querySelector('#action').textContent"), 'Install display driver');
   await evaluate("document.querySelector('#action').click()");
   await until(() => evaluate("document.querySelector('#action').textContent === 'Installing…'"), 'installation status');
@@ -120,6 +124,24 @@ uiTest('logical separate display is selectable before it exists and uses selecte
   assert.equal(await evaluate("document.querySelector('#checks').children.length"), 4);
   assert.equal(await evaluate("document.querySelector('.settings').scrollWidth <= document.querySelector('.settings').clientWidth"), true);
   await capture('windows-virtual-small');
+});
+
+uiTest('switching virtual screen preserves physical advanced preferences and focus', async () => {
+  await open();
+  await evaluate("window.demoBackend.set_options({capture:'gfxcapture',keyframe_seconds:1,h264_profile:'baseline',adaptive_quant:true,low_latency:false,usb_write_size:2048})");
+  await evaluate("document.querySelector('#opt-source').value='virtual'; document.querySelector('#opt-source').dispatchEvent(new Event('change'))");
+  await until(() => evaluate("document.querySelector('[data-option=capture]').hidden"), 'virtual restrictions');
+  const expected = {capture:'gfxcapture', keyframe_seconds:1, h264_profile:'baseline', adaptive_quant:true, low_latency:false, usb_write_size:2048};
+  assert.deepEqual(await evaluate("window.demoBackend.snapshot().then(s => Object.fromEntries(['capture','keyframe_seconds','h264_profile','adaptive_quant','low_latency','usb_write_size'].map(k => [k,s.options[k]])))"), expected);
+  await evaluate("document.querySelector('#opt-source').value='display'; document.querySelector('#opt-source').dispatchEvent(new Event('change'))");
+  await until(() => evaluate("!document.querySelector('[data-option=capture]').hidden && document.querySelector('#opt-capture').value==='gfxcapture'"), 'restored capture preference');
+  assert.equal(await evaluate("document.querySelector('#opt-h264_profile').value"), 'baseline');
+  assert.equal(await evaluate("document.querySelector('#opt-keyframe_seconds').value"), '1');
+  assert.equal(await evaluate("document.querySelector('[data-option=adaptive_quant] input').checked"), true);
+  assert.equal(await evaluate("document.querySelector('[data-option=low_latency] input').checked"), false);
+  await open('', 940, 660);
+  assert.equal(await evaluate("document.querySelector('.settings').scrollWidth <= document.querySelector('.settings').clientWidth"), true);
+  await capture('windows-advanced-small');
 });
 
 uiTest('automatic bitrate follows frame rate and display selection saves a stable device', async () => {

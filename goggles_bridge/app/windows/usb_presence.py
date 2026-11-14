@@ -1,7 +1,6 @@
 """Read PnP presence without claiming the USB interface or sending control traffic."""
 import ctypes as C
 from ctypes import wintypes as W
-import hashlib
 
 from goggles_bridge.usb_transport import INTERFACE, PRODUCT_ID, VENDOR_ID
 
@@ -38,14 +37,3 @@ def present_interfaces():
     finally:
         api.SetupDiDestroyDeviceInfoList(handle)
     return tuple(sorted(found))
-
-
-def watch(stop, emit):
-    previous = None
-    while not stop.is_set():
-        current = present_interfaces()
-        if current != previous:
-            emit('usb_presence', connected=bool(current), count=len(current),
-                 token=hashlib.sha256('\n'.join(current).encode()).hexdigest()[:12] if current else '')
-            previous = current
-        stop.wait(.25)

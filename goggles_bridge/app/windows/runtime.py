@@ -52,7 +52,7 @@ class WindowsRuntime:
                         last_error = row.get('message')
                     on_event(row)
                 code = process.wait(timeout=10)
-                if code and not stop.is_set():
+                if code:
                     raise RuntimeError(last_error or f'The stream worker stopped ({code}). See {log.with_suffix(".worker.log")}')
             except BaseException as exc:
                 failure = exc

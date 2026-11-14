@@ -20,6 +20,11 @@ sys.path.insert(0, str(ROOT))
 from goggles_bridge import __version__
 from goggles_bridge.app.backend import APP_NAME
 
+# Preserve the upstream app's exact WGC dependency alongside the native DDA build.
+STOCK_FFMPEG = 'ffmpeg-2026-11-05-git-0893feba65-essentials_build'
+STOCK_FFMPEG_URL = f'https://github.com/GyanD/codexffmpeg/releases/download/2026-11-05-git-0893feba65/{STOCK_FFMPEG}.zip'
+STOCK_FFMPEG_SHA256 = '763ca14d6896b4d8aabde8ff90be4f1428f8a21bd43e438a371be6d7ebf891a6'
+
 INPUTS = {
     'innoextract-1.9-windows.zip': (
         'https://constexpr.org/innoextract/files/innoextract-1.9-windows.zip',
@@ -31,11 +36,38 @@ INPUTS = {
 
 
 def sha256(path):
+    digest = hashlib.sha256()
     with path.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+        for block in iter(lambda: stream.read(1 << 20), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def prepare_stock():
+    cache, target = ROOT/'packaging/cache', ROOT/'vendor/ffmpeg-stock'
+    cache.mkdir(parents=True, exist_ok=True)
+    archive = cache/f'{STOCK_FFMPEG}.zip'
+    if not archive.is_file():
+        partial = archive.with_suffix('.partial')
+        urllib.request.urlretrieve(STOCK_FFMPEG_URL, partial)
+        partial.replace(archive)
+    if sha256(archive) != STOCK_FFMPEG_SHA256:
+        raise ValueError('The upstream WGC FFmpeg archive does not match its pinned checksum')
+    target.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as bundle:
+        for member, name in ((f'{STOCK_FFMPEG}/bin/ffmpeg.exe', 'ffmpeg.exe'),
+                             (f'{STOCK_FFMPEG}/LICENSE', 'LICENSE.txt')):
+            (target/name).write_bytes(bundle.read(member))
+    (target/'SOURCE.txt').write_text(
+        f'Unmodified upstream app dependency: {STOCK_FFMPEG}\n'
+        f'Distribution: {STOCK_FFMPEG_URL}\n'
+        'FFmpeg source: https://github.com/FFmpeg/FFmpeg/commit/0893feba65\n'
+        'Distributor and build information: https://github.com/GyanD/codexffmpeg\n', encoding='utf-8')
+    return target
 
 
 def prepare():
+    prepare_stock()
     vendor, cache = ROOT/'vendor', ROOT/'packaging/cache'
     cache.mkdir(parents=True, exist_ok=True)
     for name, (url, digest) in INPUTS.items():
@@ -110,6 +142,7 @@ def main():
     shutil.copyfile(archive, source/archive.name)
     shutil.copyfile(ROOT/'packaging/windows/ffmpeg/licenses/FFmpeg-COPYING.LGPLv2.1', ffmpeg/'LICENSE.txt')
     shutil.copyfile(ROOT/'LICENSE', app/'LICENSE.txt')
+    shutil.copytree(vendor/'ffmpeg-stock', app/'ffmpeg-stock', dirs_exist_ok=True)
     notices = app/'licenses'
     notices.mkdir(exist_ok=True)
     for name in ('pywebview', 'pythonnet', 'clr-loader', 'PyUSB', 'PyInstaller'):
@@ -125,6 +158,7 @@ def main():
     (app/'NOTICES.txt').write_text(
         f'Goggles Bridge {__version__}, GPL-3.0-only. Source: https://github.com/{args.repository}\n'
         'Modified FFmpeg n9.0.2 (LGPL 2.1-or-later): complete sources, patches and build recipe in ffmpeg/source.\n'
+        f'Unmodified WGC FFmpeg {STOCK_FFMPEG} (GPL v3), by Gyan Doshi: ffmpeg-stock/LICENSE.txt and SOURCE.txt.\n'
         'Signed MTT VDD 25.7.23 (MIT), innoextract 1.9 (zlib): licenses in _internal/vendor.\n'
         'Python, PyUSB, pywebview and pythonnet notices: licenses. DJI drivers are not redistributed.\n', encoding='utf-8')
     if Path(args.iscc).is_file():

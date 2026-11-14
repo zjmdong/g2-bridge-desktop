@@ -20,8 +20,8 @@
     ? { model: 'DJI Goggles 2', identity: 'E3T ZV900 AC Feb 26 2025|12:39:57', build: 'Feb 26 2025', version: null, tested: false, tested_versions }
     : { model: 'DJI Goggles 2', identity: 'E3T ZV900 AC Dec 24 2024|12:34:04', build: 'Dec 24 2024', version: '01.11.00.00', tested: true, tested_versions };
   const state = {
-    app: { name: 'Goggles Bridge', version: '0.3.0', platform: mac ? 'darwin' : 'win32', updatable: true },
-    capabilities: mac ? {} : { virtual_display: true, resolution: true, auto_start: true, captures: ['ddagrab'], fixed_encoder_options: true },
+    app: { name: 'Goggles Bridge', version: '0.3.1', platform: mac ? 'darwin' : 'win32', updatable: true },
+    capabilities: mac ? {} : { virtual_display: true, resolution: true, auto_start: true, captures: ['gfxcapture', 'ddagrab'], fixed_encoder_options: false },
     checks: { driver: { needed: !mac, ok: mac || frozen !== 'nodriver' }, screen: { needed: mac, ok: !mac || frozen !== 'noscreen' },
       ffmpeg: { needed: !mac, ok: true },
       virtual_display: { needed: !mac, installed: !['novirtual', 'installing', 'installerror'].includes(frozen),
@@ -30,11 +30,11 @@
       attached: !['unplugged', 'fresh'].includes(frozen) },
     displays,
     options: { fps: 100, bitrate_mbps: null, capture: mac ? 'screencapturekit' : 'ddagrab', display_index: 0, show_cursor: true, preset: 'p1',
-      keyframe_seconds: 3, low_latency: true, usb_write_size: 16384, h264_profile: 'high', adaptive_quant: false,
+      keyframe_seconds: mac ? 3 : 0, low_latency: true, usb_write_size: 16384, h264_profile: 'high', adaptive_quant: false,
       ...(!mac ? { source: params.has('virtual') || ['novirtual', 'installing', 'installerror', 'preparing'].includes(frozen) ? 'virtual' : 'display',
         resolution: params.has('720p') ? '720p' : '1080p', auto_start: false,
         display_device: params.has('missingdisplay') ? 'DISCONNECTED' : displays[0].device } : {}) },
-    choices: { fps: [60, 75, 90, 100], capture: mac ? ['screencapturekit'] : ['ddagrab'], preset: ['p1', 'p4'], keyframe_seconds: [1, 3],
+    choices: { fps: [60, 75, 90, 100], capture: mac ? ['screencapturekit'] : ['gfxcapture', 'ddagrab'], preset: ['p1', 'p4'], keyframe_seconds: mac ? [1, 3] : [0, 1, 3],
       h264_profile: ['baseline', 'high'], usb_write_size: [2048, 16384], bitrates },
     frame_limit: 56000, phase: 'idle', problem: null, device: ['unplugged', 'fresh', 'nodriver', 'noscreen'].includes(frozen) ? null : device,
     stats: null, oversize: 0, log: null,
@@ -70,7 +70,16 @@
   }
 
   window.demoBackend = {
-    snapshot: async () => JSON.parse(JSON.stringify(state)),
+    snapshot: async () => {
+      const snapshot = JSON.parse(JSON.stringify(state));
+      if (!mac) {
+        const virtual = snapshot.options.source === 'virtual';
+        snapshot.capabilities.fixed_encoder_options = virtual;
+        snapshot.capabilities.captures = virtual ? ['ddagrab'] : ['gfxcapture', 'ddagrab'];
+        snapshot.choices.capture = snapshot.capabilities.captures;
+      }
+      return snapshot;
+    },
     set_options: async options => {
       if (!['idle', 'error'].includes(state.phase)) return { error: 'Stop streaming before changing settings.' };
       const next = { ...state.options, ...options };
@@ -103,7 +112,7 @@
     open_link: async () => ({ ok: true }),
     install_driver: async () => installDriver('driver'),
     install_virtual_driver: async () => installDriver('virtual_display'),
-    check_update: async () => ({ version: frozen === 'update' ? '0.3.1' : null }),
+    check_update: async () => ({ version: frozen === 'update' ? '0.3.2' : null }),
     install_update: () => new Promise(done => setTimeout(() => done({ error: "Couldn't install the update" }), 3000)),
   };
 })();

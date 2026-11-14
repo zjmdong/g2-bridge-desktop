@@ -158,7 +158,6 @@ class Desktop:
         self._watch_stop = threading.Event()
         self._watcher = None
         self._connection_attempted = False
-        self._last_attached = None
         self._installing = None
         self._install_problem = {}
         self._install_thread = None
@@ -167,14 +166,20 @@ class Desktop:
         self._checks = (0, None)
         self._displays = []
         self._ffmpeg = find_ffmpeg()
-        self._options = {**default_options(), **(APP_OPTIONS if WINDOWS else {})}
+        self._stock_ffmpeg = None
         if self._runtime:
-            self._options['capture'] = 'ddagrab'
+            from .windows.paths import stock_ffmpeg_path
+            self._stock_ffmpeg = stock_ffmpeg_path()
+        self._options = {**default_options(), **(APP_OPTIONS if WINDOWS else {})}
         self._onboarded = False
         try:
             if not self._settings_path.exists() and WINDOWS and settings_path is None:
                 self._migrate_legacy()
             saved = json.loads(self._settings_path.read_text(encoding='utf-8'))
+            # 0.3 displayed an unused SDK interval while the worker always sent
+            # startup-only IDRs. Preserve that actual policy when upgrading.
+            if self._runtime and 'source' in saved and 'windows_options_version' not in saved:
+                saved['keyframe_seconds'] = 0
             self._onboarded = bool(saved.get('onboarded'))
             self._settings(saved)
         except (OSError, ValueError, TypeError, AttributeError):
@@ -191,12 +196,23 @@ class Desktop:
                 raise ValueError('Invalid automatic streaming or display setting')
             if len(merged['display_device']) > 256:
                 raise ValueError('Invalid display identifier')
-        if self._runtime:
-            merged.update(capture='ddagrab', low_latency=True, h264_profile='high', adaptive_quant=False)
         engine = {k: v for k, v in merged.items() if k in OPTIONS}
         if self._runtime:
-            engine['capture_fps'] = engine['fps']
-        settings = BridgeSettings(find_dll(), self._ffmpeg, **engine)
+            if engine['capture'] not in ('gfxcapture', 'ddagrab'):
+                raise ValueError('Unsupported Windows capture method')
+            # Zero is an app-only startup policy, never a new SDK enum value.
+            if type(engine['keyframe_seconds']) is int and engine['keyframe_seconds'] == 0:
+                engine['keyframe_seconds'] = BridgeSettings.keyframe_seconds
+            # Validate physical preferences even when the virtual mode fixes
+            # effective values. Switching source must not erase those preferences.
+            BridgeSettings(find_dll(), self._ffmpeg, **engine)
+            if merged['source'] == 'virtual':
+                engine.update(capture='ddagrab', low_latency=True, h264_profile='high',
+                              adaptive_quant=False, keyframe_seconds=BridgeSettings.keyframe_seconds)
+            if engine['capture'] == 'ddagrab':
+                engine['capture_fps'] = engine['fps']
+        selected = self._stock_ffmpeg if self._runtime and engine['capture'] == 'gfxcapture' else self._ffmpeg
+        settings = BridgeSettings(find_dll(), selected, **engine)
         self._options = merged
         return settings
 
@@ -206,6 +222,8 @@ class Desktop:
         try:
             saved = json.loads(legacy.read_text(encoding='utf-8'))
             saved['source'] = 'virtual' if saved.get('source') == 'extended' else 'display'
+            saved['capture'] = 'ddagrab'
+            saved['keyframe_seconds'] = 0
             saved['onboarded'] = True
             self._settings(saved)
         except (OSError, ValueError, TypeError, AttributeError):
@@ -228,14 +246,19 @@ class Desktop:
             table[str(fps)] = dict(allowed=allowed, auto=auto)
         return table
 
+    def _selected_ffmpeg(self):
+        return (self._stock_ffmpeg if self._runtime and self._options['source'] == 'display'
+                and self._options['capture'] == 'gfxcapture' else self._ffmpeg)
+
     def _preflight(self):
         """Check the driver, FFmpeg, and the cable at most once a second, and never during a stream."""
         checked, result = self._checks
         if result is None or (not self._running() and time.monotonic()-checked >= 1):
             needs_ffmpeg = self._options['capture'] != 'screencapturekit'
+            selected_ffmpeg = self._selected_ffmpeg()
             result = dict(driver=dict(needed=WINDOWS, ok=not WINDOWS or find_dll().is_file()),
                           screen=dict(needed=MAC, ok=not MAC or screen_access()),
-                          ffmpeg=dict(needed=needs_ffmpeg, ok=not needs_ffmpeg or bool(self._ffmpeg and self._ffmpeg.is_file())),
+                          ffmpeg=dict(needed=needs_ffmpeg, ok=not needs_ffmpeg or bool(selected_ffmpeg and selected_ffmpeg.is_file())),
                           attached=goggles_attached())
             if self._runtime:
                 from .windows.virtual_driver import status
@@ -298,14 +321,15 @@ class Desktop:
                     target = next((d for d in self._displays if d['index'] == self._options['display_index']), None)
                     if target and target.get('device'):
                         self._options['display_device'] = target['device']
+        fixed = bool(self._runtime and self._options['source'] == 'virtual')
         capabilities = dict(virtual_display=bool(self._runtime), resolution=bool(self._runtime),
-            auto_start=bool(self._runtime), captures=['ddagrab'] if self._runtime else list(CAPTURES),
-            fixed_encoder_options=bool(self._runtime))
+            auto_start=bool(self._runtime), captures=['ddagrab'] if fixed else list(CAPTURES),
+            fixed_encoder_options=fixed)
         return dict(app=dict(name=APP_NAME, version=__version__, platform=sys.platform, updatable=UPDATABLE),
                     checks=checks, displays=self._displays, options=dict(self._options),
                     capabilities=capabilities, display_path=self._display_path,
                     choices=dict(fps=CHOICES['fps'], capture=capabilities['captures'], preset=CHOICES['preset'],
-                                 keyframe_seconds=CHOICES['keyframe_seconds'], h264_profile=CHOICES['h264_profile'],
+                                 keyframe_seconds=(0, *CHOICES['keyframe_seconds']) if self._runtime else CHOICES['keyframe_seconds'], h264_profile=CHOICES['h264_profile'],
                                  usb_write_size=CHOICES['usb_write_size'], bitrates=self._bitrates()),
                     frame_limit=MAX_FRAME_BYTES, onboarded=self._onboarded, **state)
 
@@ -331,7 +355,10 @@ class Desktop:
     def _save(self):
         self._settings_path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self._settings_path.with_suffix('.tmp')
-        temporary.write_text(json.dumps(dict(self._options, onboarded=self._onboarded), indent=1), encoding='utf-8')
+        saved = dict(self._options, onboarded=self._onboarded)
+        if self._runtime:
+            saved['windows_options_version'] = 1
+        temporary.write_text(json.dumps(saved, indent=1), encoding='utf-8')
         os.replace(temporary, self._settings_path)
 
     def start(self):
@@ -374,7 +401,6 @@ class Desktop:
             # Mark first: both a successful start and a failed setup wait for a new cable event.
             self._connection_attempted = True
             self.start()
-        self._last_attached = attached
 
     def start_monitor(self):
         if not self._runtime or self._watcher:
@@ -500,13 +526,14 @@ class Desktop:
         """Copy a plain-text report to the clipboard and return it."""
         with self._lock:
             state = dict(self._state)
+        selected_ffmpeg = self._selected_ffmpeg()
         lines = [f'{APP_NAME} {__version__}', f'{platform.platform()} | Python {platform.python_version()}',
-                 f'FFmpeg: {self._ffmpeg}', f'Checks: {json.dumps(self._preflight())}',
+                 f'FFmpeg: {selected_ffmpeg}', f'Checks: {json.dumps(self._preflight())}',
                  f'Options: {json.dumps(self._options)}',
                  f'Display path: {json.dumps(self._display_path)}',
                  f"State: {state['phase']} {json.dumps(state['problem'])} {json.dumps(self._device or None)}"]
-        if self._ffmpeg and self._ffmpeg.is_file():
-            version = subprocess.run([str(self._ffmpeg), '-hide_banner', '-version'], capture_output=True, text=True,
+        if selected_ffmpeg and selected_ffmpeg.is_file():
+            version = subprocess.run([str(selected_ffmpeg), '-hide_banner', '-version'], capture_output=True, text=True,
                                      errors='replace', timeout=10, creationflags=NO_WINDOW).stdout.splitlines()
             lines.append(f'FFmpeg version: {version[0] if version else "unknown"}')
         log = Path(state['log']) if state['log'] else None

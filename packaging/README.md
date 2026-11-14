@@ -20,6 +20,12 @@ the verified `ffmpeg.exe`, `ffprobe.exe`, and upstream source archive under
 clock, GPU scaler and bounded queue options. The CLI still supports its original
 capture backends.
 
+From 0.3.1, physical Windows Graphics Capture also ships the upstream-pinned
+Gyan build in `ffmpeg-stock/`. Packaging downloads the exact original archive,
+verifies its SHA-256, and includes its license and source/distributor links.
+The native build in `ffmpeg/` remains dedicated to DDA; the two executables are
+selected explicitly, not by PATH or a silent fallback.
+
 Clean CI runners import a manifest-verified native input bundle explicitly;
 see [native release inputs](NATIVE-INPUTS.md). The workflow never substitutes
 stock FFmpeg when the custom build is missing.

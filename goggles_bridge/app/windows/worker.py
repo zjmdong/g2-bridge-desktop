@@ -24,6 +24,11 @@ def stream(request, stop, emit):
     if not bridge.nvenc:
         raise ValueError('The Windows desktop requires NVIDIA NVENC encoding')
     app = request['options']
+    virtual = app['source'] in ('virtual', 'extended')
+    if virtual:
+        bridge = replace(bridge, capture='ddagrab', capture_fps=bridge.fps, h264_profile='high',
+                         adaptive_quant=False, low_latency=True)
+    startup_only = virtual or app.get('keyframe_seconds', bridge.keyframe_seconds) == 0
     dimensions = (1280, 720) if app['resolution'] == '720p' else (1920, 1080)
     target_settings = SimpleNamespace(source=app['source'], display_device=app.get('display_device', ''),
                                      dimensions=dimensions, fps=bridge.fps)
@@ -32,17 +37,29 @@ def stream(request, stop, emit):
     with capture_target(target_settings, emit) as target:
         if stop.is_set():
             return
-        output = select_output(target['device'])
-        bridge = replace(bridge, capture='ddagrab', capture_fps=bridge.fps,
-                         display_index=output['output'])
-        capture = dict(output=output, dimensions=dimensions)
+        native = bridge.capture == 'ddagrab'
+        if native:
+            output = select_output(target['device'])
+            bridge = replace(bridge, capture_fps=bridge.fps, display_index=output['output'])
+            capture = dict(output=output, dimensions=dimensions, startup_only=startup_only)
+        else:
+            # WGC addresses the selected HMONITOR directly, so an unavailable
+            # DXGI mapping is diagnostic information, not a reason to capture another screen.
+            try:
+                output = select_output(target['device'])
+            except RuntimeError:
+                output = dict(device=target['device'])
+            capture = dict(hmonitor=target.get('hmonitor'), dimensions=dimensions, startup_only=startup_only)
         route = capture_diagnostics(target, output)
+        if not native:
+            route.update(capture_gpu_path='windows_graphics_capture_nvenc', cross_adapter_transfer=None)
         refresh = target.get('refresh_rate')
         effective_hz = refresh.get('hz') if isinstance(refresh, dict) else refresh
         emit('display_path', **output, **route, source=app['source'], resolution=app['resolution'],
              effective_refresh=refresh, effective_hz=effective_hz or route['source_hz'],
-             gpu_resident=output.get('vendor_id') == 0x10DE, encoder='h264_nvenc',
-             fresh_wait_us=FRESH_WAIT_US, delivery_delay_us=DELIVERY_DELAY_US)
+             gpu_resident=output.get('vendor_id') == 0x10DE if native else None, encoder='h264_nvenc',
+             capture=bridge.capture, fresh_wait_us=FRESH_WAIT_US if native else None,
+             delivery_delay_us=DELIVERY_DELAY_US if native else None)
         emit('checking_capture')
         error = check_encoder(bridge, run=partial(check_capture, stop=stop, **capture))
         if error:
@@ -55,13 +72,17 @@ def stream(request, stop, emit):
 
         def on_event(row):
             if row['event'] == 'starting':
-                row.update(adapter='windows-native-latest-v6', encoder='h264_nvenc',
+                row.update(adapter='windows-native-latest-v6' if native else 'windows-upstream-wgc', encoder='h264_nvenc',
                     resolution=f'{dimensions[0]}x{dimensions[1]}', capture_gpu=output.get('gpu_name'),
-                    capture_adapter_luid=output.get('adapter_luid'), nvenc_async=True,
-                    intra_refresh=False, bootstrap_idr_seconds=[0, 1, 2], periodic_idr=False,
-                    raw_frame_queue='latest single slot', input_graph='direct',
-                    capture_fresh_wait_us=FRESH_WAIT_US, delivery_delay_us=DELIVERY_DELAY_US,
-                    native_delivery_pacing='capture_deadline', sdk_sender_mode='immediate')
+                    capture_adapter_luid=output.get('adapter_luid'), nvenc_async=native,
+                    intra_refresh=not native and not startup_only,
+                    bootstrap_idr_seconds=[0, 1, 2] if startup_only else None, periodic_idr=not startup_only,
+                    raw_frame_queue='latest single slot' if native else 'upstream',
+                    input_graph='direct' if native else 'upstream',
+                    capture_fresh_wait_us=FRESH_WAIT_US if native else None,
+                    delivery_delay_us=DELIVERY_DELAY_US if native else None,
+                    native_delivery_pacing='capture_deadline' if native else None,
+                    sdk_sender_mode='immediate' if bridge.low_latency else 'buffered')
             emit(**row)
 
         engine = DesktopBridgeEngine(bridge, Path(request['log']), stop_event=stop,
@@ -78,7 +99,12 @@ def main():
     stop = threading.Event()
     from .events import EventWriter
     writer = EventWriter(sys.stdout)
-    emit = writer.emit
+    cleanup_errors = []
+
+    def emit(event, **values):
+        if event == 'display_cleanup_error':
+            cleanup_errors.append(values.get('message') or 'The virtual display could not be released')
+        writer.emit(event, **values)
 
     def commands():
         for line in sys.stdin:
@@ -96,9 +122,9 @@ def main():
         return 0
     except Exception as exc:
         from .system import Cancelled
-        if stop.is_set() or isinstance(exc, Cancelled):
+        if isinstance(exc, Cancelled) and not cleanup_errors:
             return 0
-        emit('error', message=str(exc))
+        emit('error', message=cleanup_errors[-1] if cleanup_errors else str(exc))
         return 1
     finally:
         writer.close()
