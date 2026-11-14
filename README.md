@@ -18,6 +18,10 @@ Goggles Bridge streams a Windows or Mac display to DJI Goggles 2 or DJI Goggles 
 
 The desktop app for Windows and Mac includes a setup guide and installs updates from its window.
 
+This integration branch adds a Windows-only native NVENC path and automatic
+virtual display lifecycle to the upstream app. See [Windows desktop integration](docs/WINDOWS-DESKTOP.md)
+for bitrate recommendations, setup, and the scope of the performance changes.
+
 At 1080p100, the median monitor-to-lens delay is about 12 ms on Windows and about 10 ms on macOS. For more information, see [Measure video delay](docs/LATENCY.md).
 
 ## Supported goggles

@@ -10,6 +10,9 @@ on:
       version:
         description: Version (e.g. 1.2.3)
         required: true
+      windows_native_bundle_url:
+        description: HTTPS URL of the manifest-verified Windows native bundle (or set repository variable WINDOWS_NATIVE_BUNDLE_URL)
+        required: false
   push:
     branches: [main]
     paths: [goggles_bridge/__init__.py]
@@ -33,6 +36,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
+      WINDOWS_NATIVE_BUNDLE_URL: ${{ inputs.windows_native_bundle_url }}
       NAME: ${{ github.actor }}
       EMAIL: ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
     steps:
@@ -56,7 +60,11 @@ jobs:
               --body "Merging this pull request builds the Windows installer and the Mac disk image for $VERSION, and drafts the release."
             # the merge succeeds only when GitHub Actions is on the bypass list of the ruleset for main
             if gh pr merge "release/$VERSION" --merge --admin; then
-              gh workflow run release.yml --ref "$GITHUB_REF_NAME" -f version="$VERSION"
+              dispatch=(gh workflow run release.yml --ref "$GITHUB_REF_NAME" -f "version=$VERSION")
+              if [ -n "$WINDOWS_NATIVE_BUNDLE_URL" ]; then
+                dispatch+=(-f "windows_native_bundle_url=$WINDOWS_NATIVE_BUNDLE_URL")
+              fi
+              "${dispatch[@]}"
             else
               echo "::notice::To start the build, merge the pull request chore(release): $VERSION."
             fi
@@ -83,6 +91,8 @@ jobs:
     needs: version
     if: needs.version.outputs.version
     runs-on: windows-latest
+    env:
+      WINDOWS_NATIVE_BUNDLE_URL: ${{ inputs.windows_native_bundle_url || vars.WINDOWS_NATIVE_BUNDLE_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -90,10 +100,18 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -r requirements-app.txt pyinstaller==6.22.3
       - run: python -m unittest discover -s tests
+      - name: Prepare manifest-verified native FFmpeg and corresponding source
+        shell: pwsh
+        run: |
+          if (-not $env:WINDOWS_NATIVE_BUNDLE_URL) {
+            throw 'Windows release requires the validated native bundle. Set WINDOWS_NATIVE_BUNDLE_URL or supply windows_native_bundle_url. See packaging/NATIVE-INPUTS.md. Stock FFmpeg is not a compatible fallback.'
+          }
+          python packaging/bootstrap_native.py install --url "$env:WINDOWS_NATIVE_BUNDLE_URL"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install Inno Setup if the runner lacks it
         shell: bash
         run: test -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" || choco install innosetup --yes --no-progress
-      - run: python packaging/build_windows.py
+      - run: python packaging/build_windows.py --repository "${{ github.repository }}"
       - uses: actions/upload-artifact@v4
         with:
           name: windows

@@ -4,7 +4,7 @@ The app is a pywebview window over the stream engine. Its code is in `goggles_br
 
 ## Build on Windows
 
-Install the app's dependencies, PyInstaller, and [Inno Setup 6](https://jrsoftware.org/isdl.php). Then run the build script from the repository root:
+Use Python 3.11 or later for packaging (CI uses 3.12). Install the app's dependencies, PyInstaller, and [Inno Setup 6](https://jrsoftware.org/isdl.php). Then run the build script from the repository root:
 
 ```powershell
 python -m pip install -r requirements-app.txt pyinstaller==6.22.3
@@ -13,7 +13,34 @@ python packaging/build_windows.py
 
 The script writes the app folder to `dist/Goggles Bridge/` and the installer to `dist/GogglesBridge-VERSION-Setup.exe`. Without Inno Setup, it builds only the folder.
 
-The build downloads a pinned FFmpeg build and checks its SHA-256. That build repeats frames when the screen is still. FFmpeg 9.0 and earlier don't.
+The Windows app uses the pinned native DDA/NVENC build in
+[`windows/ffmpeg/README.md`](windows/ffmpeg/README.md). Build it first and place
+the verified `ffmpeg.exe`, `ffprobe.exe`, and upstream source archive under
+`vendor/ffmpeg/` as described there. Stock FFmpeg lacks the required capture
+clock, GPU scaler and bounded queue options. The CLI still supports its original
+capture backends.
+
+Clean CI runners import a manifest-verified native input bundle explicitly;
+see [native release inputs](NATIVE-INPUTS.md). The workflow never substitutes
+stock FFmpeg when the custom build is missing.
+
+The packaging script verifies native binary/source hashes, downloads pinned
+redistributable VDD/innoextract packages, and bundles their notices. DJI drivers
+are downloaded from DJI only when the user chooses installation in the app.
+The app folder includes `GogglesBridgeWorker.exe` and complete corresponding
+FFmpeg sources; distribute the complete folder or installer.
+
+Fork release example:
+
+```powershell
+python packaging/build_windows.py --repository zjmdong/g2-bridge-desktop --iscc 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+python packaging/source_bundle.py
+```
+
+The repository argument selects the packaged updater channel. Source builds
+default to upstream. Add all intended source files to Git before generating the
+source bundle. `GOGGLES_BRIDGE_DATA_DIR` selects an isolated settings/log folder
+for automated checks. `--self-test` never starts the automatic USB watcher.
 
 To check that a built app starts, run it with `--self-test`. It opens a hidden window, waits for the interface to draw, and exits with code 0.
 
