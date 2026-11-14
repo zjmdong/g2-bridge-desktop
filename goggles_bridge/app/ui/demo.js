@@ -20,7 +20,7 @@
     ? { model: 'DJI Goggles 2', identity: 'E3T ZV900 AC Feb 26 2025|12:39:57', build: 'Feb 26 2025', version: null, tested: false, tested_versions }
     : { model: 'DJI Goggles 2', identity: 'E3T ZV900 AC Dec 24 2024|12:34:04', build: 'Dec 24 2024', version: '01.11.00.00', tested: true, tested_versions };
   const state = {
-    app: { name: 'Goggles Bridge', version: '0.3.1', platform: mac ? 'darwin' : 'win32', updatable: true },
+    app: { name: 'Goggles Bridge', version: '0.3.2', platform: mac ? 'darwin' : 'win32', updatable: true },
     capabilities: mac ? {} : { virtual_display: true, resolution: true, auto_start: true, captures: ['gfxcapture', 'ddagrab'], fixed_encoder_options: false },
     checks: { driver: { needed: !mac, ok: mac || frozen !== 'nodriver' }, screen: { needed: mac, ok: !mac || frozen !== 'noscreen' },
       ffmpeg: { needed: !mac, ok: true },

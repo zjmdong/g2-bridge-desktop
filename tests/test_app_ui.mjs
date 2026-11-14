@@ -45,7 +45,7 @@ async function open(query = '', width = 1120, height = 740) {
   const loaded = event('Page.loadEventFired');
   await call('Page.navigate', { url: `${page}?demo&${query}` });
   await loaded;
-  await until(() => evaluate("document.querySelector('#version').textContent.includes('0.3.1')"), 'UI ready');
+  await until(() => evaluate("document.querySelector('#version').textContent.includes('0.3.2')"), 'UI ready');
 }
 async function capture(name) {
   if (!captures) return;
@@ -102,7 +102,7 @@ uiTest('physical desktop retains every upstream advanced control', async () => {
   await open();
   for (const key of ['source', 'resolution', 'auto_start', 'preset', 'fps', 'bitrate_mbps']) assert.equal(await visible(key), true, key);
   for (const key of ['capture', 'keyframe_seconds', 'h264_profile', 'adaptive_quant', 'low_latency', 'usb_write_size']) assert.equal(await visible(key), true, key);
-  assert.equal(await evaluate("document.querySelector('#opt-source option[value=virtual]').textContent"), '虚拟屏');
+  assert.equal(await evaluate("document.querySelector('#opt-source option[value=virtual]').textContent"), 'Virtual Display');
   assert.deepEqual(await evaluate("[...document.querySelector('#opt-capture').options].map(o => o.value)"), ['gfxcapture', 'ddagrab']);
   assert.equal(await evaluate("document.querySelector('#opt-bitrate_mbps option').textContent"), 'Automatic (32 Mbps)');
   await capture('windows-display');

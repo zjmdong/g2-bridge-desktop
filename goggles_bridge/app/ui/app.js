@@ -8,7 +8,7 @@
     screencapturekit: 'ScreenCaptureKit', avfoundation: 'AVFoundation',
   };
   const NAMES = {
-    source: { display: 'Computer display', virtual: '虚拟屏' },
+    source: { display: 'Computer display', virtual: 'Virtual Display' },
     resolution: { '720p': '1280 × 720', '1080p': '1920 × 1080' },
     capture: CAPTURE,
     keyframe_seconds: { 0: 'On start only', 1: '1 second', 3: '3 seconds' },
