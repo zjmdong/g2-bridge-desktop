@@ -61,11 +61,19 @@
   <h2 id="guide-title"></h2>
   <p id="guide-text"></p>
   <div class="thumbs" id="guide-picker" hidden></div>
+  <label class="guide-source" id="guide-source-row" hidden>
+    <span>Source</span>
+    <select id="guide-source">
+      <option value="display">Computer display</option>
+      <option value="virtual">Separate display</option>
+    </select>
+  </label>
   <p class="guide-status" id="guide-status" aria-live="polite">
     <svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7.2"/><path d="m5.8 9.3 2.2 2.2 4.2-4.6"/></svg>
     <span id="guide-status-text"></span>
   </p>
   <button class="button primary" id="guide-action" type="button">Continue</button>
+  <button class="link guide-help" id="guide-help" type="button" data-link="driver" hidden>Open DJI Assistant 2 page</button>
   <div class="dots" id="dots" aria-hidden="true"></div>
 </section>
 

@@ -42,9 +42,12 @@ TESTED_BUILDS = {'DJI Goggles 2': {'Dec 24 2024': '01.11.00.00', 'Feb 26 2025': 
                                    'Aug 11 2026': '01.14.00.00'}}
 # every stream option the window can change
 OPTIONS = tuple(f.name for f in fields(BridgeSettings) if f.name not in ('dll', 'ffmpeg', 'capture_fps'))
+APP_OPTIONS = dict(source='display', resolution='1080p', auto_start=False, display_device='')
 
 
 def data_dir():
+    if override := os.environ.get('GOGGLES_BRIDGE_DATA_DIR'):
+        return Path(override)
     if WINDOWS:
         return Path(os.environ.get('LOCALAPPDATA', Path.home()), APP_NAME)
     if MAC:
@@ -55,7 +58,9 @@ def data_dir():
 def find_ffmpeg():
     """Return the FFmpeg shipped beside a packaged app, else GOGGLES_FFMPEG, else the one on PATH."""
     bundled = Path(sys.executable).parent/'ffmpeg'/('ffmpeg.exe' if WINDOWS else 'ffmpeg')
-    found = bundled if bundled.is_file() else os.environ.get('GOGGLES_FFMPEG') or find_program('ffmpeg')
+    development = Path(__file__).resolve().parents[2]/'vendor'/'ffmpeg'/'ffmpeg.exe'
+    found = (bundled if bundled.is_file() else os.environ.get('GOGGLES_FFMPEG') or
+             (development if WINDOWS and development.is_file() else find_program('ffmpeg')))
     return Path(found) if found else None
 
 
@@ -89,7 +94,8 @@ def identify():
         while session.state != 'identified' and time.monotonic() < deadline:
             for packet in session.poll(time.monotonic()):
                 usb.write(packet.serialize())
-            for reply in decoder.feed(usb.read(timeout_ms=50) or b''):
+            # Like the stream engine, avoid frequent DJI endpoint aborts on read timeout.
+            for reply in decoder.feed(usb.read(timeout_ms=500) or b''):
                 for packet in session.receive(reply, time.monotonic()):
                     usb.write(packet.serialize())
     return (session.model, session.identity) if session.state == 'identified' else None
@@ -131,9 +137,14 @@ def problem_code(message):
 
 class Desktop:
     """The object the window's JavaScript calls. Public methods return JSON-ready values."""
-    def __init__(self, *, settings_path=None, engine_factory=BridgeEngine, check=check_encoder, identify=identify):
+    def __init__(self, *, settings_path=None, engine_factory=BridgeEngine, check=check_encoder, identify=identify,
+                 runtime=None):
         self._settings_path = Path(settings_path or data_dir()/'settings.json')
         self._engine_factory, self._check, self._identify = engine_factory, check, identify
+        self._runtime = runtime
+        if WINDOWS and runtime is None and engine_factory is BridgeEngine:
+            from .windows.runtime import WindowsRuntime
+            self._runtime = WindowsRuntime()
         # the connected goggles: None before a look, False after a failed one, else what describe returns.
         # A stream's ready event also sets it, and a disconnect clears it
         self._device = None
@@ -144,25 +155,63 @@ class Desktop:
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._thread = None
+        self._watch_stop = threading.Event()
+        self._watcher = None
+        self._connection_attempted = False
+        self._last_attached = None
+        self._installing = None
+        self._install_problem = {}
+        self._install_thread = None
+        self._display_path = None
         self._state = dict(phase='idle', problem=None, stats=None, oversize=0, log=None)
         self._checks = (0, None)
         self._displays = []
         self._ffmpeg = find_ffmpeg()
-        self._options = default_options()
+        self._options = {**default_options(), **(APP_OPTIONS if WINDOWS else {})}
+        if self._runtime:
+            self._options['capture'] = 'ddagrab'
         self._onboarded = False
         try:
+            if not self._settings_path.exists() and WINDOWS and settings_path is None:
+                self._migrate_legacy()
             saved = json.loads(self._settings_path.read_text(encoding='utf-8'))
             self._onboarded = bool(saved.get('onboarded'))
-            self._settings({**self._options, **{k: v for k, v in saved.items() if k in OPTIONS}})
+            self._settings(saved)
         except (OSError, ValueError, TypeError, AttributeError):
             pass  # keep the defaults when nothing valid is saved
 
     def _settings(self, options):
         """Validate options and adopt them; the engine's own rules decide what is allowed."""
-        merged = {**self._options, **{k: v for k, v in options.items() if k in OPTIONS}}
-        settings = BridgeSettings(find_dll(), self._ffmpeg, **merged)
+        allowed = (*OPTIONS, *(APP_OPTIONS if WINDOWS else ()))
+        merged = {**self._options, **{k: v for k, v in options.items() if k in allowed}}
+        if WINDOWS:
+            if merged['source'] not in ('display', 'virtual') or merged['resolution'] not in ('720p', '1080p'):
+                raise ValueError('Unsupported display source or resolution')
+            if type(merged['auto_start']) is not bool or not isinstance(merged['display_device'], str):
+                raise ValueError('Invalid automatic streaming or display setting')
+            if len(merged['display_device']) > 256:
+                raise ValueError('Invalid display identifier')
+        if self._runtime:
+            merged.update(capture='ddagrab', low_latency=True, h264_profile='high', adaptive_quant=False)
+        engine = {k: v for k, v in merged.items() if k in OPTIONS}
+        if self._runtime:
+            engine['capture_fps'] = engine['fps']
+        settings = BridgeSettings(find_dll(), self._ffmpeg, **engine)
         self._options = merged
         return settings
+
+    def _migrate_legacy(self):
+        """Read the previous fork once, without replacing upstream preferences or deleting the original."""
+        legacy = Path(os.environ.get('LOCALAPPDATA', Path.home()))/'DJI Goggles Streamer'/'settings.json'
+        try:
+            saved = json.loads(legacy.read_text(encoding='utf-8'))
+            saved['source'] = 'virtual' if saved.get('source') == 'extended' else 'display'
+            saved['onboarded'] = True
+            self._settings(saved)
+        except (OSError, ValueError, TypeError, AttributeError):
+            return
+        self._onboarded = True
+        self._save()
 
     def _bitrates(self):
         """For each frame rate, the bitrates the engine accepts and the one it picks by default."""
@@ -188,6 +237,23 @@ class Desktop:
                           screen=dict(needed=MAC, ok=not MAC or screen_access()),
                           ffmpeg=dict(needed=needs_ffmpeg, ok=not needs_ffmpeg or bool(self._ffmpeg and self._ffmpeg.is_file())),
                           attached=goggles_attached())
+            if self._runtime:
+                from .windows.virtual_driver import status
+                from .windows.system import driver_status
+                driver = driver_status()
+                result['driver'].update(ok=driver['status'] == 'verified',
+                                        problem=None if driver['status'] == 'verified' else driver['message'])
+                try:
+                    virtual = status()
+                    result['virtual_display'] = dict(needed=self._options['source'] == 'virtual',
+                        ok=virtual['owned'] and not virtual['needs_update'], **virtual)
+                except Exception as exc:
+                    result['virtual_display'] = dict(needed=self._options['source'] == 'virtual',
+                        ok=False, installed=False, needs_update=False, problem=str(exc))
+            for name in ('driver', 'virtual_display'):
+                if name in result:
+                    result[name].update(installing=self._installing == name,
+                                        problem=self._install_problem.get(name) or result[name].get('problem'))
             self._checks = (time.monotonic(), result)
             if result['attached'] is False:
                 self._device = None
@@ -206,12 +272,16 @@ class Desktop:
             self._device = False  # goggles that do not answer are identified when a stream starts
 
     def _running(self):
-        return self._thread is not None and self._thread.is_alive()
+        return bool((self._thread is not None and self._thread.is_alive()) or
+                    (self._runtime and getattr(self._runtime, 'busy', lambda: False)()))
 
     def snapshot(self):
         """Return everything the window draws."""
         with self._lock:
             state = dict(self._state)
+        if self._runtime and getattr(self._runtime, 'busy', lambda: False)() and not (
+                self._thread and self._thread.is_alive()):
+            state['phase'] = 'stopping'
         checks = self._preflight()  # first, because a disconnect clears the identity
         state['device'] = self._device or None
         if not self._running() or not self._displays:
@@ -219,20 +289,37 @@ class Desktop:
             if self._displays and self._options['display_index'] not in {d['index'] for d in self._displays}:
                 # the saved display is gone, so fall back to the main one
                 self._options['display_index'] = next((d['index'] for d in self._displays if d['primary']), 0)
+            if WINDOWS and self._options['source'] == 'display':
+                device = self._options.get('display_device')
+                target = next((d for d in self._displays if d.get('device') == device), None) if device else None
+                if target:
+                    self._options['display_index'] = target['index']
+                elif not device:
+                    target = next((d for d in self._displays if d['index'] == self._options['display_index']), None)
+                    if target and target.get('device'):
+                        self._options['display_device'] = target['device']
+        capabilities = dict(virtual_display=bool(self._runtime), resolution=bool(self._runtime),
+            auto_start=bool(self._runtime), captures=['ddagrab'] if self._runtime else list(CAPTURES),
+            fixed_encoder_options=bool(self._runtime))
         return dict(app=dict(name=APP_NAME, version=__version__, platform=sys.platform, updatable=UPDATABLE),
                     checks=checks, displays=self._displays, options=dict(self._options),
-                    choices=dict(fps=CHOICES['fps'], capture=CAPTURES, preset=CHOICES['preset'],
+                    capabilities=capabilities, display_path=self._display_path,
+                    choices=dict(fps=CHOICES['fps'], capture=capabilities['captures'], preset=CHOICES['preset'],
                                  keyframe_seconds=CHOICES['keyframe_seconds'], h264_profile=CHOICES['h264_profile'],
                                  usb_write_size=CHOICES['usb_write_size'], bitrates=self._bitrates()),
                     frame_limit=MAX_FRAME_BYTES, onboarded=self._onboarded, **state)
 
     def set_options(self, options):
         """Adopt and save changed options. Returns the problem when the engine refuses them."""
-        try:
-            self._settings(options)
-        except (ValueError, TypeError) as exc:
-            return dict(error=str(exc))
-        self._save()
+        with self._lock:
+            if self._running() or self._installing or self._updating:
+                return dict(error='Stop streaming or wait for setup before changing options')
+            try:
+                self._settings(options)
+            except (ValueError, TypeError, AttributeError) as exc:
+                return dict(error=str(exc))
+            self._checks = (0, None)
+            self._save()
         return dict(ok=True)
 
     def finish_setup(self):
@@ -243,31 +330,113 @@ class Desktop:
 
     def _save(self):
         self._settings_path.parent.mkdir(parents=True, exist_ok=True)
-        self._settings_path.write_text(json.dumps(dict(self._options, onboarded=self._onboarded), indent=1),
-                                       encoding='utf-8')
+        temporary = self._settings_path.with_suffix('.tmp')
+        temporary.write_text(json.dumps(dict(self._options, onboarded=self._onboarded), indent=1), encoding='utf-8')
+        os.replace(temporary, self._settings_path)
 
     def start(self):
         with self._lock:
-            if self._thread and self._thread.is_alive():
+            if self._running():
                 return dict(ok=True)
-            if self._updating:
+            if self._updating or self._installing:
                 return dict(ok=False)  # the app is about to close
             checks = self._preflight()
-            for name in ('driver', 'screen', 'ffmpeg'):
+            self._connection_attempted = True
+            for name in ('driver', 'screen', 'ffmpeg', *(['virtual_display'] if
+                         self._runtime and self._options['source'] == 'virtual' else [])):
                 if not checks[name]['ok']:
                     self._state.update(phase='error', problem=dict(code=name, message=f'{name} not found'))
                     return dict(ok=False)
             settings = self._settings({})
             log = data_dir()/'logs'/f'{datetime.now():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:6]}.jsonl'
             self._stop.clear()
-            self._state.update(phase='checking', problem=None, stats=None, oversize=0, log=str(log))
+            self._state.update(phase='preparing' if self._runtime and self._options['source'] == 'virtual' else 'checking', problem=None,
+                               stats=None, oversize=0, log=str(log))
             self._thread = threading.Thread(target=self._run, args=(settings, log), daemon=True)
             self._thread.start()
         return dict(ok=True)
 
     def stop(self):
+        self._connection_attempted = True
         self._stop.set()
         return dict(ok=True)
+
+    def _hotplug_tick(self, attached):
+        """One attempt per cable connection; manual Stop never immediately starts again."""
+        if attached is None:
+            return
+        if not attached:
+            self._stop.set()
+            self._connection_attempted = False
+            self._device = None
+        elif (not self._connection_attempted and self._options.get('auto_start') and
+              self._onboarded and not self._running() and not self._installing and not self._updating):
+            # Mark first: both a successful start and a failed setup wait for a new cable event.
+            self._connection_attempted = True
+            self.start()
+        self._last_attached = attached
+
+    def start_monitor(self):
+        if not self._runtime or self._watcher:
+            return
+
+        def watch():
+            while not self._watch_stop.wait(.5):
+                try:
+                    self._hotplug_tick(goggles_attached())
+                except OSError:
+                    pass  # transient PnP failure is not a confirmed unplug
+
+        self._watcher = threading.Thread(target=watch, daemon=True, name='usb-presence')
+        self._watcher.start()
+
+    def close(self):
+        self._watch_stop.set()
+        self.stop()
+        if self._watcher:
+            self._watcher.join(timeout=2)
+        if self._thread:
+            self._thread.join(timeout=20)  # the worker's finally releases the virtual display
+
+    def _install(self, kind):
+        if not self._runtime:
+            return dict(error='Automatic driver setup is available in the Windows app')
+        with self._lock:
+            if self._running() or self._installing or self._updating:
+                return dict(error='Stop streaming or wait for the current setup')
+            self._installing = kind
+            self._install_problem.pop(kind, None)
+            self._checks = (0, None)
+
+        def install():
+            from .windows.drivers import download_assistant, prepare_driver, InstallerProcess
+            from .windows.virtual_driver import VirtualInstaller
+            try:
+                if kind == 'virtual_display':
+                    operation = VirtualInstaller()
+                else:
+                    package = download_assistant(self._watch_stop, lambda *a, **k: None)
+                    inf = prepare_driver(package, self._watch_stop, lambda *a, **k: None)
+                    operation = InstallerProcess(inf)
+                while (code := operation.poll()) is None:
+                    time.sleep(.2)
+                if code not in (0, 3010):
+                    raise RuntimeError(f'Windows driver installation stopped ({code})')
+            except Exception as exc:
+                self._install_problem[kind] = str(exc)
+            finally:
+                self._installing = None
+                self._checks = (0, None)
+
+        self._install_thread = threading.Thread(target=install, daemon=True, name='driver-setup')
+        self._install_thread.start()
+        return self.snapshot()
+
+    def install_virtual_driver(self):
+        return self._install('virtual_display')
+
+    def install_driver(self):
+        return self._install('driver')
 
     def _fail(self, message):
         with self._lock:
@@ -277,6 +446,11 @@ class Desktop:
         try:
             if self._probe:
                 self._probe.join(5)  # the stream needs the USB interface to itself
+                if self._probe.is_alive():
+                    raise RuntimeError('Device identification has not released USB yet. Try again shortly.')
+            if self._runtime:
+                self._runtime.run(settings, dict(self._options), log, self._stop, self._event)
+                return
             problem = self._check(settings)
             if problem:
                 with self._lock:
@@ -287,6 +461,7 @@ class Desktop:
         except Exception as exc:
             self._fail(str(exc))
         finally:
+            self._checks = (0, None)
             with self._lock:
                 if self._state['phase'] != 'error':
                     self._state.update(phase='idle', stats=None, problem=None)
@@ -295,7 +470,17 @@ class Desktop:
         event = row['event']
         with self._lock:
             state = self._state
-            if event == 'waiting':
+            if event in ('preparing_display', 'checking_capture'):
+                if state['phase'] != 'error':
+                    state['phase'] = 'preparing' if event == 'preparing_display' else 'checking'
+            elif event == 'releasing_display':
+                if state['phase'] != 'error':
+                    state['phase'] = 'stopping'
+            elif event == 'display_cleanup_error':
+                state.update(phase='error', problem=dict(code='virtual_display', message=row['message']))
+            elif event == 'display_path':
+                self._display_path = {k: v for k, v in row.items() if k != 'event'}
+            elif event == 'waiting':
                 state.update(phase='waiting', problem=dict(code=problem_code(row['message']), message=row['message']))
             elif event == 'connected':
                 state.update(phase='connecting', problem=None)
@@ -318,6 +503,7 @@ class Desktop:
         lines = [f'{APP_NAME} {__version__}', f'{platform.platform()} | Python {platform.python_version()}',
                  f'FFmpeg: {self._ffmpeg}', f'Checks: {json.dumps(self._preflight())}',
                  f'Options: {json.dumps(self._options)}',
+                 f'Display path: {json.dumps(self._display_path)}',
                  f"State: {state['phase']} {json.dumps(state['problem'])} {json.dumps(self._device or None)}"]
         if self._ffmpeg and self._ffmpeg.is_file():
             version = subprocess.run([str(self._ffmpeg), '-hide_banner', '-version'], capture_output=True, text=True,
@@ -409,8 +595,8 @@ def tint_title_bar(window):
 
 def main():
     import webview
-    api = Desktop()
     self_test = '--self-test' in sys.argv
+    api = Desktop(identify=(lambda: None) if self_test else identify)
     if WINDOWS and not self_test and not has_webview2():
         # the fallback renderer cannot run the interface, so say what is missing before the window opens
         text = ('Goggles Bridge needs the Microsoft Edge WebView2 Runtime to show its window.\n\n'
@@ -436,9 +622,11 @@ def main():
                 break
         window.destroy()
 
-    webview.start(check if self_test else None)
-    api.stop()
-    if api._thread:
-        api._thread.join(timeout=5)
+    if not self_test:
+        api.start_monitor()
+    try:
+        webview.start(check if self_test else None)
+    finally:
+        api.close()
     if self_test and not drawn:
         raise SystemExit(1)

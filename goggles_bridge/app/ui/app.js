@@ -8,6 +8,8 @@
     screencapturekit: 'ScreenCaptureKit', avfoundation: 'AVFoundation',
   };
   const NAMES = {
+    source: { display: 'Computer display', virtual: 'Separate display' },
+    resolution: { '720p': '1280 × 720', '1080p': '1920 × 1080' },
     capture: CAPTURE,
     keyframe_seconds: { 1: '1 second', 3: '3 seconds' },
     h264_profile: { high: 'High', baseline: 'Baseline' },
@@ -15,16 +17,21 @@
     usb_write_size: { 16384: '16 KB', 2048: '2 KB' },
   };
   const BASIC = [
+    { key: 'source', label: 'Source', kind: 'select', windows: true, capability: 'virtual_display',
+      info: 'Use an existing display, or create a separate display for the goggles. The separate display is added when streaming starts and removed when it stops.' },
     { key: 'display_index', label: 'Display', kind: 'display' },
+    { key: 'resolution', label: 'Resolution', kind: 'select', windows: true, capability: 'resolution' },
     { key: 'fps', label: 'Frame rate', kind: 'segment',
       info: 'Frames sent to the goggles each second. At the same bitrate, a higher frame rate leaves less data for each frame.' },
     { key: 'bitrate_mbps', label: 'Bitrate', kind: 'select',
-      info: 'Video data sent each second. Automatic selects the highest bitrate tested at the chosen frame rate.' },
+      info: 'Video data sent each second. Automatic follows the frame rate: 24 Mbps at 60 fps, 30 Mbps at 75 fps, and 32 Mbps at 90 or 100 fps. At 100 fps, try 40 Mbps for fast motion and fine detail.' },
     { key: 'show_cursor', label: 'Mouse pointer', kind: 'switch' },
+    { key: 'auto_start', label: 'Start on USB connection', kind: 'switch', windows: true, capability: 'auto_start',
+      info: 'Start streaming when the goggles connect over USB, and stop when they disconnect. Open DJI Virtual Flight on the goggles first. Stopping manually keeps the stream stopped until the next connection.' },
   ];
   const ADVANCED = [
     { key: 'capture', label: 'Capture method', kind: 'select', windows: true,
-      info: 'Windows Graphics Capture scales the picture on the GPU. Desktop Duplication scales it on the CPU. Use it if capture fails. With more than one graphics adapter, Desktop Duplication can number displays differently from the Display setting.' },
+      info: 'The method used to capture the selected display. Windows uses NVIDIA hardware encoding.' },
     { key: 'keyframe_seconds', label: 'Keyframe interval', kind: 'select',
       info: 'Time between complete pictures. The goggles need a complete picture to start or recover the image.' },
     { key: 'h264_profile', label: 'H.264 profile', kind: 'select',
@@ -48,15 +55,20 @@
     oversize: ['Frames are too large for the goggles', 'Select a lower bitrate, and then start streaming.'],
     no_video: ['The display stopped sending frames', 'Check that the display is on, and then start streaming.'],
     encoder: ['Screen capture failed', null],
+    virtual_display: ['The separate display could not start', 'Open the setup guide to check the virtual display driver, and then try again.'],
     other: ['Streaming stopped', null],
   };
   const BUSY = { checking: ['Starting', 'Checking screen capture.'], connecting: ['Connecting to the goggles', ''],
+    preparing: ['Preparing the separate display', 'Adding the display and applying the selected resolution and refresh rate.'],
+    stopping: ['Stopping', 'Finishing the stream and removing its separate display.'],
     ready: ['Connecting to the goggles', ''] };
   const GUIDE = {
     welcome: ['Your screen, in your goggles', 'Goggles Bridge sends this computer’s screen to DJI Goggles 2 or DJI Goggles Integra over a USB cable.'],
     driver: ['Install the DJI USB driver', 'Install DJI Assistant 2 (Consumer Drones Series). It includes the USB driver for the goggles.'],
     screen: ['Allow screen recording', 'Goggles Bridge needs permission to send this Mac’s screen. Turn it on in System Settings, and then reopen the app.'],
     cable: ['Connect the goggles', 'Use a USB-A to USB-C data cable, with the USB-A end in this computer. Then power the goggles on.'],
+    source: ['Choose a screen source', 'Send an existing computer display, or use a separate display for the goggles so your main screen stays free.'],
+    virtual_display: ['Set up the separate display', 'Install the virtual display driver once. The display is added when streaming starts and removed when it stops. Windows may ask you to approve the installation.'],
     display: ['Choose a display', 'The goggles show one display. Select the one to send.'],
     flight: ['Open DJI Virtual Flight', 'On the goggles, go to More > DJI Virtual Flight. Then start streaming.'],
     done: ['Streaming', 'Put the goggles on. To stop or change settings, return to this window.'],
@@ -96,9 +108,41 @@
     toastTimer = setTimeout(() => { node.hidden = true; }, 2600);
   }
   const active = s => !['idle', 'error'].includes(s.phase);
+  const capable = (s, name) => s.app.platform === 'win32' && Boolean(s.capabilities?.[name]);
+  const virtual = s => capable(s, 'virtual_display') && s.options.source === 'virtual';
+  const physicalDisplays = s => s.displays.filter(d => !d.virtual);
+  const selectedDisplay = s => s.options.display_device
+    ? physicalDisplays(s).find(d => d.device === s.options.display_device)
+    : physicalDisplays(s).find(d => d.index === s.options.display_index) || physicalDisplays(s)[0];
+  const needsDisplayPicker = s => physicalDisplays(s).length > 1 || (physicalDisplays(s).length === 1 && !selectedDisplay(s));
+  const installing = s => Boolean(s.checks.driver.installing || s.checks.virtual_display?.installing);
+  const visibleRow = (row, s) => {
+    if (row.windows && s.app.platform !== 'win32') return false;
+    if (row.capability && !capable(s, row.capability)) return false;
+    if (row.key === 'display_index') return !virtual(s);
+    if (row.key === 'capture' && (s.capabilities?.captures || s.choices.capture).length < 2) return false;
+    return !(capable(s, 'fixed_encoder_options') && ['keyframe_seconds', 'h264_profile', 'adaptive_quant', 'low_latency', 'usb_write_size'].includes(row.key));
+  };
   const firmware = d => (d.version ? `Firmware ${d.version}` : `Firmware build ${d.build}`);
   const untested = d => `Firmware build ${d.build} hasn't been tested with Goggles Bridge.`;
   const start = () => api.start().then(refresh), stop = () => api.stop().then(refresh);
+  const install = method => async () => {
+    try {
+      const result = await api[method]();
+      if (result?.error) toast(result.error);
+      await refresh();
+    } catch (error) { toast(error.message || String(error)); }
+  };
+  const driverAction = (s, kind) => {
+    const check = s.checks[kind], isVirtual = kind === 'virtual_display';
+    const method = isVirtual ? 'install_virtual_driver' : 'install_driver';
+    if (check.installing) return { label: 'Installing…', kind: 'start', disabled: true };
+    if (!isVirtual && typeof api.install_driver !== 'function') {
+      return { label: 'Get DJI Assistant 2', kind: 'start', run: () => api.open_link('driver') };
+    }
+    return { label: isVirtual ? (check.needs_update ? 'Update display driver' : 'Install display driver') : 'Install DJI driver',
+      kind: 'start', run: install(method) };
+  };
 
   // one drawing for every state: computer, cable, goggles
   function scene() {
@@ -136,35 +180,47 @@
 
   function model(s) {
     const o = s.options, c = s.checks, phase = s.phase, problem = s.problem || {};
-    const display = s.displays.find(d => d.index === o.display_index) || s.displays[0];
+    const display = selectedDisplay(s);
     const bitrate = o.bitrate_mbps ?? s.choices.bitrates[o.fps].auto;
     const live = phase === 'streaming', failed = phase === 'error';
     const fault = failed || phase === 'waiting' ? (PROBLEMS[problem.code] || PROBLEMS.other) : null;
     const cableFault = ['unplugged', 'slow_link'].includes(problem.code) && phase === 'waiting';
 
     let headline, subline, look, action = { label: 'Start streaming', kind: 'start', run: start };
-    if (!c.driver.ok) {
-      [headline, subline, look] = ['Install the DJI USB driver', GUIDE.driver[1], 'driver'];
-      action = { label: 'Get DJI Assistant 2', kind: 'start', run: () => api.open_link('driver') };
+    if (!c.driver.ok || c.driver.installing) {
+      [headline, subline, look] = ['Install the DJI USB driver', c.driver.problem || GUIDE.driver[1], 'driver'];
+      action = driverAction(s, 'driver');
     } else if (!c.screen.ok) {
       [headline, subline, look] = [...GUIDE.screen, 'driver'];
       action = { label: 'Open Settings', kind: 'start', run: () => api.open_link('screen') };
     } else if (!c.ffmpeg.ok) {
       [headline, subline, look] = ['FFmpeg not found', 'Reinstall Goggles Bridge. From the repository, set GOGGLES_FFMPEG to an FFmpeg executable.', 'error'];
       action.disabled = true;
+    } else if (!virtual(s) && !display && !active(s)) {
+      [headline, subline, look] = [o.display_device ? 'The selected display is disconnected' : 'No display found',
+        physicalDisplays(s).length ? 'Choose a connected display in the settings to continue.' : 'Connect a display, then select it in the settings.', 'unplugged'];
+      action.disabled = true;
+    } else if (virtual(s) && c.virtual_display && (!c.virtual_display.ok || c.virtual_display.installing) && !active(s)) {
+      [headline, subline, look] = [c.virtual_display.needs_update ? 'Update the display driver' : GUIDE.virtual_display[0],
+        c.virtual_display.problem || GUIDE.virtual_display[1], 'driver'];
+      action = driverAction(s, 'virtual_display');
     } else if (fault) {
       headline = fault[0];
-      subline = fault[1] || problem.message.split('\n')[0];
+      subline = fault[1] || (problem.message || '').split('\n')[0];
       look = failed ? 'error' : cableFault ? 'unplugged' : 'waiting';
       action = failed ? { ...action, label: 'Try again' } : { label: 'Stop', kind: 'stop', run: stop };
     } else if (live) {
       [headline, look] = [`Streaming to ${s.device ? s.device.model : 'the goggles'}`, 'streaming'];
-      subline = `1920 × 1080 at ${o.fps} fps and ${bitrate} Mbps.`;
+      subline = `${capable(s, 'resolution') ? NAMES.resolution[o.resolution] || NAMES.resolution['1080p'] : NAMES.resolution['1080p']} at ${o.fps} fps and ${bitrate} Mbps.`;
       action = { label: 'Stop', kind: 'stop', run: stop };
     } else if (active(s)) {
       [headline, subline] = BUSY[phase] || ['Starting', ''];
       look = 'waiting';
       action = { label: 'Stop', kind: 'stop', run: stop };
+      if (phase === 'stopping') {
+        action = { label: 'Stopping…', kind: 'stop', disabled: true };
+        if (!virtual(s)) subline = 'Finishing the stream.';
+      }
     } else if (c.attached === false) {
       [headline, subline, look] = [GUIDE.cable[0], GUIDE.cable[1], 'unplugged'];
       action.disabled = true;
@@ -176,7 +232,10 @@
       `largest frame ${Math.round(s.stats.frame_bytes_max / 1000)} of ${Math.round(s.frame_limit / 1000)} KB`,
       `USB send ${s.stats.send_ms_p95.toFixed(1)} ms`, ...(s.oversize ? [`${s.oversize} skipped`] : [])].join(' · ') : '';
     const checks = [];
-    if (c.driver.needed) checks.push(['DJI driver', c.driver.ok ? 'done' : 'attention', c.driver.ok ? 'Installed' : 'Not installed']);
+    if (c.driver.needed) checks.push(['DJI driver', c.driver.installing ? 'busy' : c.driver.ok ? 'done' : 'attention',
+      c.driver.installing ? 'Installing' : c.driver.ok ? 'Installed' : 'Not installed']);
+    if (virtual(s) && c.virtual_display) checks.push(['Separate display', c.virtual_display.installing ? 'busy' : c.virtual_display.ok ? 'done' : 'attention',
+      c.virtual_display.installing ? 'Installing' : c.virtual_display.ok ? live ? 'In use' : 'Ready on start' : c.virtual_display.needs_update ? 'Update needed' : 'Driver needed']);
     if (c.screen.needed) checks.push(['Screen recording', c.screen.ok ? 'done' : 'attention', c.screen.ok ? 'Allowed' : 'Not allowed']);
     const d = s.device;
     checks.push([d ? d.model : 'Goggles',
@@ -196,16 +255,17 @@
   }
 
   function thumbs(node, s) {
-    once(`thumbs-${node.id}`, [s.displays, s.options.display_index], () => {
+    const displays = physicalDisplays(s), chosen = selectedDisplay(s);
+    once(`thumbs-${node.id}`, [displays, chosen?.device, chosen?.index], () => {
       node.setAttribute('role', 'radiogroup');
       node.setAttribute('aria-label', 'Display');
-      node.replaceChildren(...s.displays.map(d => {
+      node.replaceChildren(...displays.map(d => {
         const button = el('button', { className: 'display', type: 'button', role: 'radio', text: String(d.index + 1),
           title: `${d.name}: ${d.width} × ${d.height}${d.hz ? `, ${d.hz} Hz` : ''}` });
-        button.setAttribute('aria-checked', d.index === s.options.display_index);
+        button.setAttribute('aria-checked', d === chosen);
         button.setAttribute('aria-label', button.title);
         button.style.aspectRatio = d.width / d.height;
-        button.onclick = () => setOptions({ display_index: d.index });
+        button.onclick = () => setOptions(d.device ? { display_index: d.index, display_device: d.device } : { display_index: d.index });
         return button;
       }));
     });
@@ -244,6 +304,7 @@
       }
       controls[row.key] = control;
       const node = el('div', { className: 'row' }, label, control);
+      node.dataset.option = row.key;
       if (row.windows) node.dataset.windows = '';
       target.append(node);
     }
@@ -284,6 +345,7 @@
     $('#update').hidden = !s.app.updatable;
 
     once('checks', m.checks, () => {
+      $('#checks').dataset.count = m.checks.length;
       $('#checks').replaceChildren(...m.checks.map(([name, state, note]) => {
         const icon = el('svg', { svg: true, viewBox: '0 0 18 18', 'aria-hidden': 'true' },
           state === 'busy' ? el('path', { svg: true, d: 'M9 1.8A7.2 7.2 0 1 1 1.8 9' }) : el('circle', { svg: true, cx: 9, cy: 9, r: 7.2 }),
@@ -294,18 +356,26 @@
       }));
     });
 
-    const locked = active(s);
+    const locked = active(s) || installing(s);
     $('#options').disabled = locked;
     $('#locked').hidden = !locked;
-    for (const node of $$('[data-windows]')) node.hidden = s.app.platform !== 'win32';
-    once('display-row', s.displays.length, () => {
+    $('#locked').textContent = installing(s) ? 'Wait for the driver installation to finish.' : 'To change settings, stop streaming.';
+    for (const row of [...BASIC, ...ADVANCED]) controls[row.key].parentElement.hidden = !visibleRow(row, s);
+    const displays = physicalDisplays(s);
+    const pickDisplay = needsDisplayPicker(s);
+    once('display-row', [displays.length, pickDisplay], () => {
       const row = controls.display_index;
-      row.className = s.displays.length > 1 ? 'thumbs' : 'row-value';
+      row.className = pickDisplay ? 'thumbs' : 'row-value';
       // the row switches between buttons and plain text, so the buttons must be drawn again next time
       delete drawn['thumbs-display-picker'];
     });
-    if (s.displays.length > 1) thumbs(controls.display_index, s);
+    if (pickDisplay) thumbs(controls.display_index, s);
     else if (m.display) controls.display_index.textContent = `${m.display.width} × ${m.display.height}`;
+    else controls.display_index.textContent = 'No display found';
+    fill('source', ['display', 'virtual'], NAMES.source, o.source || 'display');
+    fill('resolution', ['720p', '1080p'], NAMES.resolution, o.resolution || '1080p');
+    $('#tip-bitrate_mbps').textContent = capable(s, 'virtual_display') ? BASIC.find(row => row.key === 'bitrate_mbps').info
+      : 'Video data sent each second. Automatic selects the highest bitrate tested at the chosen frame rate.';
     once('fps', s.choices.fps, () => {
       controls.fps.append(...s.choices.fps.map(fps => {
         const input = el('input', { type: 'radio', name: 'fps', value: fps });
@@ -322,9 +392,9 @@
     fill('bitrate_mbps', [null, ...rates.allowed],
       { '': `Automatic (${rates.auto} Mbps)`, ...Object.fromEntries(rates.allowed.map(r => [r, `${r} Mbps`])) }, o.bitrate_mbps);
     for (const key of ['capture', 'keyframe_seconds', 'h264_profile', 'preset', 'usb_write_size']) {
-      fill(key, s.choices[key], NAMES[key], o[key]);
+      fill(key, key === 'capture' ? s.capabilities?.captures || s.choices[key] : s.choices[key], NAMES[key], o[key]);
     }
-    for (const key of ['show_cursor', 'adaptive_quant', 'low_latency']) $('input', controls[key]).checked = Boolean(o[key]);
+    for (const key of ['show_cursor', 'adaptive_quant', 'low_latency', 'auto_start']) $('input', controls[key]).checked = Boolean(o[key]);
   }
 
   function render() {
@@ -339,7 +409,8 @@
   }
 
   const guideSteps = s => ['welcome', ...(s.checks.driver.needed ? ['driver'] : []), ...(s.checks.screen.needed ? ['screen'] : []), 'cable',
-    ...(s.displays.length > 1 ? ['display'] : []), 'flight', 'done'];
+    ...(capable(s, 'virtual_display') ? ['source'] : []), ...(virtual(s) ? ['virtual_display'] : []),
+    ...(!virtual(s) && needsDisplayPicker(s) ? ['display'] : []), 'flight', 'done'];
 
   function go(step) {
     const change = () => { guide.step = step; renderGuide(); };
@@ -368,6 +439,8 @@
     if (s.phase === 'streaming') return 'done';
     if (!s.checks.driver.ok) return 'driver';
     if (!s.checks.screen.ok) return 'screen';
+    if (virtual(s) && !s.checks.virtual_display?.ok) return 'virtual_display';
+    if (!virtual(s) && !selectedDisplay(s) && physicalDisplays(s).length) return 'display';
     return s.checks.attached === false ? 'cable' : 'flight';
   }
 
@@ -383,15 +456,26 @@
     const picker = $('#guide-picker');
     picker.hidden = step !== 'display';
     thumbs(picker, s);
+    $('#guide-source-row').hidden = step !== 'source';
+    const source = $('#guide-source');
+    source.disabled = active(s) || installing(s);
+    if (document.activeElement !== source) source.value = s.options.source || 'display';
+    $('#guide-help').hidden = step !== 'driver';
 
     // a detected step shows a check and waits for the user to continue
     let label = 'Continue', kind = 'start', run = next, disabled = false, status = '', state = '';
-    let look = { welcome: 'welcome', driver: 'driver', screen: 'driver', cable: 'unplugged', display: 'idle', flight: 'idle', done: 'streaming' }[step];
+    let look = { welcome: 'welcome', driver: 'driver', virtual_display: 'driver', screen: 'driver', cable: 'unplugged', source: 'idle', display: 'idle', flight: 'idle', done: 'streaming' }[step];
     if (step === 'welcome') {
       label = 'Set up';
-    } else if (step === 'driver') {
-      if (s.checks.driver.ok) [status, state, look] = ['Driver installed', 'done', 'unplugged'];
-      else [label, run, status, state] = ['Get DJI Assistant 2', () => api.open_link('driver'), 'Waiting for the driver', 'waiting'];
+    } else if (step === 'driver' || step === 'virtual_display') {
+      const check = s.checks[step];
+      if (check?.ok && !check.installing) [status, state, look] = ['Driver installed', 'done', 'unplugged'];
+      else {
+        const action = driverAction(s, step);
+        ({ label, run, disabled = false } = action);
+        [status, state] = check.installing ? ['Complete the Windows installation prompt.', 'waiting']
+          : check.problem ? [check.problem, 'bad'] : [check.needs_update ? 'A driver update is needed.' : 'Driver not installed.', ''];
+      }
     } else if (step === 'screen') {
       if (s.checks.screen.ok) [status, state, look] = ['Screen recording allowed', 'done', 'unplugged'];
       else [label, run, status, state] = ['Open Settings', () => api.open_link('screen'), 'Waiting for permission', 'waiting'];
@@ -406,10 +490,11 @@
       if (s.phase === 'error') {
         const fault = PROBLEMS[s.problem.code] || PROBLEMS.other;
         [label, run, state, look] = ['Try again', start, 'bad', 'error'];
-        status = `${fault[0]}. ${fault[1] || s.problem.message.split('\n')[0]}`;
+        status = `${fault[0]}. ${fault[1] || (s.problem.message || '').split('\n')[0]}`;
       } else if (active(s)) {
         [label, kind, run, state, look] = ['Cancel', 'stop', stop, 'waiting', 'waiting'];
         status = s.phase === 'waiting' ? (PROBLEMS[s.problem.code] || PROBLEMS.other)[0] : (BUSY[s.phase] || ['Starting'])[0];
+        if (s.phase === 'stopping') [label, disabled] = ['Stopping…', true];
       } else {
         [label, run] = ['Start streaming', start];
       }
@@ -479,6 +564,7 @@
     $('#diagnostics').onclick = () => api.diagnostics().then(() => toast('Diagnostics copied'));
     $('#open-guide').onclick = () => openGuide(resumeStep(snap));
     $('#guide-skip').onclick = closeGuide;
+    $('#guide-source').onchange = event => setOptions({ source: event.target.value });
     addEventListener('keydown', event => {
       if (!guide.open) return;
       if (event.key === 'Escape') closeGuide();

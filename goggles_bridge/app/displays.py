@@ -41,6 +41,7 @@ def list_displays():
         if user32.GetMonitorInfoW(monitor, C.byref(info)) and user32.EnumDisplaySettingsW(
                 info.szDevice, 0xFFFFFFFF, C.byref(mode)):  # ENUM_CURRENT_SETTINGS
             displays.append(dict(index=len(displays), name=f'Display {len(displays)+1}',
+                                 device=info.szDevice, hmonitor=monitor,
                                  x=mode.dmPositionX, y=mode.dmPositionY,
                                  width=mode.dmPelsWidth, height=mode.dmPelsHeight,
                                  hz=mode.dmDisplayFrequency, primary=bool(info.dwFlags & 1)))
@@ -51,6 +52,17 @@ def list_displays():
         return True
 
     user32.EnumDisplayMonitors(None, None, callback(visit), 0)
+    # Identify only this app's owned virtual output, not every software monitor.
+    try:
+        from .windows.displays import inventory
+        from .windows.virtual_driver import status
+        virtual = {r['device'] for r in inventory() if r['hardware_id'].lower() in ('root\\mttvdd', 'mttvdd')}
+        if len(virtual) != 1 or not status().get('owned'):
+            virtual = set()
+        for display in displays:
+            display['virtual'] = display.get('device') in virtual
+    except (OSError, RuntimeError, KeyError):
+        pass
     return displays
 
 

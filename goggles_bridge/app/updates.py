@@ -1,11 +1,25 @@
 """Find a newer release on GitHub and download its installer."""
 import hashlib
 import json
+from pathlib import Path
+import re
 import sys
 import urllib.request
 
-LATEST = 'https://api.github.com/repos/Ammaar-Alam/goggles-bridge/releases/latest'
-DOWNLOADS = 'https://github.com/Ammaar-Alam/goggles-bridge/releases/download/'
+def release_repository():
+    """Fork installers can pin their own channel; source builds default to upstream."""
+    try:
+        name = json.loads(Path(__file__).with_name('release-channel.json').read_text(encoding='utf-8'))['repository']
+        if re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', name):
+            return name
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return 'Ammaar-Alam/goggles-bridge'
+
+
+REPOSITORY = release_repository()
+LATEST = f'https://api.github.com/repos/{REPOSITORY}/releases/latest'
+DOWNLOADS = f'https://github.com/{REPOSITORY}/releases/download/'
 ASSET = '.dmg' if sys.platform == 'darwin' else '-Setup.exe'
 # run as sh -c SWAP swap IMAGE APP PID: waits for the app to close, replaces it with the copy in the disk image
 # when that copy is signed like the running app, and reopens the app either way
