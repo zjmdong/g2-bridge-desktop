@@ -1,0 +1,2865 @@
+{
+  "schema": 2,
+  "version": "0.2.6",
+  "scope": "Generated-source identity and host capture/encode/USB timing; not optical latency or headset refresh lock.",
+  "status": "selected_policy_and_clean_release_measured",
+  "user_visual_confirmation_requested": false,
+  "software_encoding": false,
+  "selected_policy": {
+    "acquire_timeout_ms": 0,
+    "high_resolution_poll_max_us": 250,
+    "source_guard_us": 3000,
+    "fresh_wait_us": 2000,
+    "delivery_delay_us": 8000,
+    "sdk_sender": "immediate; original pipe and USB chunk sizes retained",
+    "native_delivery": "capture absolute deadline; only remaining time is waited; late packets sent immediately"
+  },
+  "conditions": {
+    "scope": "Main extended-display USB experiment; primary host-only cases are identified separately.",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "fps": 100,
+    "bitrate_mbps": 20,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "preset": "p4",
+    "profile": "high",
+    "entropy": "cabac",
+    "chroma_qp_offset": -4,
+    "multipass": "qres",
+    "source": "VDD 1920x1080 100 Hz; generated texture pattern",
+    "source_fixture": "3 swapchain buffers / MaximumFrameLatency 2; source-render age includes fixture presentation queue, not capture latency alone",
+    "during_capture": "bounded RAM AU/metadata; offline marker decode after encoder stop; research native emits aggregates every 500 packets"
+  },
+  "identity_cases": {
+    "production-old-20.json": {
+      "status": "completed",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "fresh_wait_us": 0,
+        "delivery_delay_us": 0
+      },
+      "primary": false,
+      "nominal_source_refresh_hz": 100,
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "production_adapter_sha256": "77f248f3b65534cd5820fd7c7ad609f006d4d2fe0adf3abeb2a77cf0e5708521",
+      "helper_sha256": "7e2db21faf855a5779440b7b85551d359608055702986ffb9743909e72b9118f",
+      "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "command_sha256": "9a1a26bbb5399caf7372030c77d5a16302dbb2e7a0cd410ea76689c38e5dfdd5",
+      "seconds": 20.0,
+      "warmup_seconds": 3.0,
+      "total_frames": 1982,
+      "max_frame_bytes": 38730,
+      "oversize_frames": 0,
+      "raw_report_sha256": "f1c8bf7bd0c4e21aad71f2e23a297a8f485ccd9f9a07b5e7aa8dd86e8ae50052",
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 1982,
+        "measured_frames": 1701,
+        "unique_source_ids": 1597,
+        "repeated_source_ids": 104,
+        "skipped_source_ids": 94,
+        "measured_au_fps": 100.01449680715191,
+        "source_render_to_host_ms": {
+          "count": 1701,
+          "mean": 30.113942974720793,
+          "min": 13.461,
+          "p01": 18.9669,
+          "p50": 29.7849,
+          "p95": 38.5738,
+          "p99": 41.3047,
+          "max": 51.6314
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 1597,
+          "mean": 30.010529304946814,
+          "min": 13.461,
+          "p01": 18.9307,
+          "p50": 29.874,
+          "p95": 38.0453,
+          "p99": 40.9082,
+          "max": 51.6314
+        },
+        "au_interval_ms": {
+          "count": 1700,
+          "mean": 9.998550529411778,
+          "min": 5.2215,
+          "p01": 6.5366,
+          "p50": 9.9661,
+          "p95": 12.7504,
+          "p99": 13.4369,
+          "max": 14.9173
+        },
+        "intervals_over15ms": 0,
+        "intervals_within_one_percent": 77,
+        "min_marker_margin": 123.0
+      },
+      "historical_role": "old_reference",
+      "native_summary_lines": [
+        "[Parsed_ddagrab_0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1609 repeats=119 rejects=105 total_slew_us=4119 guard_us=3000",
+        "[vost#0:0/h264_nvenc] [SchEnc] Latest-frame mailbox replaced 0 unencoded video frames"
+      ]
+    },
+    "production-candidate-20.json": {
+      "status": "completed",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "fresh_wait_us": 2000,
+        "delivery_delay_us": 8000
+      },
+      "primary": false,
+      "nominal_source_refresh_hz": 100,
+      "ffmpeg_sha256": "f26a45e1e7c2fb8010a320e7dc51b3d8d41dd5fd63d75554d6285e0bb6951749",
+      "production_adapter_sha256": "77f248f3b65534cd5820fd7c7ad609f006d4d2fe0adf3abeb2a77cf0e5708521",
+      "helper_sha256": "7e2db21faf855a5779440b7b85551d359608055702986ffb9743909e72b9118f",
+      "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "command_sha256": "f6b6c46d54e76cd2f6c7fb629925593e6034eba93a830efbc551168ee3c1521b",
+      "seconds": 20.0,
+      "warmup_seconds": 3.0,
+      "total_frames": 1986,
+      "max_frame_bytes": 41265,
+      "oversize_frames": 0,
+      "raw_report_sha256": "77b0b7b04138c6da68cc5f3868694657b4281c77217a574247cd76b7ccd86eb6",
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 1986,
+        "measured_frames": 1700,
+        "unique_source_ids": 1690,
+        "repeated_source_ids": 10,
+        "skipped_source_ids": 0,
+        "measured_au_fps": 100.00158095495259,
+        "source_render_to_host_ms": {
+          "count": 1700,
+          "mean": 32.902880529411775,
+          "min": 31.8814,
+          "p01": 32.1615,
+          "p50": 32.7284,
+          "p95": 33.141,
+          "p99": 42.5891,
+          "max": 54.1159
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 1690,
+          "mean": 32.83420076923078,
+          "min": 31.8814,
+          "p01": 32.1615,
+          "p50": 32.7269,
+          "p95": 33.1284,
+          "p99": 40.3368,
+          "max": 42.9266
+        },
+        "au_interval_ms": {
+          "count": 1699,
+          "mean": 9.99984190700413,
+          "min": 3.1073,
+          "p01": 9.3931,
+          "p50": 9.9879,
+          "p95": 10.3638,
+          "p99": 10.5155,
+          "max": 19.9156
+        },
+        "intervals_over15ms": 4,
+        "intervals_within_one_percent": 625,
+        "min_marker_margin": 119.0
+      },
+      "historical_role": "initial_blocking_fresh_candidate_not_final_release",
+      "native_summary_lines": [
+        "[Parsed_ddagrab_0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1903 repeats=11 rejects=8 total_slew_us=1579 guard_us=3000",
+        "[vost#0:0/h264_nvenc] [SchEnc] Latest-frame mailbox replaced 0 unencoded video frames"
+      ]
+    },
+    "production-candidate-60.json": {
+      "status": "completed",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "fresh_wait_us": 2000,
+        "delivery_delay_us": 8000
+      },
+      "primary": false,
+      "nominal_source_refresh_hz": 100,
+      "ffmpeg_sha256": "ba2151425cece2319e13097ed5c070f48ccb1f6ccac166674350884749a82ad1",
+      "production_adapter_sha256": "77f248f3b65534cd5820fd7c7ad609f006d4d2fe0adf3abeb2a77cf0e5708521",
+      "helper_sha256": "7e2db21faf855a5779440b7b85551d359608055702986ffb9743909e72b9118f",
+      "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "command_sha256": "f6b6c46d54e76cd2f6c7fb629925593e6034eba93a830efbc551168ee3c1521b",
+      "seconds": 60.0,
+      "warmup_seconds": 3.0,
+      "total_frames": 5973,
+      "max_frame_bytes": 36493,
+      "oversize_frames": 0,
+      "raw_report_sha256": "d3c9704937d028180585e27a910b18ae58fee506eab9c736b6316c5dc2716985",
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 5973,
+        "measured_frames": 5700,
+        "unique_source_ids": 5659,
+        "repeated_source_ids": 41,
+        "skipped_source_ids": 0,
+        "measured_au_fps": 99.99983927030571,
+        "source_render_to_host_ms": {
+          "count": 5700,
+          "mean": 33.50364226315791,
+          "min": 31.8637,
+          "p01": 32.4801,
+          "p50": 33.2958,
+          "p95": 33.999,
+          "p99": 43.1227,
+          "max": 54.8148
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 5659,
+          "mean": 33.42750003534195,
+          "min": 31.8637,
+          "p01": 32.4801,
+          "p50": 33.2931,
+          "p95": 33.9609,
+          "p99": 42.6468,
+          "max": 43.9397
+        },
+        "au_interval_ms": {
+          "count": 5699,
+          "mean": 10.000016072995262,
+          "min": 2.6785,
+          "p01": 9.4801,
+          "p50": 9.9965,
+          "p95": 10.3525,
+          "p99": 10.4725,
+          "max": 20.8544
+        },
+        "intervals_over15ms": 19,
+        "intervals_within_one_percent": 2157,
+        "min_marker_margin": 123.0
+      },
+      "historical_role": "initial_blocking_fresh_candidate_not_final_release",
+      "native_summary_lines": [
+        "[Parsed_ddagrab_0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=5566 repeats=43 rejects=58 total_slew_us=1207 guard_us=3000",
+        "[vost#0:0/h264_nvenc] [SchEnc] Latest-frame mailbox replaced 0 unencoded video frames",
+        "[out#0/avi] G2_DELIVERY_SUMMARY eligible=5973 waited=5922 arrival_late=51 arrival_late_100us=50 max_arrival_late_us=50816.900 max_wait_overshoot_us=1615.000 total_actual_wait_us=17794844.100"
+      ]
+    },
+    "release-primary-controlled.json": {
+      "status": "completed",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "fresh_wait_us": 2000,
+        "delivery_delay_us": 8000
+      },
+      "primary": true,
+      "nominal_source_refresh_hz": 100,
+      "ffmpeg_sha256": "4bd161c5e66aa04868c28588ce1cf44e64630f6a2d64f8b11e977f2d44910fad",
+      "production_adapter_sha256": "753e1bc94f402be41422c55b9028536530509d8901c0eb475e3ebf1eebdf7280",
+      "helper_sha256": "784b74a0709e2f5af53f2823290f79bf5fbf74b91b7f9867f2f28487954ba433",
+      "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "command_sha256": "a99240178f08f30181810b66a711c25edffa87cb4a12b844e5c3f94ddedae22d",
+      "seconds": 20.0,
+      "warmup_seconds": 3.0,
+      "total_frames": 1985,
+      "max_frame_bytes": 31737,
+      "oversize_frames": 0,
+      "raw_report_sha256": "4de12b1c4f36e32720698338cf4297fbf3a87d173b6f1126898ff1bd4911df94",
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 1985,
+        "measured_frames": 1700,
+        "unique_source_ids": 1700,
+        "repeated_source_ids": 0,
+        "skipped_source_ids": 0,
+        "measured_au_fps": 99.99851208806028,
+        "source_render_to_host_ms": {
+          "count": 1700,
+          "mean": 32.08430794117649,
+          "min": 31.7563,
+          "p01": 31.8272,
+          "p50": 32.0597,
+          "p95": 32.3364,
+          "p99": 32.4438,
+          "max": 32.8927
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 1700,
+          "mean": 32.08430794117649,
+          "min": 31.7563,
+          "p01": 31.8272,
+          "p50": 32.0597,
+          "p95": 32.3364,
+          "p99": 32.4438,
+          "max": 32.8927
+        },
+        "au_interval_ms": {
+          "count": 1699,
+          "mean": 10.000148793407876,
+          "min": 9.0486,
+          "p01": 9.5255,
+          "p50": 10.0039,
+          "p95": 10.3506,
+          "p99": 10.4556,
+          "max": 10.6897
+        },
+        "intervals_over15ms": 0,
+        "intervals_within_one_percent": 657,
+        "min_marker_margin": 119.125
+      },
+      "historical_role": "initial_blocking_fresh_candidate_not_final_release",
+      "native_summary_lines": [
+        "[Parsed_ddagrab_0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1861 repeats=1 rejects=0 total_slew_us=3572 guard_us=3000",
+        "[vost#0:0/h264_nvenc] [SchEnc] Latest-frame mailbox replaced 0 unencoded video frames",
+        "[out#0/avi] G2_DELIVERY_SUMMARY eligible=1985 waited=1981 arrival_late=4 arrival_late_100us=4 max_arrival_late_us=51514.500 max_wait_overshoot_us=905.500 total_actual_wait_us=5491650.000"
+      ]
+    },
+    "old-primary-controlled.json": {
+      "status": "completed",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "fresh_wait_us": 0,
+        "delivery_delay_us": 0
+      },
+      "primary": true,
+      "nominal_source_refresh_hz": 100,
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "production_adapter_sha256": "753e1bc94f402be41422c55b9028536530509d8901c0eb475e3ebf1eebdf7280",
+      "helper_sha256": "784b74a0709e2f5af53f2823290f79bf5fbf74b91b7f9867f2f28487954ba433",
+      "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "command_sha256": "c28796d9e35b4367e33d160bd2eeb5965fa5aee64a51fc25bd4c98817aa0c574",
+      "seconds": 20.0,
+      "warmup_seconds": 3.0,
+      "total_frames": 1987,
+      "max_frame_bytes": 32162,
+      "oversize_frames": 0,
+      "raw_report_sha256": "d83630efb74d834e0c8e9d109d7aef36664cbc4c0f7503d30584fc05d1551c00",
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 1987,
+        "measured_frames": 1700,
+        "unique_source_ids": 1700,
+        "repeated_source_ids": 0,
+        "skipped_source_ids": 0,
+        "measured_au_fps": 100.01177772600789,
+        "source_render_to_host_ms": {
+          "count": 1700,
+          "mean": 29.386585058823503,
+          "min": 27.0093,
+          "p01": 27.1708,
+          "p50": 29.5086,
+          "p95": 30.9096,
+          "p99": 31.1504,
+          "max": 31.3787
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 1700,
+          "mean": 29.386585058823503,
+          "min": 27.0093,
+          "p01": 27.1708,
+          "p50": 29.5086,
+          "p95": 30.9096,
+          "p99": 31.1504,
+          "max": 31.3787
+        },
+        "au_interval_ms": {
+          "count": 1699,
+          "mean": 9.998822366097714,
+          "min": 6.0382,
+          "p01": 6.5731,
+          "p50": 10.28,
+          "p95": 12.2219,
+          "p99": 12.75,
+          "max": 13.8345
+        },
+        "intervals_over15ms": 0,
+        "intervals_within_one_percent": 96,
+        "min_marker_margin": 119.125
+      },
+      "historical_role": "old_reference",
+      "native_summary_lines": [
+        "[Parsed_ddagrab_0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1902 repeats=1 rejects=0 total_slew_us=4499 guard_us=3000",
+        "[vost#0:0/h264_nvenc] [SchEnc] Latest-frame mailbox replaced 0 unencoded video frames"
+      ]
+    }
+  },
+  "correlations": {
+    "production-matrix-summary.json": {
+      "role": "historical_host_only_not_final_usb_acceptance",
+      "raw_summary_sha256": "a3a360ec6efe7eb91aa1f195dc52508a836df57ac1f0dd49ef0bc8abc7ddb238",
+      "summary": {
+        "schema": 1,
+        "scope": "Compact offline production/research identity summaries; no capture or GPU activity",
+        "helper_sha256": "e85f5ffa5480ad590f7679413aba271d8219a47bc79c1da0b11bc140508cdccd",
+        "age_scope": "Exact decoded source render-start to host AU arrival; not capture-to-photon latency",
+        "caveats": [
+          "Nominal100Hz display mode does not establish100unique source pictures persecond.",
+          "Statistics of native LastPresentTime can differ from actual generated marker identity.",
+          "Produced-but-absent IDs must not automatically be called capture drops.",
+          "All decoded markers including drain are exactly matched; summaries exclude warmup/drain."
+        ],
+        "runs": [
+          {
+            "source_report": {
+              "file": "production-old-20.json",
+              "sha256": "f1c8bf7bd0c4e21aad71f2e23a297a8f485ccd9f9a07b5e7aa8dd86e8ae50052"
+            },
+            "status": "completed",
+            "identity_status": "completed",
+            "identity_errors": [],
+            "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+            "command_sha256": "9a1a26bbb5399caf7372030c77d5a16302dbb2e7a0cd410ea76689c38e5dfdd5",
+            "settings": {
+              "width": 1920,
+              "height": 1080,
+              "fps": 100,
+              "bitrate_mbps": 20,
+              "preset": "p4",
+              "fresh_wait_us": 0,
+              "delivery_delay_us": 0
+            },
+            "native_probe_metadata": false,
+            "measured_frames": 1701,
+            "unique_source_ids": 1597,
+            "repeated_source_ids": 104,
+            "skipped_source_ids": 94,
+            "identity_increment_counts": {
+              "0": 104,
+              "1": 1504,
+              "2": 90,
+              "3": 2
+            },
+            "measured_au_fps": 100.01449680715191,
+            "au_interval_ms": {
+              "count": 1700,
+              "mean": 9.998550529411778,
+              "min": 5.2215,
+              "p01": 6.5366,
+              "p50": 9.9661,
+              "p95": 12.7504,
+              "p99": 13.4369,
+              "max": 14.9173
+            },
+            "intervals_over15ms": 0,
+            "source_render_to_host_ms": {
+              "count": 1701,
+              "mean": 30.113942974720793,
+              "min": 13.461,
+              "p01": 18.9669,
+              "p50": 29.7849,
+              "p95": 38.5738,
+              "p99": 41.3047,
+              "max": 51.6314
+            },
+            "unique_source_render_to_host_ms": {
+              "count": 1597,
+              "mean": 30.010529304946814,
+              "min": 13.461,
+              "p01": 18.9307,
+              "p50": 29.874,
+              "p95": 38.0453,
+              "p99": 40.9082,
+              "max": 51.6314
+            },
+            "maximum_frame_bytes": 38730,
+            "oversize_frames": 0,
+            "repeated_native_present_values": null,
+            "native_capture_sequence_gaps": null,
+            "native_source_clock": null,
+            "native_summary_lines": [
+              "[Parsed_ddagrab_0 @ 0000028842ca7800] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1609 repeats=119 rejects=105 total_slew_us=4119 guard_us=3000",
+              "[vost#0:0/h264_nvenc @ 0000028845078a00] [SchEnc @ 0000028845036680] Latest-frame mailbox replaced 0 unencoded video frames"
+            ],
+            "source_renderer": {
+              "source_report": {
+                "file": "renderer-production-matrix.json",
+                "sha256": "207a9e6ffb10d823fe105dcef0f010768be1f8f51eb4f9d5ac2d121a70be5a73"
+              },
+              "renderer_covers_host_window": true,
+              "renderer_error": "",
+              "nominal_display_hz": 100,
+              "source_swapchain": "flip-discard,3 buffers,max-frame-latency2,Present1 sync interval1; source fixture throughput control",
+              "source_frames_in_host_window": 1690,
+              "actual_render_submit_fps": 99.40960699150533,
+              "render_interval_ms": {
+                "count": 1689,
+                "mean": 10.0593899348727,
+                "min": 0.1069,
+                "p01": 0.1229,
+                "p50": 9.9987,
+                "p95": 19.5,
+                "p99": 20.0956,
+                "max": 29.6376
+              },
+              "source_intervals_over15ms": 93,
+              "excess_nominal_source_slots": 94,
+              "source_wait_ms": {
+                "count": 1690,
+                "mean": 9.924157633136094,
+                "min": 0.005,
+                "p01": 0.0071,
+                "p50": 9.8678,
+                "p95": 19.3184,
+                "p99": 19.907,
+                "max": 29.4463
+              },
+              "exact_marker_tuples_checked": 1982,
+              "exact_marker_tuples_matched": 1982,
+              "unmatched_marker_indices": [],
+              "unmatched_marker_count": 0,
+              "measured_marker_source_id_bounds": [
+                277,
+                1967
+              ],
+              "produced_ids_absent_between_received_markers": 94,
+              "absent_ids_observed_in_DXGI_present_statistics": 11,
+              "absent_ids_not_observed_in_sampled_statistics": 83,
+              "absent_produced_id_examples": [
+                384,
+                387,
+                392,
+                395,
+                398,
+                401,
+                409,
+                412,
+                415,
+                565,
+                582,
+                594,
+                688,
+                728,
+                733,
+                741,
+                745,
+                747,
+                837,
+                918
+              ],
+              "classification_limit": "A generated ID absent from encoded output was lost between render submission and host AU. Present statistics narrow some misses but cannot isolate DWM, DDA readiness, mailbox admission or encoder without additional provenance. Source intervals>15ms separately measure irregular source submission; no optical claims."
+            }
+          },
+          {
+            "source_report": {
+              "file": "production-candidate-20.json",
+              "sha256": "77b0b7b04138c6da68cc5f3868694657b4281c77217a574247cd76b7ccd86eb6"
+            },
+            "status": "completed",
+            "identity_status": "completed",
+            "identity_errors": [],
+            "ffmpeg_sha256": "f26a45e1e7c2fb8010a320e7dc51b3d8d41dd5fd63d75554d6285e0bb6951749",
+            "command_sha256": "f6b6c46d54e76cd2f6c7fb629925593e6034eba93a830efbc551168ee3c1521b",
+            "settings": {
+              "width": 1920,
+              "height": 1080,
+              "fps": 100,
+              "bitrate_mbps": 20,
+              "preset": "p4",
+              "fresh_wait_us": 2000,
+              "delivery_delay_us": 8000
+            },
+            "native_probe_metadata": false,
+            "measured_frames": 1700,
+            "unique_source_ids": 1690,
+            "repeated_source_ids": 10,
+            "skipped_source_ids": 0,
+            "identity_increment_counts": {
+              "0": 10,
+              "1": 1689
+            },
+            "measured_au_fps": 100.00158095495259,
+            "au_interval_ms": {
+              "count": 1699,
+              "mean": 9.99984190700413,
+              "min": 3.1073,
+              "p01": 9.3931,
+              "p50": 9.9879,
+              "p95": 10.3638,
+              "p99": 10.5155,
+              "max": 19.9156
+            },
+            "intervals_over15ms": 4,
+            "source_render_to_host_ms": {
+              "count": 1700,
+              "mean": 32.902880529411775,
+              "min": 31.8814,
+              "p01": 32.1615,
+              "p50": 32.7284,
+              "p95": 33.141,
+              "p99": 42.5891,
+              "max": 54.1159
+            },
+            "unique_source_render_to_host_ms": {
+              "count": 1690,
+              "mean": 32.83420076923078,
+              "min": 31.8814,
+              "p01": 32.1615,
+              "p50": 32.7269,
+              "p95": 33.1284,
+              "p99": 40.3368,
+              "max": 42.9266
+            },
+            "maximum_frame_bytes": 41265,
+            "oversize_frames": 0,
+            "repeated_native_present_values": null,
+            "native_capture_sequence_gaps": null,
+            "native_source_clock": null,
+            "native_summary_lines": [
+              "[Parsed_ddagrab_0 @ 000001a2dd2f7bc0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1903 repeats=11 rejects=8 total_slew_us=1579 guard_us=3000",
+              "[vost#0:0/h264_nvenc @ 000001a2dd771440] [SchEnc @ 000001a2dd770ec0] Latest-frame mailbox replaced 0 unencoded video frames"
+            ],
+            "source_renderer": {
+              "source_report": {
+                "file": "renderer-production-matrix.json",
+                "sha256": "207a9e6ffb10d823fe105dcef0f010768be1f8f51eb4f9d5ac2d121a70be5a73"
+              },
+              "renderer_covers_host_window": true,
+              "renderer_error": "",
+              "nominal_display_hz": 100,
+              "source_swapchain": "flip-discard,3 buffers,max-frame-latency2,Present1 sync interval1; source fixture throughput control",
+              "source_frames_in_host_window": 1690,
+              "actual_render_submit_fps": 99.41073389900728,
+              "render_interval_ms": {
+                "count": 1689,
+                "mean": 10.059275902901126,
+                "min": 8.9676,
+                "p01": 9.4315,
+                "p50": 9.9964,
+                "p95": 10.3744,
+                "p99": 10.5879,
+                "max": 20.3424
+              },
+              "source_intervals_over15ms": 10,
+              "excess_nominal_source_slots": 10,
+              "source_wait_ms": {
+                "count": 1690,
+                "mean": 9.936170591716,
+                "min": 8.83,
+                "p01": 9.2919,
+                "p50": 9.8723,
+                "p95": 10.2547,
+                "p99": 10.4581,
+                "max": 20.2146
+              },
+              "exact_marker_tuples_checked": 1986,
+              "exact_marker_tuples_matched": 1986,
+              "unmatched_marker_indices": [],
+              "unmatched_marker_count": 0,
+              "measured_marker_source_id_bounds": [
+                4273,
+                5962
+              ],
+              "produced_ids_absent_between_received_markers": 0,
+              "absent_ids_observed_in_DXGI_present_statistics": 0,
+              "absent_ids_not_observed_in_sampled_statistics": 0,
+              "absent_produced_id_examples": [],
+              "classification_limit": "A generated ID absent from encoded output was lost between render submission and host AU. Present statistics narrow some misses but cannot isolate DWM, DDA readiness, mailbox admission or encoder without additional provenance. Source intervals>15ms separately measure irregular source submission; no optical claims."
+            }
+          }
+        ]
+      }
+    },
+    "production-candidate-60-summary.json": {
+      "role": "historical_host_only_not_final_usb_acceptance",
+      "raw_summary_sha256": "121427b0a2733c832e25689971de6926fbc945607ff25e814e7a95ba889e8569",
+      "summary": {
+        "schema": 1,
+        "scope": "Compact offline production/research identity summaries; no capture or GPU activity",
+        "helper_sha256": "e85f5ffa5480ad590f7679413aba271d8219a47bc79c1da0b11bc140508cdccd",
+        "age_scope": "Exact decoded source render-start to host AU arrival; not capture-to-photon latency",
+        "caveats": [
+          "Nominal100Hz display mode does not establish100unique source pictures persecond.",
+          "Statistics of native LastPresentTime can differ from actual generated marker identity.",
+          "Produced-but-absent IDs must not automatically be called capture drops.",
+          "All decoded markers including drain are exactly matched; summaries exclude warmup/drain."
+        ],
+        "runs": [
+          {
+            "source_report": {
+              "file": "production-candidate-60.json",
+              "sha256": "d3c9704937d028180585e27a910b18ae58fee506eab9c736b6316c5dc2716985"
+            },
+            "status": "completed",
+            "identity_status": "completed",
+            "identity_errors": [],
+            "ffmpeg_sha256": "ba2151425cece2319e13097ed5c070f48ccb1f6ccac166674350884749a82ad1",
+            "command_sha256": "f6b6c46d54e76cd2f6c7fb629925593e6034eba93a830efbc551168ee3c1521b",
+            "settings": {
+              "width": 1920,
+              "height": 1080,
+              "fps": 100,
+              "bitrate_mbps": 20,
+              "preset": "p4",
+              "fresh_wait_us": 2000,
+              "delivery_delay_us": 8000
+            },
+            "native_probe_metadata": false,
+            "measured_frames": 5700,
+            "unique_source_ids": 5659,
+            "repeated_source_ids": 41,
+            "skipped_source_ids": 0,
+            "identity_increment_counts": {
+              "0": 41,
+              "1": 5658
+            },
+            "measured_au_fps": 99.99983927030571,
+            "au_interval_ms": {
+              "count": 5699,
+              "mean": 10.000016072995262,
+              "min": 2.6785,
+              "p01": 9.4801,
+              "p50": 9.9965,
+              "p95": 10.3525,
+              "p99": 10.4725,
+              "max": 20.8544
+            },
+            "intervals_over15ms": 19,
+            "source_render_to_host_ms": {
+              "count": 5700,
+              "mean": 33.50364226315791,
+              "min": 31.8637,
+              "p01": 32.4801,
+              "p50": 33.2958,
+              "p95": 33.999,
+              "p99": 43.1227,
+              "max": 54.8148
+            },
+            "unique_source_render_to_host_ms": {
+              "count": 5659,
+              "mean": 33.42750003534195,
+              "min": 31.8637,
+              "p01": 32.4801,
+              "p50": 33.2931,
+              "p95": 33.9609,
+              "p99": 42.6468,
+              "max": 43.9397
+            },
+            "maximum_frame_bytes": 36493,
+            "oversize_frames": 0,
+            "repeated_native_present_values": null,
+            "native_capture_sequence_gaps": null,
+            "native_source_clock": null,
+            "native_summary_lines": [
+              "[Parsed_ddagrab_0 @ 0000029ae470ddc0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=5566 repeats=43 rejects=58 total_slew_us=1207 guard_us=3000",
+              "[vost#0:0/h264_nvenc @ 0000029ae4c53080] [SchEnc @ 0000029ae4c50fc0] Latest-frame mailbox replaced 0 unencoded video frames",
+              "[out#0/avi @ 0000029ae27caf00] G2_DELIVERY_SUMMARY eligible=5973 waited=5922 arrival_late=51 arrival_late_100us=50 max_arrival_late_us=50816.900 max_wait_overshoot_us=1615.000 total_actual_wait_us=17794844.100"
+            ],
+            "source_renderer": {
+              "source_report": {
+                "file": "renderer-candidate-60.json",
+                "sha256": "b9fa27c54c470f837a3789c60dbdff77955aa524115274be7c98d16426f279b2"
+              },
+              "renderer_covers_host_window": true,
+              "renderer_error": "",
+              "nominal_display_hz": 100,
+              "source_swapchain": "flip-discard,3 buffers,max-frame-latency2,Present1 sync interval1; source fixture throughput control",
+              "source_frames_in_host_window": 5659,
+              "actual_render_submit_fps": 99.28094590505526,
+              "render_interval_ms": {
+                "count": 5658,
+                "mean": 10.072426193001068,
+                "min": 8.734,
+                "p01": 9.5139,
+                "p50": 9.9957,
+                "p95": 10.3904,
+                "p99": 10.6569,
+                "max": 20.4578
+              },
+              "source_intervals_over15ms": 41,
+              "excess_nominal_source_slots": 41,
+              "source_wait_ms": {
+                "count": 5659,
+                "mean": 9.950979448665816,
+                "min": 8.4141,
+                "p01": 9.3732,
+                "p50": 9.8744,
+                "p95": 10.2756,
+                "p99": 10.537,
+                "max": 20.3483
+              },
+              "exact_marker_tuples_checked": 5973,
+              "exact_marker_tuples_matched": 5973,
+              "unmatched_marker_indices": [],
+              "unmatched_marker_count": 0,
+              "measured_marker_source_id_bounds": [
+                276,
+                5934
+              ],
+              "produced_ids_absent_between_received_markers": 0,
+              "absent_ids_observed_in_DXGI_present_statistics": 0,
+              "absent_ids_not_observed_in_sampled_statistics": 0,
+              "absent_produced_id_examples": [],
+              "classification_limit": "A generated ID absent from encoded output was lost between render submission and host AU. Present statistics narrow some misses but cannot isolate DWM, DDA readiness, mailbox admission or encoder without additional provenance. Source intervals>15ms separately measure irregular source submission; no optical claims."
+            }
+          }
+        ]
+      }
+    },
+    "release-primary-controlled-summary.json": {
+      "role": "historical_host_only_not_final_usb_acceptance",
+      "raw_summary_sha256": "e35f1847da44f4c67600a2e4a634da49378d1952b2e7e500bf302a2103421c04",
+      "summary": {
+        "schema": 1,
+        "scope": "Compact offline production/research identity summaries; no capture or GPU activity",
+        "helper_sha256": "e85f5ffa5480ad590f7679413aba271d8219a47bc79c1da0b11bc140508cdccd",
+        "age_scope": "Exact decoded source render-start to host AU arrival; not capture-to-photon latency",
+        "caveats": [
+          "Nominal100Hz display mode does not establish100unique source pictures persecond.",
+          "Statistics of native LastPresentTime can differ from actual generated marker identity.",
+          "Produced-but-absent IDs must not automatically be called capture drops.",
+          "All decoded markers including drain are exactly matched; summaries exclude warmup/drain."
+        ],
+        "runs": [
+          {
+            "source_report": {
+              "file": "release-primary-controlled.json",
+              "sha256": "4de12b1c4f36e32720698338cf4297fbf3a87d173b6f1126898ff1bd4911df94"
+            },
+            "status": "completed",
+            "identity_status": "completed",
+            "identity_errors": [],
+            "ffmpeg_sha256": "4bd161c5e66aa04868c28588ce1cf44e64630f6a2d64f8b11e977f2d44910fad",
+            "command_sha256": "a99240178f08f30181810b66a711c25edffa87cb4a12b844e5c3f94ddedae22d",
+            "settings": {
+              "width": 1920,
+              "height": 1080,
+              "fps": 100,
+              "bitrate_mbps": 20,
+              "preset": "p4",
+              "fresh_wait_us": 2000,
+              "delivery_delay_us": 8000
+            },
+            "native_probe_metadata": false,
+            "measured_frames": 1700,
+            "unique_source_ids": 1700,
+            "repeated_source_ids": 0,
+            "skipped_source_ids": 0,
+            "identity_increment_counts": {
+              "1": 1699
+            },
+            "measured_au_fps": 99.99851208806028,
+            "au_interval_ms": {
+              "count": 1699,
+              "mean": 10.000148793407876,
+              "min": 9.0486,
+              "p01": 9.5255,
+              "p50": 10.0039,
+              "p95": 10.3506,
+              "p99": 10.4556,
+              "max": 10.6897
+            },
+            "intervals_over15ms": 0,
+            "source_render_to_host_ms": {
+              "count": 1700,
+              "mean": 32.08430794117649,
+              "min": 31.7563,
+              "p01": 31.8272,
+              "p50": 32.0597,
+              "p95": 32.3364,
+              "p99": 32.4438,
+              "max": 32.8927
+            },
+            "unique_source_render_to_host_ms": {
+              "count": 1700,
+              "mean": 32.08430794117649,
+              "min": 31.7563,
+              "p01": 31.8272,
+              "p50": 32.0597,
+              "p95": 32.3364,
+              "p99": 32.4438,
+              "max": 32.8927
+            },
+            "maximum_frame_bytes": 31737,
+            "oversize_frames": 0,
+            "repeated_native_present_values": null,
+            "native_capture_sequence_gaps": null,
+            "native_source_clock": null,
+            "native_summary_lines": [
+              "[Parsed_ddagrab_0 @ 00000195a46aae80] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1861 repeats=1 rejects=0 total_slew_us=3572 guard_us=3000",
+              "[vost#0:0/h264_nvenc @ 00000195a6a77400] [SchEnc @ 00000195a6a34500] Latest-frame mailbox replaced 0 unencoded video frames",
+              "[out#0/avi @ 00000195a6470040] G2_DELIVERY_SUMMARY eligible=1985 waited=1981 arrival_late=4 arrival_late_100us=4 max_arrival_late_us=51514.500 max_wait_overshoot_us=905.500 total_actual_wait_us=5491650.000"
+            ],
+            "source_renderer": {
+              "source_report": {
+                "file": "renderer-release-primary-controlled.json",
+                "sha256": "4ea05701396bcbcfe44297d11749d92a0dcc23c61f5fc8aa06eb5d78a565924c"
+              },
+              "renderer_covers_host_window": true,
+              "renderer_error": "",
+              "nominal_display_hz": 100,
+              "source_swapchain": "flip-discard,3 buffers,max-frame-latency2,Present1 sync interval1; source fixture throughput control",
+              "source_frames_in_host_window": 1700,
+              "actual_render_submit_fps": 99.99868806900703,
+              "render_interval_ms": {
+                "count": 1699,
+                "mean": 10.000131194820497,
+                "min": 9.4709,
+                "p01": 9.8677,
+                "p50": 9.9998,
+                "p95": 10.0747,
+                "p99": 10.1219,
+                "max": 10.4941
+              },
+              "source_intervals_over15ms": 0,
+              "excess_nominal_source_slots": 0,
+              "source_wait_ms": {
+                "count": 1700,
+                "mean": 9.865689470588224,
+                "min": 9.3301,
+                "p01": 9.7022,
+                "p50": 9.8676,
+                "p95": 9.9421,
+                "p99": 9.9888,
+                "max": 10.3577
+              },
+              "exact_marker_tuples_checked": 1985,
+              "exact_marker_tuples_matched": 1985,
+              "unmatched_marker_indices": [],
+              "unmatched_marker_count": 0,
+              "measured_marker_source_id_bounds": [
+                347,
+                2046
+              ],
+              "produced_ids_absent_between_received_markers": 0,
+              "absent_ids_observed_in_DXGI_present_statistics": 0,
+              "absent_ids_not_observed_in_sampled_statistics": 0,
+              "absent_produced_id_examples": [],
+              "classification_limit": "A generated ID absent from encoded output was lost between render submission and host AU. Present statistics narrow some misses but cannot isolate DWM, DDA readiness, mailbox admission or encoder without additional provenance. Source intervals>15ms separately measure irregular source submission; no optical claims."
+            }
+          }
+        ]
+      }
+    },
+    "old-primary-controlled-summary.json": {
+      "role": "historical_host_only_not_final_usb_acceptance",
+      "raw_summary_sha256": "f72be186af805dd4aade131054007b1a8f2dfa9700854dea6e064a9772edb612",
+      "summary": {
+        "schema": 1,
+        "scope": "Compact offline production/research identity summaries; no capture or GPU activity",
+        "helper_sha256": "e85f5ffa5480ad590f7679413aba271d8219a47bc79c1da0b11bc140508cdccd",
+        "age_scope": "Exact decoded source render-start to host AU arrival; not capture-to-photon latency",
+        "caveats": [
+          "Nominal100Hz display mode does not establish100unique source pictures persecond.",
+          "Statistics of native LastPresentTime can differ from actual generated marker identity.",
+          "Produced-but-absent IDs must not automatically be called capture drops.",
+          "All decoded markers including drain are exactly matched; summaries exclude warmup/drain."
+        ],
+        "runs": [
+          {
+            "source_report": {
+              "file": "old-primary-controlled.json",
+              "sha256": "d83630efb74d834e0c8e9d109d7aef36664cbc4c0f7503d30584fc05d1551c00"
+            },
+            "status": "completed",
+            "identity_status": "completed",
+            "identity_errors": [],
+            "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+            "command_sha256": "c28796d9e35b4367e33d160bd2eeb5965fa5aee64a51fc25bd4c98817aa0c574",
+            "settings": {
+              "width": 1920,
+              "height": 1080,
+              "fps": 100,
+              "bitrate_mbps": 20,
+              "preset": "p4",
+              "fresh_wait_us": 0,
+              "delivery_delay_us": 0
+            },
+            "native_probe_metadata": false,
+            "measured_frames": 1700,
+            "unique_source_ids": 1700,
+            "repeated_source_ids": 0,
+            "skipped_source_ids": 0,
+            "identity_increment_counts": {
+              "1": 1699
+            },
+            "measured_au_fps": 100.01177772600789,
+            "au_interval_ms": {
+              "count": 1699,
+              "mean": 9.998822366097714,
+              "min": 6.0382,
+              "p01": 6.5731,
+              "p50": 10.28,
+              "p95": 12.2219,
+              "p99": 12.75,
+              "max": 13.8345
+            },
+            "intervals_over15ms": 0,
+            "source_render_to_host_ms": {
+              "count": 1700,
+              "mean": 29.386585058823503,
+              "min": 27.0093,
+              "p01": 27.1708,
+              "p50": 29.5086,
+              "p95": 30.9096,
+              "p99": 31.1504,
+              "max": 31.3787
+            },
+            "unique_source_render_to_host_ms": {
+              "count": 1700,
+              "mean": 29.386585058823503,
+              "min": 27.0093,
+              "p01": 27.1708,
+              "p50": 29.5086,
+              "p95": 30.9096,
+              "p99": 31.1504,
+              "max": 31.3787
+            },
+            "maximum_frame_bytes": 32162,
+            "oversize_frames": 0,
+            "repeated_native_present_values": null,
+            "native_capture_sequence_gaps": null,
+            "native_source_clock": null,
+            "native_summary_lines": [
+              "[Parsed_ddagrab_0 @ 0000026da66f6d80] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1902 repeats=1 rejects=0 total_slew_us=4499 guard_us=3000",
+              "[vost#0:0/h264_nvenc @ 0000026da8aae3c0] [SchEnc @ 0000026da8a69fc0] Latest-frame mailbox replaced 0 unencoded video frames"
+            ],
+            "source_renderer": {
+              "source_report": {
+                "file": "renderer-old-primary-controlled.json",
+                "sha256": "000f0f162e44a75578c7ec71e0a1f4f7f9652d0d1417342d11a0a37eef3f195e"
+              },
+              "renderer_covers_host_window": true,
+              "renderer_error": "",
+              "nominal_display_hz": 100,
+              "source_swapchain": "flip-discard,3 buffers,max-frame-latency2,Present1 sync interval1; source fixture throughput control",
+              "source_frames_in_host_window": 1700,
+              "actual_render_submit_fps": 99.99811775173295,
+              "render_interval_ms": {
+                "count": 1699,
+                "mean": 10.000188228369625,
+                "min": 9.3108,
+                "p01": 9.8668,
+                "p50": 9.9999,
+                "p95": 10.0804,
+                "p99": 10.1392,
+                "max": 10.645
+              },
+              "source_intervals_over15ms": 0,
+              "excess_nominal_source_slots": 0,
+              "source_wait_ms": {
+                "count": 1700,
+                "mean": 9.864694352941157,
+                "min": 9.2095,
+                "p01": 9.7033,
+                "p50": 9.866,
+                "p95": 9.9475,
+                "p99": 10.01,
+                "max": 10.5105
+              },
+              "exact_marker_tuples_checked": 1987,
+              "exact_marker_tuples_matched": 1987,
+              "unmatched_marker_indices": [],
+              "unmatched_marker_count": 0,
+              "measured_marker_source_id_bounds": [
+                347,
+                2046
+              ],
+              "produced_ids_absent_between_received_markers": 0,
+              "absent_ids_observed_in_DXGI_present_statistics": 0,
+              "absent_ids_not_observed_in_sampled_statistics": 0,
+              "absent_produced_id_examples": [],
+              "classification_limit": "A generated ID absent from encoded output was lost between render submission and host AU. Present statistics narrow some misses but cannot isolate DWM, DDA readiness, mailbox admission or encoder without additional provenance. Source intervals>15ms separately measure irregular source submission; no optical claims."
+            }
+          }
+        ]
+      }
+    }
+  },
+  "selected_research_usb": {
+    "status": "matched",
+    "errors": [],
+    "settings": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 100,
+      "bitrate_mbps": 20,
+      "preset": "p4",
+      "encoder": "h264_nvenc",
+      "h264_profile": "high",
+      "usb_write_size": 16384
+    },
+    "ffmpeg_sha256": "96e311e0c25e041cd42ce197429a86187e746febaac6da2c19bd7581ea3f31fb",
+    "helper_sha256": "ce3abfe8430ec2809c4bd9fc1245167442296dc8421b1ff91e297515ec8e4b40",
+    "host_helper_sha256": "95791066062020f7f8d3e0888b92b58ca703a8b1d0fce1ee1d52d5567e4a08b8",
+    "host_status": {
+      "stop_reason": "duration_reached",
+      "failure": null,
+      "cleanup_errors": []
+    },
+    "matching_policy": "Single parser, no restart/resync/oversize, exact sequential prefix lengths and causal timestamps; never search or force-match skipped frames",
+    "clock": "Python perf_counter_ns, Windows QPC-derived nanoseconds; same clock as transport writes",
+    "arrival_definition": "Timestamp immediately after AviPacketStream.feed returns complete AUs; includes native stdout/OS read/parser delay, not native encode completion",
+    "batch_note": "AUs returned by the same feed call share one arrival timestamp; preexisting reader batching is retained",
+    "gap_definition": "arrival_to_write_begin includes SDK queue/control-loop work and PC video packetization; it does not isolate these two components",
+    "parser_count": 1,
+    "arrival_count": 6004,
+    "write_count": 6004,
+    "unmatched_shutdown_tail_count": 0,
+    "arrival_overflow": 0,
+    "matched_count": 6004,
+    "steady_count": 5702,
+    "steady_arrival_interval_ms": {
+      "count": 5701,
+      "min": 9.0247,
+      "mean": 9.99993516926855,
+      "p50": 10.0041,
+      "p95": 10.3336,
+      "p99": 10.4233,
+      "p999": 10.561,
+      "max": 10.9938,
+      "over15ms": 0
+    },
+    "steady_send_begin_interval_ms": {
+      "count": 5701,
+      "min": 8.8798,
+      "mean": 9.999961410278898,
+      "p50": 10.0055,
+      "p95": 10.3745,
+      "p99": 10.4948,
+      "p999": 10.6412,
+      "max": 11.1042,
+      "over15ms": 0
+    },
+    "steady_completion_interval_ms": {
+      "count": 5701,
+      "min": 8.7273,
+      "mean": 9.999978074022101,
+      "p50": 10.003,
+      "p95": 10.4178,
+      "p99": 10.5776,
+      "p999": 10.7097,
+      "max": 11.2204,
+      "over15ms": 0
+    },
+    "steady_arrival_to_write_begin_ms": {
+      "count": 5702,
+      "min": 0.2223,
+      "mean": 0.33791918625043843,
+      "p50": 0.3147,
+      "p95": 0.441,
+      "p99": 0.5314,
+      "p999": 0.6638,
+      "max": 0.9653,
+      "over15ms": 0
+    },
+    "steady_usb_write_ms": {
+      "count": 5702,
+      "min": 0.6354,
+      "mean": 0.8806314801823921,
+      "p50": 0.8824,
+      "p95": 0.9585,
+      "p99": 1.0007,
+      "p999": 1.0973,
+      "max": 1.5781,
+      "over15ms": 0
+    },
+    "retained_au_count": 6004,
+    "retained_bytes": 146614102,
+    "retention_overflow": 0,
+    "role": "selected_research_policy",
+    "reason": "Nonblocking acquisition removed observed >15ms arrival/completion tails in this run; this does not establish perfect source identity or a universal timing bound.",
+    "raw_report_sha256": "b478023184d83011bc429ecf9be2edf53a25b621e4d484b2de20612cf5726b6b",
+    "raw_host_report_sha256": "8d4c3233487ce99650e10bf4aaff489ee7766a1670f0b914c2dfd0e1ef2fcad2",
+    "paired_host_report_verified": true,
+    "source_guard_us": 3000,
+    "fresh_wait_us": 2000,
+    "delivery_delay_us": 8000,
+    "pattern_identity": {
+      "status": "completed",
+      "errors": [],
+      "error_count": 0,
+      "decoder_returncode": 0,
+      "decoder_errors": "",
+      "decoded_frames": 6004,
+      "measured_frames": 5700,
+      "unique_source_ids": 5589,
+      "repeated_source_ids": 111,
+      "skipped_source_ids": 62,
+      "measured_au_fps": 100.00082559025162,
+      "source_render_to_host_ms": {
+        "count": 5700,
+        "mean": 32.92985356140348,
+        "min": 22.1881,
+        "p01": 22.7742,
+        "p50": 32.689,
+        "p95": 33.2531,
+        "p99": 42.8492,
+        "max": 62.9158
+      },
+      "unique_source_render_to_host_ms": {
+        "count": 5589,
+        "mean": 32.75642422615852,
+        "min": 22.1881,
+        "p01": 22.7682,
+        "p50": 32.6855,
+        "p95": 33.155,
+        "p99": 42.6711,
+        "max": 52.9079
+      },
+      "au_interval_ms": {
+        "count": 5699,
+        "mean": 9.999917441656434,
+        "min": 9.0247,
+        "p01": 9.567,
+        "p50": 10.0041,
+        "p95": 10.3336,
+        "p99": 10.4233,
+        "max": 10.9938
+      },
+      "intervals_over15ms": 0,
+      "intervals_within_one_percent": 2071,
+      "min_marker_margin": 119.0
+    },
+    "host_summary": {
+      "duration_requested_seconds": 60.0,
+      "warmup_seconds": 3,
+      "stop_reason": "duration_reached",
+      "failure": null,
+      "cleanup_errors": [],
+      "completed_video_count": 6004,
+      "failed_write_count": 0,
+      "steady_video_count": 5702,
+      "steady_intervals_outside_10ms_plus_minus_1pct": 3990,
+      "records_dropped": 0,
+      "events_dropped": 0
+    },
+    "native_mux_probe": {
+      "available": true,
+      "instrumentation": "Research-only fixed RAM, INFO every 500 packets; removed from clean release",
+      "window_note": "Complete reported 500-packet windows after first 500; differs from the 3-second USB warmup interval",
+      "reported_packets": 5500,
+      "late_histogram": [
+        5500,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "late_histogram_upper_bounds_us": [
+        0,
+        100,
+        500,
+        1000,
+        2000,
+        5000,
+        10000,
+        "infinity"
+      ],
+      "late_max_us": 0.0,
+      "wait_overshoot_max_us": 1105.6,
+      "gaps_over15ms_source_sample_arrival_departure": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gap_max_us_source_sample_arrival_departure": [
+        10079.3,
+        11188.7,
+        13899.8,
+        11017.9
+      ],
+      "encoder_gaps_over15ms_pre_post": [
+        0,
+        0
+      ],
+      "encoder_gap_max_us_pre_post": [
+        12633,
+        13920
+      ],
+      "encoder_pre_to_post_max_us": 6997
+    },
+    "one_second_bin_summary": {
+      "frames": {
+        "count": 57,
+        "min": 100,
+        "mean": 100,
+        "p99": 100,
+        "max": 100
+      },
+      "wire_mbps": {
+        "count": 57,
+        "min": 20.05852,
+        "mean": 20.446973614035088,
+        "p99": 20.56616,
+        "max": 20.599984
+      },
+      "encoded_mbps_estimate": {
+        "count": 57,
+        "min": 19.16032,
+        "mean": 19.533325192982456,
+        "p99": 19.64636,
+        "max": 19.680184
+      }
+    }
+  },
+  "rejected_usb_cases": {
+    "usb-probe-smallpipe.json": {
+      "status": "matched",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "h264_profile": "high",
+        "usb_write_size": 16384
+      },
+      "ffmpeg_sha256": "7ae5b81c3a5e7a015050555d7692456f17c2af0d5ae0128fcbac91cb8c47bf0c",
+      "helper_sha256": "ce3abfe8430ec2809c4bd9fc1245167442296dc8421b1ff91e297515ec8e4b40",
+      "host_helper_sha256": "95791066062020f7f8d3e0888b92b58ca703a8b1d0fce1ee1d52d5567e4a08b8",
+      "host_status": {
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": []
+      },
+      "matching_policy": "Single parser, no restart/resync/oversize, exact sequential prefix lengths and causal timestamps; never search or force-match skipped frames",
+      "clock": "Python perf_counter_ns, Windows QPC-derived nanoseconds; same clock as transport writes",
+      "arrival_definition": "Timestamp immediately after AviPacketStream.feed returns complete AUs; includes native stdout/OS read/parser delay, not native encode completion",
+      "batch_note": "AUs returned by the same feed call share one arrival timestamp; preexisting reader batching is retained",
+      "gap_definition": "arrival_to_write_begin includes SDK queue/control-loop work and PC video packetization; it does not isolate these two components",
+      "parser_count": 1,
+      "arrival_count": 3004,
+      "write_count": 3004,
+      "unmatched_shutdown_tail_count": 0,
+      "arrival_overflow": 0,
+      "matched_count": 3004,
+      "steady_count": 2703,
+      "steady_arrival_interval_ms": {
+        "count": 2702,
+        "min": 2.7193,
+        "mean": 9.999990932642488,
+        "p50": 10.0065,
+        "p95": 10.3424,
+        "p99": 10.5071,
+        "p999": 19.485,
+        "max": 20.6032,
+        "over15ms": 16
+      },
+      "steady_send_begin_interval_ms": {
+        "count": 2702,
+        "min": 2.7019,
+        "mean": 10.00000973353072,
+        "p50": 10.0005,
+        "p95": 10.3776,
+        "p99": 10.6015,
+        "p999": 19.5323,
+        "max": 20.5429,
+        "over15ms": 16
+      },
+      "steady_completion_interval_ms": {
+        "count": 2702,
+        "min": 2.69,
+        "mean": 10.000015507031828,
+        "p50": 10.0017,
+        "p95": 10.4217,
+        "p99": 10.6654,
+        "p999": 19.5923,
+        "max": 20.5979,
+        "over15ms": 16
+      },
+      "steady_arrival_to_write_begin_ms": {
+        "count": 2703,
+        "min": 0.226,
+        "mean": 0.3263480577136515,
+        "p50": 0.2982,
+        "p95": 0.4227,
+        "p99": 0.5252,
+        "p999": 0.6939,
+        "max": 0.7477,
+        "over15ms": 0
+      },
+      "steady_usb_write_ms": {
+        "count": 2703,
+        "min": 0.6696,
+        "mean": 0.8724278949315575,
+        "p50": 0.8733,
+        "p95": 0.9477,
+        "p99": 1.0017,
+        "p999": 1.0923,
+        "max": 1.2183,
+        "over15ms": 0
+      },
+      "retained_au_count": 0,
+      "retained_bytes": 0,
+      "retention_overflow": 0,
+      "role": "rejected_blocking_fresh",
+      "reason": "Positive DXGI timeouts retained long arrival/completion intervals; pre-mux delay was observed despite stable source deadlines.",
+      "raw_report_sha256": "9e9c5f25c616cf55fb6fc14207388295b4da370cb9c72498150ae3c463950325",
+      "raw_host_report_sha256": "b561ccb412730c38ee63f4a4017827f63965d5d80cbc8549cb1fec74d139bbb6",
+      "paired_host_report_verified": true,
+      "source_guard_us": 3000,
+      "fresh_wait_us": 2000,
+      "delivery_delay_us": 8000,
+      "pattern_identity": null,
+      "host_summary": {
+        "duration_requested_seconds": 30.0,
+        "warmup_seconds": 3,
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": [],
+        "completed_video_count": 3004,
+        "failed_write_count": 0,
+        "steady_video_count": 2703,
+        "steady_intervals_outside_10ms_plus_minus_1pct": 1871,
+        "records_dropped": 0,
+        "events_dropped": 0
+      },
+      "native_mux_probe": {
+        "available": true,
+        "instrumentation": "Research-only fixed RAM, INFO every 500 packets; removed from clean release",
+        "window_note": "Complete reported 500-packet windows after first 500; differs from the 3-second USB warmup interval",
+        "reported_packets": 2500,
+        "late_histogram": [
+          2460,
+          1,
+          3,
+          3,
+          6,
+          4,
+          21,
+          2
+        ],
+        "late_histogram_upper_bounds_us": [
+          0,
+          100,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          "infinity"
+        ],
+        "late_max_us": 10677.1,
+        "wait_overshoot_max_us": 849.1,
+        "gaps_over15ms_source_sample_arrival_departure": [
+          0,
+          0,
+          17,
+          16
+        ],
+        "gap_max_us_source_sample_arrival_departure": [
+          10051.6,
+          10472.9,
+          22566.2,
+          20571.0
+        ],
+        "encoder_gaps_over15ms_pre_post": [
+          20,
+          17
+        ],
+        "encoder_gap_max_us_pre_post": [
+          18793,
+          22570
+        ],
+        "encoder_pre_to_post_max_us": 11454
+      },
+      "one_second_bin_summary": {
+        "frames": {
+          "count": 27,
+          "min": 100,
+          "mean": 100,
+          "p99": 100,
+          "max": 100
+        },
+        "wire_mbps": {
+          "count": 27,
+          "min": 20.119472,
+          "mean": 20.450927703703705,
+          "p99": 20.527448,
+          "max": 20.539752
+        },
+        "encoded_mbps_estimate": {
+          "count": 27,
+          "min": 19.220552,
+          "mean": 19.537527703703702,
+          "p99": 19.610528,
+          "max": 19.623192
+        }
+      }
+    },
+    "usb-probe-largepipe.json": {
+      "status": "matched",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "h264_profile": "high",
+        "usb_write_size": 16384
+      },
+      "ffmpeg_sha256": "7ae5b81c3a5e7a015050555d7692456f17c2af0d5ae0128fcbac91cb8c47bf0c",
+      "helper_sha256": "ce3abfe8430ec2809c4bd9fc1245167442296dc8421b1ff91e297515ec8e4b40",
+      "host_helper_sha256": "95791066062020f7f8d3e0888b92b58ca703a8b1d0fce1ee1d52d5567e4a08b8",
+      "host_status": {
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": []
+      },
+      "matching_policy": "Single parser, no restart/resync/oversize, exact sequential prefix lengths and causal timestamps; never search or force-match skipped frames",
+      "clock": "Python perf_counter_ns, Windows QPC-derived nanoseconds; same clock as transport writes",
+      "arrival_definition": "Timestamp immediately after AviPacketStream.feed returns complete AUs; includes native stdout/OS read/parser delay, not native encode completion",
+      "batch_note": "AUs returned by the same feed call share one arrival timestamp; preexisting reader batching is retained",
+      "gap_definition": "arrival_to_write_begin includes SDK queue/control-loop work and PC video packetization; it does not isolate these two components",
+      "parser_count": 1,
+      "arrival_count": 3003,
+      "write_count": 3003,
+      "unmatched_shutdown_tail_count": 0,
+      "arrival_overflow": 0,
+      "matched_count": 3003,
+      "steady_count": 2701,
+      "steady_arrival_interval_ms": {
+        "count": 2700,
+        "min": 2.7356,
+        "mean": 10.00014037037037,
+        "p50": 10.0028,
+        "p95": 10.3399,
+        "p99": 10.5038,
+        "p999": 18.7685,
+        "max": 20.5117,
+        "over15ms": 12
+      },
+      "steady_send_begin_interval_ms": {
+        "count": 2700,
+        "min": 2.636,
+        "mean": 10.000174037037038,
+        "p50": 10.0029,
+        "p95": 10.3752,
+        "p99": 10.5789,
+        "p999": 18.7548,
+        "max": 20.6748,
+        "over15ms": 12
+      },
+      "steady_completion_interval_ms": {
+        "count": 2700,
+        "min": 2.5985,
+        "mean": 10.000170296296297,
+        "p50": 10.0016,
+        "p95": 10.4163,
+        "p99": 10.6483,
+        "p999": 18.6795,
+        "max": 20.7821,
+        "over15ms": 12
+      },
+      "steady_arrival_to_write_begin_ms": {
+        "count": 2701,
+        "min": 0.224,
+        "mean": 0.3367360607182525,
+        "p50": 0.3102,
+        "p95": 0.4414,
+        "p99": 0.5524,
+        "p999": 0.6794,
+        "max": 0.7753,
+        "over15ms": 0
+      },
+      "steady_usb_write_ms": {
+        "count": 2701,
+        "min": 0.6671,
+        "mean": 0.8713771936319882,
+        "p50": 0.8735,
+        "p95": 0.9469,
+        "p99": 0.9879,
+        "p999": 1.0249,
+        "max": 1.1093,
+        "over15ms": 0
+      },
+      "retained_au_count": 0,
+      "retained_bytes": 0,
+      "retention_overflow": 0,
+      "role": "rejected_64KiB_stdout_pipe",
+      "reason": "Changing only stdout pipe capacity with blocking acquisition did not eliminate long intervals; existing pipe behavior retained.",
+      "raw_report_sha256": "12aa3661bf64a38fae4da4ad960e9ad0e42a42c787a2635a99062a10395871ff",
+      "raw_host_report_sha256": "62d4cc6b716eedba9283a177e4d4c1816948fec4d3b1005a602e311930e1a303",
+      "paired_host_report_verified": true,
+      "source_guard_us": 3000,
+      "fresh_wait_us": 2000,
+      "delivery_delay_us": 8000,
+      "pattern_identity": null,
+      "host_summary": {
+        "duration_requested_seconds": 30.0,
+        "warmup_seconds": 3,
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": [],
+        "completed_video_count": 3003,
+        "failed_write_count": 0,
+        "steady_video_count": 2701,
+        "steady_intervals_outside_10ms_plus_minus_1pct": 1913,
+        "records_dropped": 0,
+        "events_dropped": 0
+      },
+      "native_mux_probe": {
+        "available": true,
+        "instrumentation": "Research-only fixed RAM, INFO every 500 packets; removed from clean release",
+        "window_note": "Complete reported 500-packet windows after first 500; differs from the 3-second USB warmup interval",
+        "reported_packets": 2500,
+        "late_histogram": [
+          2488,
+          0,
+          0,
+          2,
+          4,
+          0,
+          6,
+          0
+        ],
+        "late_histogram_upper_bounds_us": [
+          0,
+          100,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          "infinity"
+        ],
+        "late_max_us": 9410.2,
+        "wait_overshoot_max_us": 1251.0,
+        "gaps_over15ms_source_sample_arrival_departure": [
+          0,
+          0,
+          5,
+          5
+        ],
+        "gap_max_us_source_sample_arrival_departure": [
+          10089.4,
+          10497.7,
+          21595.8,
+          19383.4
+        ],
+        "encoder_gaps_over15ms_pre_post": [
+          6,
+          5
+        ],
+        "encoder_gap_max_us_pre_post": [
+          19051,
+          21589
+        ],
+        "encoder_pre_to_post_max_us": 8843
+      },
+      "one_second_bin_summary": {
+        "frames": {
+          "count": 27,
+          "min": 100,
+          "mean": 100,
+          "p99": 100,
+          "max": 100
+        },
+        "wire_mbps": {
+          "count": 27,
+          "min": 20.126256,
+          "mean": 20.458514962962962,
+          "p99": 20.559064,
+          "max": 20.561992
+        },
+        "encoded_mbps_estimate": {
+          "count": 27,
+          "min": 19.225896,
+          "mean": 19.544488296296297,
+          "p99": 19.639624,
+          "max": 19.643272
+        }
+      }
+    },
+    "usb-probe-nonblocking-guard5-60.json": {
+      "status": "matched",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "h264_profile": "high",
+        "usb_write_size": 16384
+      },
+      "ffmpeg_sha256": "96e311e0c25e041cd42ce197429a86187e746febaac6da2c19bd7581ea3f31fb",
+      "helper_sha256": "ce3abfe8430ec2809c4bd9fc1245167442296dc8421b1ff91e297515ec8e4b40",
+      "host_helper_sha256": "95791066062020f7f8d3e0888b92b58ca703a8b1d0fce1ee1d52d5567e4a08b8",
+      "host_status": {
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": []
+      },
+      "matching_policy": "Single parser, no restart/resync/oversize, exact sequential prefix lengths and causal timestamps; never search or force-match skipped frames",
+      "clock": "Python perf_counter_ns, Windows QPC-derived nanoseconds; same clock as transport writes",
+      "arrival_definition": "Timestamp immediately after AviPacketStream.feed returns complete AUs; includes native stdout/OS read/parser delay, not native encode completion",
+      "batch_note": "AUs returned by the same feed call share one arrival timestamp; preexisting reader batching is retained",
+      "gap_definition": "arrival_to_write_begin includes SDK queue/control-loop work and PC video packetization; it does not isolate these two components",
+      "parser_count": 1,
+      "arrival_count": 6003,
+      "write_count": 6003,
+      "unmatched_shutdown_tail_count": 0,
+      "arrival_overflow": 0,
+      "matched_count": 6003,
+      "steady_count": 5701,
+      "steady_arrival_interval_ms": {
+        "count": 5700,
+        "min": 8.7769,
+        "mean": 10.000007877192983,
+        "p50": 10.0018,
+        "p95": 10.3376,
+        "p99": 10.433,
+        "p999": 10.6894,
+        "max": 11.3287,
+        "over15ms": 0
+      },
+      "steady_send_begin_interval_ms": {
+        "count": 5700,
+        "min": 7.0332,
+        "mean": 10.000004614035086,
+        "p50": 9.9988,
+        "p95": 10.3748,
+        "p99": 10.5105,
+        "p999": 10.8253,
+        "max": 13.1653,
+        "over15ms": 0
+      },
+      "steady_completion_interval_ms": {
+        "count": 5700,
+        "min": 2.7542,
+        "mean": 10.000002385964912,
+        "p50": 10.0019,
+        "p95": 10.4342,
+        "p99": 10.6045,
+        "p999": 10.9213,
+        "max": 21.8453,
+        "over15ms": 1
+      },
+      "steady_arrival_to_write_begin_ms": {
+        "count": 5701,
+        "min": 0.2156,
+        "mean": 0.33306593580073673,
+        "p50": 0.3114,
+        "p95": 0.4359,
+        "p99": 0.5211,
+        "p999": 0.6542,
+        "max": 3.6173,
+        "over15ms": 0
+      },
+      "steady_usb_write_ms": {
+        "count": 5701,
+        "min": 0.644,
+        "mean": 0.8857017189966673,
+        "p50": 0.8872,
+        "p95": 0.9767,
+        "p99": 1.0318,
+        "p999": 1.1293,
+        "max": 12.6441,
+        "over15ms": 0
+      },
+      "retained_au_count": 6003,
+      "retained_bytes": 145830343,
+      "retention_overflow": 0,
+      "role": "rejected_5ms_source_guard",
+      "reason": "Adds 2ms to source phase without better identity in this measured run. Source workload varied, so this is not an isolated proof that guard caused identity omissions.",
+      "raw_report_sha256": "d22bd92410f77771133bc31176f908b19a681ba6982df2cfb9af1a2b8bd9db55",
+      "raw_host_report_sha256": "714ea10f75a932fcf009d104a71a6d6eb266c6149dd4d107c2141e25c5536524",
+      "paired_host_report_verified": true,
+      "source_guard_us": 5000,
+      "fresh_wait_us": 2000,
+      "delivery_delay_us": 8000,
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 6003,
+        "measured_frames": 5700,
+        "unique_source_ids": 5401,
+        "repeated_source_ids": 299,
+        "skipped_source_ids": 219,
+        "measured_au_fps": 99.99910581603221,
+        "source_render_to_host_ms": {
+          "count": 5700,
+          "mean": 34.980793456140496,
+          "min": 23.7363,
+          "p01": 24.3842,
+          "p50": 34.6333,
+          "p95": 44.5371,
+          "p99": 44.9111,
+          "max": 54.8749
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 5401,
+          "mean": 34.67112703203125,
+          "min": 23.7363,
+          "p01": 24.3797,
+          "p50": 34.6238,
+          "p95": 44.3656,
+          "p99": 44.7993,
+          "max": 45.4086
+        },
+        "au_interval_ms": {
+          "count": 5699,
+          "mean": 10.000089419196357,
+          "min": 8.7769,
+          "p01": 9.568,
+          "p50": 10.0019,
+          "p95": 10.3376,
+          "p99": 10.433,
+          "max": 11.3287
+        },
+        "intervals_over15ms": 0,
+        "intervals_within_one_percent": 2114,
+        "min_marker_margin": 123.0
+      },
+      "host_summary": {
+        "duration_requested_seconds": 60.0,
+        "warmup_seconds": 3,
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": [],
+        "completed_video_count": 6003,
+        "failed_write_count": 0,
+        "steady_video_count": 5701,
+        "steady_intervals_outside_10ms_plus_minus_1pct": 3959,
+        "records_dropped": 0,
+        "events_dropped": 0
+      },
+      "native_mux_probe": {
+        "available": true,
+        "instrumentation": "Research-only fixed RAM, INFO every 500 packets; removed from clean release",
+        "window_note": "Complete reported 500-packet windows after first 500; differs from the 3-second USB warmup interval",
+        "reported_packets": 5500,
+        "late_histogram": [
+          5500,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "late_histogram_upper_bounds_us": [
+          0,
+          100,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          "infinity"
+        ],
+        "late_max_us": 0.0,
+        "wait_overshoot_max_us": 1002.9,
+        "gaps_over15ms_source_sample_arrival_departure": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "gap_max_us_source_sample_arrival_departure": [
+          10100.0,
+          10824.6,
+          13836.9,
+          10997.3
+        ],
+        "encoder_gaps_over15ms_pre_post": [
+          0,
+          0
+        ],
+        "encoder_gap_max_us_pre_post": [
+          12516,
+          13844
+        ],
+        "encoder_pre_to_post_max_us": 7036
+      },
+      "one_second_bin_summary": {
+        "frames": {
+          "count": 57,
+          "min": 99,
+          "mean": 99.98245614035088,
+          "p99": 100,
+          "max": 100
+        },
+        "wire_mbps": {
+          "count": 57,
+          "min": 19.864352,
+          "mean": 20.34250301754386,
+          "p99": 20.54688,
+          "max": 20.581256
+        },
+        "encoded_mbps_estimate": {
+          "count": 57,
+          "min": 18.974072,
+          "mean": 19.432877754385967,
+          "p99": 19.62888,
+          "max": 19.661816
+        }
+      }
+    }
+  },
+  "source_identity_correlation": {
+    "raw_report_sha256": "35eeeac3e7088d623bf60359738c931ad58b4476b236fea0a65606e3b9e68e8d",
+    "scope": "Offline exact generated marker and DXGI sampled presentation correlation; no GPU activity",
+    "caveats": [
+      "An unobserved Present ID is not proof it was never displayed: GetFrameStatistics is sampled.",
+      "Adjacent observed VBlanks whose Present IDs skip an intermediate ID establish that intermediate cannot occupy its own VBlank.",
+      "Explicitly presented but absent from encoded output proves a miss after source presentation somewhere before AU, not specifically a DDA timeout without native Acquire metadata."
+    ],
+    "runs": [
+      {
+        "host_report": "usb-probe-nonblocking-60.json",
+        "host_sha256": "b478023184d83011bc429ecf9be2edf53a25b621e4d484b2de20612cf5726b6b",
+        "renderer_report": "renderer-nonblocking-investigation.json",
+        "renderer_sha256": "b36d444c87cfc2be79eda1e5200f2921ac5f7718b2b4296cb39303ba78d7a371",
+        "identity_status": "completed",
+        "exact_matches": 6004,
+        "total_marker_rows": 6004,
+        "measured_frames": 5700,
+        "unique": 5589,
+        "repeated": 111,
+        "missing_ids": 62,
+        "missing_classification": {
+          "present_id_advances_faster_than_vblanks_in_bracket": 11,
+          "bracket_permits_unsampled_presentation": 35,
+          "skipped_between_adjacent_observed_vblanks": 16
+        },
+        "source_rendered_between_bounds": 5651,
+        "source_render_fps": 99.14025065768195,
+        "source_render_intervals": {
+          "count": 5650,
+          "min": 0.093,
+          "p01": 0.1515,
+          "p50": 10.0023,
+          "p99": 19.9451,
+          "max": 29.9748,
+          "mean": 10.086720513274336
+        },
+        "source_gaps_over15ms": 109,
+        "excess_nominal_slots": 111,
+        "source_bursts_under1ms": 62,
+        "repeats_with_skip_in_previous40ms": 25
+      },
+      {
+        "host_report": "usb-instrumented-release.json",
+        "host_sha256": "9a950103a5e86d708c56da51c5300d21b24ed4c9656a8c8bb9e75e6e66430a7f",
+        "renderer_report": "renderer-usb-investigation.json",
+        "renderer_sha256": "9f87c3f2b1e1a51b2b7678ea6ef07a5eafeca16d1c2ca17b078f1eb091aa5de3",
+        "identity_status": "completed",
+        "exact_matches": 3005,
+        "total_marker_rows": 3005,
+        "measured_frames": 2699,
+        "unique": 2661,
+        "repeated": 38,
+        "missing_ids": 0,
+        "missing_classification": {},
+        "source_rendered_between_bounds": 2661,
+        "source_render_fps": 98.55556226919009,
+        "source_render_intervals": {
+          "count": 2660,
+          "min": 9.090900000000001,
+          "p01": 9.4769,
+          "p50": 10.0073,
+          "p99": 19.9116,
+          "max": 30.3025,
+          "mean": 10.1465607518797
+        },
+        "source_gaps_over15ms": 37,
+        "excess_nominal_slots": 39,
+        "source_bursts_under1ms": 0,
+        "repeats_with_skip_in_previous40ms": 0
+      }
+    ],
+    "nonblocking_submission_ledger": {
+      "nominal_host_outputs": 5700,
+      "source_submissions_between_received_bounds": 5651,
+      "source_net_nominal_deficit": 49,
+      "source_excess_long_gap_slots": 111,
+      "source_submillisecond_bursts": 62,
+      "encoded_repeats": 111,
+      "encoded_missing_submitted_ids": 62,
+      "present_statistics_minimum_non_individual_vblank_submissions": 118,
+      "interpretation": "111 source long-gap excess slots and 62 catch-up bursts exactly match 111 output repeats and 62 omitted submitted IDs; consistent with preserving presentation cadence while excluding catch-up submissions, not proof every omission is compositor-caused. Zero omitted IDs were explicitly observed presented; sparse samples leave 35 IDs fully ambiguous."
+    }
+  },
+  "native_fresh_wait_regression": {
+    "status": "passed",
+    "passed": 16,
+    "function_sha256": "de923871f26665bc9de1394b437662ea77c580c6cd26f388d92adb3d7d805ee5",
+    "caller_block_sha256": "357119129176fb17918ef789652bf84a79f020fcefead6b0e6eab8e84806788a",
+    "tested_source_sha256": "6e78109bd7ea96e2e534c73e77ca410cc1824b61b1c5fc050dc9583f162b579d",
+    "raw_report_sha256": "3c0b6770ce5c682545e5ae7b53f22f992f0602291037f7615c1380a6c2431342",
+    "compiler_version": "16.2.0",
+    "scope": "Exact source-function CPU mocks, including nonblocking-only acquisition, pointer/lease cleanup, shared deadline, maximum budget and late timer wake. Not Windows timing guarantees."
+  },
+  "clean_release": {
+    "status": "measured_final_clean_binary",
+    "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+    "usb": {
+      "status": "matched",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "h264_profile": "high",
+        "usb_write_size": 16384
+      },
+      "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+      "helper_sha256": "3f403d5b4f9930a1df73ec25693399167b543e6f584a6957db886e72624f4b37",
+      "host_helper_sha256": "2ce4ed97c2c0b90fe08656aaf384b3345d4417f2b82055c0072e7c442b30a0d0",
+      "host_status": {
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": []
+      },
+      "matching_policy": "Single parser, no restart/resync/oversize, exact sequential prefix lengths and causal timestamps; never search or force-match skipped frames",
+      "clock": "Python perf_counter_ns, Windows QPC-derived nanoseconds; same clock as transport writes",
+      "arrival_definition": "Timestamp immediately after AviPacketStream.feed returns complete AUs; includes native stdout/OS read/parser delay, not native encode completion",
+      "batch_note": "AUs returned by the same feed call share one arrival timestamp; preexisting reader batching is retained",
+      "gap_definition": "arrival_to_write_begin includes SDK queue/control-loop work and PC video packetization; it does not isolate these two components",
+      "parser_count": 1,
+      "arrival_count": 6004,
+      "write_count": 6004,
+      "unmatched_shutdown_tail_count": 0,
+      "arrival_overflow": 0,
+      "matched_count": 6004,
+      "steady_count": 5703,
+      "steady_arrival_interval_ms": {
+        "count": 5702,
+        "min": 9.2207,
+        "mean": 10.000020238512803,
+        "p50": 10.0004,
+        "p95": 10.3226,
+        "p99": 10.4187,
+        "p999": 10.5865,
+        "max": 10.8164,
+        "over15ms": 0
+      },
+      "steady_send_begin_interval_ms": {
+        "count": 5702,
+        "min": 9.1431,
+        "mean": 10.00001066292529,
+        "p50": 10.0018,
+        "p95": 10.3826,
+        "p99": 10.5339,
+        "p999": 10.7732,
+        "max": 11.0221,
+        "over15ms": 0
+      },
+      "steady_completion_interval_ms": {
+        "count": 5702,
+        "min": 9.0228,
+        "mean": 10.000005980357768,
+        "p50": 9.9998,
+        "p95": 10.4229,
+        "p99": 10.5925,
+        "p999": 10.8461,
+        "max": 11.2006,
+        "over15ms": 0
+      },
+      "steady_arrival_to_write_begin_ms": {
+        "count": 5703,
+        "min": 0.197,
+        "mean": 0.3319538313168508,
+        "p50": 0.3323,
+        "p95": 0.4887,
+        "p99": 0.5327,
+        "p999": 0.6753,
+        "max": 0.7911,
+        "over15ms": 0
+      },
+      "steady_usb_write_ms": {
+        "count": 5703,
+        "min": 0.6895,
+        "mean": 0.8570476941960372,
+        "p50": 0.8576,
+        "p95": 0.9345,
+        "p99": 0.9712,
+        "p999": 1.0099,
+        "max": 1.0652,
+        "over15ms": 0
+      },
+      "retained_au_count": 6004,
+      "retained_bytes": 146869759,
+      "retention_overflow": 0,
+      "role": "final_clean_release_recheck",
+      "reason": "Clean release measurement; compare the actual executable hash with release manifest.",
+      "raw_report_sha256": "84d6ace8b10f87ef4213f82317e7587893ca941735a8d5bc9eded4563460f78a",
+      "raw_host_report_sha256": "109028706648579fdc410742d425c23950a6cc077b93b4990f7a1b6407b978bf",
+      "paired_host_report_verified": true,
+      "source_guard_us": 3000,
+      "fresh_wait_us": 2000,
+      "delivery_delay_us": 8000,
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 6004,
+        "measured_frames": 5700,
+        "unique_source_ids": 5700,
+        "repeated_source_ids": 0,
+        "skipped_source_ids": 0,
+        "measured_au_fps": 99.99993998950785,
+        "source_render_to_host_ms": {
+          "count": 5700,
+          "mean": 32.48948600000015,
+          "min": 31.3477,
+          "p01": 31.9569,
+          "p50": 32.4926,
+          "p95": 32.9021,
+          "p99": 33.0637,
+          "max": 33.4119
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 5700,
+          "mean": 32.48948600000015,
+          "min": 31.3477,
+          "p01": 31.9569,
+          "p50": 32.4926,
+          "p95": 32.9021,
+          "p99": 33.0637,
+          "max": 33.4119
+        },
+        "au_interval_ms": {
+          "count": 5699,
+          "mean": 10.000006001052801,
+          "min": 9.2207,
+          "p01": 9.5798,
+          "p50": 10.0004,
+          "p95": 10.323,
+          "p99": 10.4221,
+          "max": 10.8164
+        },
+        "intervals_over15ms": 0,
+        "intervals_within_one_percent": 2370,
+        "min_marker_margin": 119.0
+      },
+      "host_summary": {
+        "duration_requested_seconds": 60.0,
+        "warmup_seconds": 3,
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": [],
+        "completed_video_count": 6004,
+        "failed_write_count": 0,
+        "steady_video_count": 5703,
+        "steady_intervals_outside_10ms_plus_minus_1pct": 3970,
+        "records_dropped": 0,
+        "events_dropped": 0
+      },
+      "native_mux_probe": {
+        "available": false
+      },
+      "one_second_bin_summary": {
+        "frames": {
+          "count": 57,
+          "min": 100,
+          "mean": 100,
+          "p99": 100,
+          "max": 100
+        },
+        "wire_mbps": {
+          "count": 57,
+          "min": 20.315672,
+          "mean": 20.489514245614036,
+          "p99": 20.581512,
+          "max": 20.592024
+        },
+        "encoded_mbps_estimate": {
+          "count": 57,
+          "min": 19.407392,
+          "mean": 19.57431845614035,
+          "p99": 19.662072,
+          "max": 19.670424
+        }
+      }
+    }
+  },
+  "limits": [
+    "100 fps encoded average does not prove 100 unique source pictures.",
+    "Selected research run still contains 111 repeated IDs and 62 omitted submitted IDs; sparse DXGI presentation samples leave 35 omitted IDs fully ambiguous.",
+    "The submission ledger is consistent with source long gaps and catch-up bursts, but does not prove every omission is compositor-caused.",
+    "USB completion is host driver completion, not goggles decode or photons-on-lens latency.",
+    "Source render-start age includes the generated fixture presentation queue; it is not capture latency alone.",
+    "Neither every interval within +/-1% nor optical latency within +/-1% has been established.",
+    "USB bulk transfers and Windows timers are not hard real time; late frames remain possible.",
+    "Recovered protocol exposes no closed-loop goggles presentation timestamps.",
+    "The valid final primary host-only 20-second run retains two repeated IDs and two omitted source IDs that were explicitly observed presented. This residual pipeline sampling issue is unresolved; the successful extended-display USB run does not establish zero omissions for both sources."
+  ],
+  "excluded_final_runs": {
+    "usb-final-production-decoder-timeout-host.json": {
+      "status": "excluded_from_dynamic_acceptance",
+      "reason": "USB run reached its duration and cleaned up, but an 85-second outer wrapper ended during offline decoding. No completed source-identity report; excluded from dynamic acceptance.",
+      "raw_host_report_sha256": "e805e049ef48bfb69ebd9d1a1e797faeefd45e595735d9b49c80613b442c86f6",
+      "host": {
+        "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": [],
+        "completed_video_count": 6002,
+        "failed_write_count": 0,
+        "steady_video_count": 5701,
+        "steady_completion_interval_ms": {
+          "count": 5701,
+          "min": 7.9037,
+          "mean": 9.999652604806174,
+          "p50": 9.9972,
+          "p95": 10.4647,
+          "p99": 10.6957,
+          "p999": 11.1306,
+          "max": 11.915
+        },
+        "steady_usb_write_ms": {
+          "count": 5701,
+          "min": 0.1808,
+          "mean": 0.8537851955797229,
+          "p50": 0.8705,
+          "p95": 1.016,
+          "p99": 1.1297,
+          "p999": 1.4563,
+          "max": 2.1807
+        }
+      }
+    },
+    "usb-final-production-invalid-source-host.json": {
+      "status": "excluded_from_dynamic_acceptance",
+      "reason": "USB writes completed, but the generated marker was invalid throughout the decoded run, consistent with source occlusion/invisibility. All inferred identity and source-age metrics are invalid; excluded from dynamic acceptance.",
+      "raw_host_report_sha256": "db63e608b101b4a7e7e1a5d153d7ca4ac9056378ccec75a9ca6a7ba9e9282057",
+      "host": {
+        "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+        "stop_reason": "duration_reached",
+        "failure": null,
+        "cleanup_errors": [],
+        "completed_video_count": 6004,
+        "failed_write_count": 0,
+        "steady_video_count": 5702,
+        "steady_completion_interval_ms": {
+          "count": 5702,
+          "min": 9.2544,
+          "mean": 10.000007435987373,
+          "p50": 10.0013,
+          "p95": 10.3915,
+          "p99": 10.5131,
+          "p999": 10.7012,
+          "max": 10.8784
+        },
+        "steady_usb_write_ms": {
+          "count": 5702,
+          "min": 0.4075,
+          "mean": 0.49820892669238864,
+          "p50": 0.4941,
+          "p95": 0.5524,
+          "p99": 0.5783,
+          "p999": 0.6524,
+          "max": 0.7608
+        }
+      },
+      "raw_identity_report_sha256": "9e2e6bfd73d71bd8f0c7b0f20102cc92c142a5c2f9708d6a5012b250ff026c3c",
+      "invalid_marker_status": {
+        "status": "failed",
+        "error_count": 12008,
+        "decoder_returncode": 0,
+        "decoded_frames": 6004,
+        "min_marker_margin": 3.828125
+      }
+    }
+  },
+  "final_source_preflight": {
+    "role": "Short visibility/marker check before final USB test, not a replacement for the full-run marker validation",
+    "raw_report_sha256": "eafca2cc71265792dc1cce23235d04c96e0df80734f50b3253293d3c8609e6ba",
+    "controller": "Existing extended renderer window selected by owning PID and class, then temporarily set HWND_TOPMOST with SWP_NOACTIVATE. Original renderer binary was not rebuilt for this measurement.",
+    "status": "completed",
+    "errors": [],
+    "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+    "helper_sha256": "784b74a0709e2f5af53f2823290f79bf5fbf74b91b7f9867f2f28487954ba433",
+    "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+    "seconds": 5.0,
+    "warmup_seconds": 1.0,
+    "total_frames": 505,
+    "pattern_identity": {
+      "status": "completed",
+      "errors": [],
+      "error_count": 0,
+      "decoder_returncode": 0,
+      "decoder_errors": "",
+      "decoded_frames": 505,
+      "measured_frames": 400,
+      "unique_source_ids": 400,
+      "repeated_source_ids": 0,
+      "skipped_source_ids": 0,
+      "measured_au_fps": 99.9819581428915,
+      "source_render_to_host_ms": {
+        "count": 400,
+        "mean": 32.61108324999998,
+        "min": 31.4888,
+        "p01": 32.0776,
+        "p50": 32.6239,
+        "p95": 33.0062,
+        "p99": 33.1974,
+        "max": 33.4065
+      },
+      "unique_source_render_to_host_ms": {
+        "count": 400,
+        "mean": 32.61108324999998,
+        "min": 31.4888,
+        "p01": 32.0776,
+        "p50": 32.6239,
+        "p95": 33.0062,
+        "p99": 33.1974,
+        "max": 33.4065
+      },
+      "au_interval_ms": {
+        "count": 399,
+        "mean": 10.001804511278186,
+        "min": 9.5071,
+        "p01": 9.5671,
+        "p50": 10.0213,
+        "p95": 10.359,
+        "p99": 10.4303,
+        "max": 10.5571
+      },
+      "intervals_over15ms": 0,
+      "intervals_within_one_percent": 140,
+      "min_marker_margin": 123.0
+    }
+  },
+  "excluded_primary_runs": {
+    "reason": "Source window partly obscured by another application; marker image confirmed overlap. Not cadence acceptance data.",
+    "files": [
+      "release-primary-20.json",
+      "old-primary-20.json",
+      "primary-normal-20.json",
+      "release-primary-topmost-20.json"
+    ],
+    "control_fix": "Hidden-console launch and bounded topmost renderer; verify visibility and marker identities."
+  },
+  "excluded_final_primary_hidden_startup": {
+    "role": "excluded_from_dynamic_acceptance",
+    "raw_report_sha256": "bfefa4c8c750db16737de506c34caddc471be3cdb142e91d86c1e983b9f989f3",
+    "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+    "reason": "Inherited hidden startup state prevented a valid visible synthetic source. Marker validation failed; all inferred identity and source-age metrics are invalid and are omitted.",
+    "invalid_marker_status": {
+      "status": "failed",
+      "error_count": 2843,
+      "decoder_returncode": 0,
+      "decoded_frames": 1984,
+      "min_marker_margin": 59.828125
+    }
+  },
+  "final_primary_host_only": {
+    "status": "completed",
+    "errors": [],
+    "settings": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 100,
+      "bitrate_mbps": 20,
+      "preset": "p4",
+      "fresh_wait_us": 2000,
+      "delivery_delay_us": 8000
+    },
+    "primary": true,
+    "nominal_source_refresh_hz": 100,
+    "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+    "production_adapter_sha256": "753e1bc94f402be41422c55b9028536530509d8901c0eb475e3ebf1eebdf7280",
+    "helper_sha256": "784b74a0709e2f5af53f2823290f79bf5fbf74b91b7f9867f2f28487954ba433",
+    "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+    "command_sha256": "a99240178f08f30181810b66a711c25edffa87cb4a12b844e5c3f94ddedae22d",
+    "seconds": 20.0,
+    "warmup_seconds": 3.0,
+    "total_frames": 1986,
+    "max_frame_bytes": 31059,
+    "oversize_frames": 0,
+    "raw_report_sha256": "247a3c1b916c03556eeadc36eed44ab984f66100b3b953f7a1240092abf1c3f3",
+    "pattern_identity": {
+      "status": "completed",
+      "errors": [],
+      "error_count": 0,
+      "decoder_returncode": 0,
+      "decoder_errors": "",
+      "decoded_frames": 1986,
+      "measured_frames": 1700,
+      "unique_source_ids": 1698,
+      "repeated_source_ids": 2,
+      "skipped_source_ids": 2,
+      "measured_au_fps": 99.99836082734018,
+      "source_render_to_host_ms": {
+        "count": 1700,
+        "mean": 32.36000682352937,
+        "min": 26.9728,
+        "p01": 30.3568,
+        "p50": 32.2389,
+        "p95": 32.9593,
+        "p99": 37.3194,
+        "max": 42.3058
+      },
+      "unique_source_render_to_host_ms": {
+        "count": 1698,
+        "mean": 32.351363604240234,
+        "min": 26.9728,
+        "p01": 30.3568,
+        "p50": 32.2388,
+        "p95": 32.9413,
+        "p99": 37.2604,
+        "max": 38.8291
+      },
+      "au_interval_ms": {
+        "count": 1699,
+        "mean": 10.000163919952907,
+        "min": 9.3558,
+        "p01": 9.5547,
+        "p50": 10.0044,
+        "p95": 10.331,
+        "p99": 10.4253,
+        "max": 10.8601
+      },
+      "intervals_over15ms": 0,
+      "intervals_within_one_percent": 619,
+      "min_marker_margin": 119.125
+    },
+    "native_summary_lines": [
+      "[Parsed_ddagrab_0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1893 repeats=3 rejects=16 total_slew_us=-410 guard_us=3000",
+      "[vost#0:0/h264_nvenc] [SchEnc] Latest-frame mailbox replaced 0 unencoded video frames",
+      "[out#0/avi] G2_DELIVERY_SUMMARY eligible=1986 waited=1980 arrival_late=6 arrival_late_100us=3 max_arrival_late_us=33564.900 max_wait_overshoot_us=899.600 total_actual_wait_us=5871964.100"
+    ],
+    "role": "final_primary_host_only_capture_encode",
+    "usb_access": false,
+    "window_preflight": {
+      "raw_report_sha256": "fbebd004a07a968c55fa0c308ec5d70f4e9af7a68a4fcf3ec7c7baf262279983",
+      "startup_show_window": 1,
+      "set_window_pos_success": true,
+      "fixture_focus_requested": false,
+      "fixture_is_foreground": false,
+      "fixture_style": "0x8000088",
+      "fixture_visible": true,
+      "probe_returncode": 0,
+      "fixture_returncode": 0,
+      "marker_points_checked": 9,
+      "all_marker_points_owned_by_fixture": true,
+      "note": "Explicit SW_SHOWNORMAL corrected hidden-startup state; topmost placement used SWP_NOACTIVATE. No HWND, PID or raw point records published."
+    },
+    "source_correlation": {
+      "status": "exact_source_marker_match",
+      "raw_capture_report_sha256": "247a3c1b916c03556eeadc36eed44ab984f66100b3b953f7a1240092abf1c3f3",
+      "raw_renderer_report_sha256": "7646e293f2d0afc81c74c963b9e260e42e9eada2e48084bd13dfc26f9a6e601b",
+      "total_decoded_markers": 1986,
+      "exact_id_and_render_qpc_matches": 1986,
+      "mismatches": 0,
+      "steady_decoded_frames": 1700,
+      "steady_unique_source_ids": 1698,
+      "steady_source_submissions_between_received_bounds": 1700,
+      "steady_repeated_ids": 2,
+      "steady_source_submissions_absent_from_encoded": 2,
+      "missing_submission_classification": {
+        "explicitly_observed_presented_but_absent_from_encoded": 2
+      },
+      "repeat_following_source_render_gap_ms": {
+        "count": 2,
+        "min": 9.9574,
+        "mean": 10.1793,
+        "p99": 9.9574,
+        "max": 10.4012
+      },
+      "repeat_to_nearest_skip_output_frame_offsets": [
+        1,
+        29
+      ],
+      "source_render_interval_ms": {
+        "count": 1699,
+        "min": 4.6189,
+        "mean": 10.00015138316657,
+        "p99": 10.5186,
+        "max": 15.5268
+      },
+      "source_present_start_interval_ms": {
+        "count": 1699,
+        "min": 4.6204,
+        "mean": 10.000148616833432,
+        "p99": 10.522,
+        "max": 15.5327
+      },
+      "source_present_return_interval_ms": {
+        "count": 1699,
+        "min": 4.5531,
+        "mean": 10.000095821071218,
+        "p99": 10.5326,
+        "max": 15.5792
+      },
+      "source_render_intervals_over15ms": 1,
+      "source_render_intervals_under1ms": 0,
+      "source_render_fps": 99.99848619125083,
+      "source_visibility": "Primary fixture explicitly shown with SW_SHOWNORMAL and nonactivating HWND_TOPMOST; verified visible and marker points owned by fixture.",
+      "scope": "Primary host-only capture/encode, no USB check. Exact generated-source submissions versus decoded AU markers. Present return and successful USB writes do not establish goggles refresh timing or optical latency.",
+      "attribution_limit": "A source ID explicitly observed presented but absent from encoded output establishes a residual miss between source presentation and AU. Without native per-Acquire identity metadata it cannot isolate DDA acquisition, filtering or encoder behavior. Sparse presentation statistics cannot otherwise prove every omitted submission was displayed."
+    },
+    "residual_observation": "Two repeated output IDs and two omitted source submissions remain in this measured primary host-only run. Both omitted IDs were explicitly observed presented in valid DXGI statistics, so they cannot be explained away as submissions never displayed. The source had one >15ms render gap and no sub-millisecond catch-up burst; intervals following the two repeated IDs were around 10ms. Exact pipeline cause remains unresolved."
+  },
+  "rejected_primary_host_only_cases": {
+    "release-primary-fresh4-valid-20.json": {
+      "status": "completed",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "fresh_wait_us": 4000,
+        "delivery_delay_us": 8000
+      },
+      "primary": true,
+      "nominal_source_refresh_hz": 100,
+      "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+      "production_adapter_sha256": "753e1bc94f402be41422c55b9028536530509d8901c0eb475e3ebf1eebdf7280",
+      "helper_sha256": "f278bbad645181dd690d000787eb9905bcaf8c8f1a14b09f5768f81a139973c1",
+      "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "command_sha256": "1c0a721163c701c75dc1a84483c5b57f5ab713a83357fb18fcbb03053ed325e3",
+      "seconds": 20.0,
+      "warmup_seconds": 3.0,
+      "total_frames": 1989,
+      "max_frame_bytes": 30728,
+      "oversize_frames": 0,
+      "raw_report_sha256": "2f8233a0b1b9b8155923052e8dc08846f6a46319aba9e56671cea7f421ad59d3",
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 1989,
+        "measured_frames": 1700,
+        "unique_source_ids": 1699,
+        "repeated_source_ids": 1,
+        "skipped_source_ids": 1,
+        "measured_au_fps": 99.99723550903364,
+        "source_render_to_host_ms": {
+          "count": 1700,
+          "mean": 32.071519647058786,
+          "min": 21.694,
+          "p01": 31.6409,
+          "p50": 32.0274,
+          "p95": 32.3674,
+          "p99": 32.4561,
+          "max": 44.5796
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 1699,
+          "mean": 32.06415762213063,
+          "min": 21.694,
+          "p01": 31.6409,
+          "p50": 32.0274,
+          "p95": 32.367,
+          "p99": 32.4559,
+          "max": 42.0824
+        },
+        "au_interval_ms": {
+          "count": 1699,
+          "mean": 10.000276456739256,
+          "min": 7.3507,
+          "p01": 9.5785,
+          "p50": 10.0007,
+          "p95": 10.3551,
+          "p99": 10.4322,
+          "max": 12.3115
+        },
+        "intervals_over15ms": 0,
+        "intervals_within_one_percent": 677,
+        "min_marker_margin": 119.0
+      },
+      "native_summary_lines": [
+        "[Parsed_ddagrab_0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1884 repeats=2 rejects=0 total_slew_us=3621 guard_us=3000",
+        "[vost#0:0/h264_nvenc] [SchEnc] Latest-frame mailbox replaced 0 unencoded video frames",
+        "[out#0/avi] G2_DELIVERY_SUMMARY eligible=1989 waited=1982 arrival_late=7 arrival_late_100us=7 max_arrival_late_us=39080.800 max_wait_overshoot_us=807.600 total_actual_wait_us=5065304.600"
+      ],
+      "role": "rejected_primary_host_only_policy_experiment",
+      "usb_access": false,
+      "fresh_wait_us": 4000,
+      "source_guard_us": 3000,
+      "delivery_delay_us": 8000,
+      "reason": "A larger nonblocking freshness budget still omitted one explicitly presented source ID. One short run does not prove the count reduction is a reliable improvement; keep the validated 2ms production policy.",
+      "comparison_limit": "One 20-second run per policy is insufficient to establish statistical improvement. Neither alternative eliminated the observed presented-source omission. No production parameters changed.",
+      "source_correlation": {
+        "status": "exact_source_marker_match",
+        "raw_capture_report_sha256": "2f8233a0b1b9b8155923052e8dc08846f6a46319aba9e56671cea7f421ad59d3",
+        "raw_renderer_report_sha256": "5c0fa31223e4e0ab296f5503a120245bbc2fee7b98ff4f7f5b84af3908ee55e7",
+        "total_decoded_markers": 1989,
+        "exact_id_and_render_qpc_matches": 1989,
+        "mismatches": 0,
+        "steady_decoded_frames": 1700,
+        "steady_unique_source_ids": 1699,
+        "steady_source_submissions_between_received_bounds": 1700,
+        "steady_repeated_ids": 1,
+        "steady_source_submissions_absent_from_encoded": 1,
+        "missing_submission_classification": {
+          "explicitly_observed_presented_but_absent_from_encoded": 1
+        },
+        "repeat_following_source_render_gap_ms": {
+          "count": 1,
+          "min": 10.0257,
+          "mean": 10.0257,
+          "p99": 10.0257,
+          "max": 10.0257
+        },
+        "repeat_to_nearest_skip_output_frame_offsets": [
+          -1310
+        ],
+        "source_render_interval_ms": {
+          "count": 1699,
+          "min": 0.2141,
+          "mean": 10.00021806945262,
+          "p99": 10.1162,
+          "max": 20.1065
+        },
+        "source_present_start_interval_ms": {
+          "count": 1699,
+          "min": 0.2064,
+          "mean": 10.000216421424367,
+          "p99": 10.1148,
+          "max": 20.1084
+        },
+        "source_present_return_interval_ms": {
+          "count": 1699,
+          "min": 0.4008,
+          "mean": 10.000213596233078,
+          "p99": 10.1751,
+          "max": 20.1675
+        },
+        "source_render_intervals_over15ms": 1,
+        "source_render_intervals_under1ms": 1,
+        "source_render_fps": 99.99781935302705,
+        "source_visibility": "Primary fixture explicitly shown with SW_SHOWNORMAL and nonactivating HWND_TOPMOST; verified visible and marker points owned by fixture.",
+        "scope": "Primary host-only capture/encode, no USB check. Exact generated-source submissions versus decoded AU markers. Present return and successful USB writes do not establish goggles refresh timing or optical latency.",
+        "attribution_limit": "A source ID explicitly observed presented but absent from encoded output establishes a residual miss between source presentation and AU. Without native per-Acquire identity metadata it cannot isolate DDA acquisition, filtering or encoder behavior. Sparse presentation statistics cannot otherwise prove every omitted submission was displayed."
+      }
+    },
+    "release-primary-guard5-20.json": {
+      "status": "completed",
+      "errors": [],
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "fresh_wait_us": 2000,
+        "delivery_delay_us": 8000
+      },
+      "primary": true,
+      "nominal_source_refresh_hz": 100,
+      "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+      "production_adapter_sha256": "753e1bc94f402be41422c55b9028536530509d8901c0eb475e3ebf1eebdf7280",
+      "helper_sha256": "f278bbad645181dd690d000787eb9905bcaf8c8f1a14b09f5768f81a139973c1",
+      "marker_helper_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "command_sha256": "f0f05d742dc0d468bd18c0be4509c0fb4fc3d0ebd4c8551dadb526ffb1ceab58",
+      "seconds": 20.0,
+      "warmup_seconds": 3.0,
+      "total_frames": 1986,
+      "max_frame_bytes": 30615,
+      "oversize_frames": 0,
+      "raw_report_sha256": "2115cbe5542c71c41e989fc72f6b9c47acb6f1436c1391d94d4b78f9b4074f94",
+      "pattern_identity": {
+        "status": "completed",
+        "errors": [],
+        "error_count": 0,
+        "decoder_returncode": 0,
+        "decoder_errors": "",
+        "decoded_frames": 1986,
+        "measured_frames": 1700,
+        "unique_source_ids": 1699,
+        "repeated_source_ids": 1,
+        "skipped_source_ids": 1,
+        "measured_au_fps": 99.99895233587311,
+        "source_render_to_host_ms": {
+          "count": 1700,
+          "mean": 34.04827264705875,
+          "min": 23.6154,
+          "p01": 33.6332,
+          "p50": 34.011,
+          "p95": 34.3528,
+          "p99": 34.4367,
+          "max": 44.1164
+        },
+        "unique_source_render_to_host_ms": {
+          "count": 1699,
+          "mean": 34.042474396703874,
+          "min": 23.6154,
+          "p01": 33.6332,
+          "p50": 34.011,
+          "p95": 34.3524,
+          "p99": 34.4347,
+          "max": 44.1164
+        },
+        "au_interval_ms": {
+          "count": 1699,
+          "mean": 10.000104767510283,
+          "min": 9.111,
+          "p01": 9.5682,
+          "p50": 9.999,
+          "p95": 10.3438,
+          "p99": 10.4287,
+          "max": 10.5848
+        },
+        "intervals_over15ms": 0,
+        "intervals_within_one_percent": 728,
+        "min_marker_margin": 119.0
+      },
+      "native_summary_lines": [
+        "[Parsed_ddagrab_0] DDA_SOURCE_CLOCK locked=1 window=16 corrections=1883 repeats=3 rejects=0 total_slew_us=-3034 guard_us=5000",
+        "[vost#0:0/h264_nvenc] [SchEnc] Latest-frame mailbox replaced 0 unencoded video frames",
+        "[out#0/avi] G2_DELIVERY_SUMMARY eligible=1986 waited=1983 arrival_late=3 arrival_late_100us=3 max_arrival_late_us=39105.700 max_wait_overshoot_us=942.200 total_actual_wait_us=5106290.300"
+      ],
+      "role": "rejected_primary_host_only_policy_experiment",
+      "usb_access": false,
+      "fresh_wait_us": 2000,
+      "source_guard_us": 5000,
+      "delivery_delay_us": 8000,
+      "reason": "A 5ms source phase adds about 2ms fixed source age and still omitted one explicitly presented source ID. The cost is established, but reliable identity improvement is not; keep the 3ms production phase.",
+      "comparison_limit": "One 20-second run per policy is insufficient to establish statistical improvement. Neither alternative eliminated the observed presented-source omission. No production parameters changed.",
+      "source_correlation": {
+        "status": "exact_source_marker_match",
+        "raw_capture_report_sha256": "2115cbe5542c71c41e989fc72f6b9c47acb6f1436c1391d94d4b78f9b4074f94",
+        "raw_renderer_report_sha256": "f66609933a4a76a87e648cba0c507b0b4cf99f48aad7127cf79fad786290f04d",
+        "total_decoded_markers": 1986,
+        "exact_id_and_render_qpc_matches": 1986,
+        "mismatches": 0,
+        "steady_decoded_frames": 1700,
+        "steady_unique_source_ids": 1699,
+        "steady_source_submissions_between_received_bounds": 1700,
+        "steady_repeated_ids": 1,
+        "steady_source_submissions_absent_from_encoded": 1,
+        "missing_submission_classification": {
+          "explicitly_observed_presented_but_absent_from_encoded": 1
+        },
+        "repeat_following_source_render_gap_ms": {
+          "count": 1,
+          "min": 9.9683,
+          "mean": 9.9683,
+          "p99": 9.9683,
+          "max": 9.9683
+        },
+        "repeat_to_nearest_skip_output_frame_offsets": [
+          -1310
+        ],
+        "source_render_interval_ms": {
+          "count": 1699,
+          "min": 0.1595,
+          "mean": 10.000227427898764,
+          "p99": 10.1167,
+          "max": 20.0563
+        },
+        "source_present_start_interval_ms": {
+          "count": 1699,
+          "min": 0.1506,
+          "mean": 10.000228016480282,
+          "p99": 10.1167,
+          "max": 20.06
+        },
+        "source_present_return_interval_ms": {
+          "count": 1699,
+          "min": 0.2458,
+          "mean": 10.000228487345497,
+          "p99": 10.1705,
+          "max": 20.0662
+        },
+        "source_render_intervals_over15ms": 1,
+        "source_render_intervals_under1ms": 1,
+        "source_render_fps": 99.99772577273464,
+        "source_visibility": "Primary fixture explicitly shown with SW_SHOWNORMAL and nonactivating HWND_TOPMOST; verified visible and marker points owned by fixture.",
+        "scope": "Primary host-only capture/encode, no USB check. Exact generated-source submissions versus decoded AU markers. Present return and successful USB writes do not establish goggles refresh timing or optical latency.",
+        "attribution_limit": "A source ID explicitly observed presented but absent from encoded output establishes a residual miss between source presentation and AU. Without native per-Acquire identity metadata it cannot isolate DDA acquisition, filtering or encoder behavior. Sparse presentation statistics cannot otherwise prove every omitted submission was displayed."
+      }
+    }
+  },
+  "final_source_correlation": {
+    "status": "exact_source_marker_match",
+    "raw_capture_report_sha256": "84d6ace8b10f87ef4213f82317e7587893ca941735a8d5bc9eded4563460f78a",
+    "raw_renderer_report_sha256": "ce288fa031a61f2ec9b860d9ddeac9d20c548cbf35d528e87e2d20a9531a2360",
+    "total_decoded_markers": 6004,
+    "exact_id_and_render_qpc_matches": 6004,
+    "mismatches": 0,
+    "steady_decoded_frames": 5700,
+    "steady_unique_source_ids": 5700,
+    "steady_source_submissions_between_received_bounds": 5700,
+    "steady_repeated_ids": 0,
+    "steady_source_submissions_absent_from_encoded": 0,
+    "missing_submission_classification": {},
+    "repeat_following_source_render_gap_ms": {
+      "count": 0
+    },
+    "repeat_to_nearest_skip_output_frame_offsets": [],
+    "source_render_interval_ms": {
+      "count": 5699,
+      "min": 8.9083,
+      "mean": 10.000062625021934,
+      "p99": 10.534,
+      "max": 10.9713
+    },
+    "source_present_start_interval_ms": {
+      "count": 5699,
+      "min": 8.9102,
+      "mean": 10.00006346727496,
+      "p99": 10.5353,
+      "max": 10.9821
+    },
+    "source_present_return_interval_ms": {
+      "count": 5699,
+      "min": 8.8916,
+      "mean": 10.000063221617827,
+      "p99": 10.5445,
+      "max": 11.0213
+    },
+    "source_render_intervals_over15ms": 0,
+    "source_render_intervals_under1ms": 0,
+    "source_render_fps": 99.99937375370253,
+    "source_visibility": "Original extended fixture binary; controller temporarily applied HWND_TOPMOST with SWP_NOACTIVATE; not rebuilt for this run.",
+    "scope": "Extended source and actual USB-run AU markers. Exact generated-source submissions versus decoded AU markers. Present return and successful USB writes do not establish goggles refresh timing or optical latency.",
+    "attribution_limit": "A source ID explicitly observed presented but absent from encoded output establishes a residual miss between source presentation and AU. Without native per-Acquire identity metadata it cannot isolate DDA acquisition, filtering or encoder behavior. Sparse presentation statistics cannot otherwise prove every omitted submission was displayed."
+  }
+}

@@ -12,6 +12,10 @@ from .scheduling import configure_encoder_process
 from .encoding import H264_PROFILE, H264_ENTROPY_CODER, H264_CHROMA_QP_OFFSET
 
 ENCODER_PRIORITY = getattr(subprocess, 'ABOVE_NORMAL_PRIORITY_CLASS', 0)
+# One capture clock also supplies the native muxer's absolute release deadline.
+# The offset includes capture/encode work; only its remaining budget is waited.
+FRESH_WAIT_US = 2000
+DELIVERY_DELAY_US = 8000
 
 
 def frame_selection(fps):
@@ -50,7 +54,9 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
         source_index = result.index('-i')+1
         result[source_index] += (':output_fmt=bgra:dup_frames=1:precise_clock=1:'
                                  'acquire_timeout=0:clock_spin_us=500:'
-                                 'source_clock=1:source_guard_us=3000')
+                                 'source_clock=1:source_guard_us=3000:'
+                                 f'fresh_wait_us={FRESH_WAIT_US}:'
+                                 f'delivery_delay_us={DELIVERY_DELAY_US}')
         filter_index = result.index('-vf')+1
         # The pinned FFmpeg patch fixes D3D11 texture views and explicitly
         # converts full-range SDR RGB to limited BT.709, with aspect-fit padding.
@@ -86,18 +92,19 @@ def compatible_command(command, *, hmonitor=None, output=None, dimensions=(1920,
         # The SDK's GOP is fps * keyframe_seconds; source carries the actual rate.
         fps = re.search(r'framerate=(\d+)', source).group(1)
         # DDA owns the only cadence clock and gently aligns it to genuine source
-        # updates when their measured rate matches. A 3 ms source guard avoids
-        # sampling around the compositor's update boundary; it does not buffer
-        # encoded frames or wait after NVENC. Re-sampling a 240 Hz polling source
-        # created 8.33/12.5 ms intervals at 100 fps. Compact PTS still prevent CFR
-        # from replaying past pictures after a missed deadline.
+        # updates when their measured rate matches. The 3 ms source guard and
+        # bounded fresh-image retry avoid copying a near-ready previous image.
+        # The native muxer uses this same capture deadline plus the delivery
+        # offset, waits only the remainder, and sends late packets immediately.
+        # Compact PTS prevent CFR from replaying missed capture slots.
         result[filter_index] = f'setpts=N/({fps}*TB):strip_fps=1,' + result[filter_index]
         live = '-frames:v' not in result
         result[-3:-3] = ['-r', fps, '-fps_mode', 'passthrough' if live else 'cfr']
         if live:
             # A single raw-frame mailbox replaces stale unencoded pictures.
             # The encoder compacts admitted PTS; encoded reference frames are
-            # never discarded and no pacer is inserted after compression.
+            # never discarded. Native delivery uses the existing single-packet
+            # output queue; the SDK sends each released frame immediately.
             result[-3:-3] = ['-latest_frame', '1']
     # Keep the SDK's NVIDIA encoder, P1/P4 preset, ULL tuning and CBR/VBV budget.
     # Quarter-resolution multipass is needed for the SDK's tight frame budget.

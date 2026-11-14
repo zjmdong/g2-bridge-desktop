@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "scope": "Source migration provenance only. Historical measurement hashes identify original research sources, not executions of these published copies.",
+  "measured_research_directory": "work/cadence-v026 (ignored local research artifacts)",
+  "published_directory": "packaging/windows/frame_cadence",
+  "encoding": "UTF-8 LF",
+  "files": {
+    "production_identity.py": {
+      "measured_research_source_sha256": "7e2db21faf855a5779440b7b85551d359608055702986ffb9743909e72b9118f",
+      "published_source_sha256": "784b74a0709e2f5af53f2823290f79bf5fbf74b91b7f9867f2f28487954ba433",
+      "changes": [
+        "Repository root lookup changes from HERE.parents[1] under work to HERE.parents[2] under packaging/windows. Runtime command construction and measurements are otherwise unchanged."
+      ]
+    },
+    "pattern_identity.py": {
+      "measured_research_source_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "published_source_sha256": "414e9ae5111dbc120c6e0c801c510033432a3d4b2692689d600ca7bbcda1bdc8",
+      "changes": [
+        "Byte-identical copy of the measured research source; no semantic changes."
+      ]
+    },
+    "summarize_identity.py": {
+      "measured_research_source_sha256": "e85f5ffa5480ad590f7679413aba271d8219a47bc79c1da0b11bc140508cdccd",
+      "published_source_sha256": "e85f5ffa5480ad590f7679413aba271d8219a47bc79c1da0b11bc140508cdccd",
+      "changes": [
+        "Byte-identical copy of the measured research source; no semantic changes."
+      ]
+    },
+    "renderer-extended-latency2.cpp": {
+      "measured_research_source_sha256": "53117b1b29ff680584abd0365fbbf6dff7d5f4f34b47c908fd67c0c8b4e8cc37",
+      "published_source_sha256": "b8a97b21b6827b8dfc3052669e804a5ab08e64721a34c871be2144a57371ac80",
+      "changes": [
+        "After initial byte-identical publication, change only window ordering from HWND_TOP to HWND_TOPMOST to prevent ordinary application occlusion. SWP_NOACTIVATE, Escape/close and the 5..600 second duration bound remain; DestroyWindow removes topmost state on exit.",
+        "This source was not rebuilt for the final clean-release USB measurement. That run used the original renderer binary, with a controller selecting its existing window by PID/class and applying equivalent temporary HWND_TOPMOST with SWP_NOACTIVATE, followed by a marker-validated preflight.",
+        "Historical measurement hashes remain original. Runs interrupted during offline decoding or with invalid source markers are excluded from dynamic acceptance even if USB transport completed."
+      ],
+      "published_initial_copy_sha256": "53117b1b29ff680584abd0365fbbf6dff7d5f4f34b47c908fd67c0c8b4e8cc37"
+    },
+    "renderer-primary-latency2.cpp": {
+      "measured_research_source_sha256": "ab37ca3349eca14f3e13fdd1e3a598b81834f1d42ced65e15a3beceaee3dcc65",
+      "published_source_sha256": "8b761e8c3ae3cdaaa7863ec650086c05270a7896fed5fd1b2fb5d003a90f6cbc",
+      "changes": [
+        "After the initial byte-identical publication, change only the primary fixture window ordering from HWND_TOP to HWND_TOPMOST to prevent ordinary application occlusion. SWP_NOACTIVATE, Escape/close and the 5..30 second duration bounds remain; DestroyWindow removes the topmost window on exit.",
+        "The new source hash applies only to subsequent builds and measurements. Historical non-topmost primary captures are not acceptance evidence when source occlusion cannot be excluded; marker-invalid runs remain failed. No historical binary or run is relabeled."
+      ],
+      "published_initial_copy_sha256": "ab37ca3349eca14f3e13fdd1e3a598b81834f1d42ced65e15a3beceaee3dcc65"
+    },
+    "measure_usb_host.py": {
+      "measured_research_source_sha256": "95791066062020f7f8d3e0888b92b58ca703a8b1d0fce1ee1d52d5567e4a08b8",
+      "published_source_sha256": "2ce4ed97c2c0b90fe08656aaf384b3345d4417f2b82055c0072e7c442b30a0d0",
+      "changes": [
+        "Repository root lookup changes from file.parents[2] under work to file.parents[3] under packaging/windows. Runtime production USB path and measurements are otherwise unchanged. Historical run_usb.py experiment wrappers are deliberately not published."
+      ]
+    },
+    "instrument_usb.py": {
+      "measured_research_source_sha256": "ce3abfe8430ec2809c4bd9fc1245167442296dc8421b1ff91e297515ec8e4b40",
+      "published_source_sha256": "3f403d5b4f9930a1df73ec25693399167b543e6f584a6957db886e72624f4b37",
+      "changes": [
+        "Repository root lookup changes from HERE.parents[1] under work to HERE.parents[2] under packaging/windows.",
+        "Remove ignored-only wording. Sampling, alignment checks, explicit --run behavior and bounded optional retention are unchanged. No changes to measure_usb_host.py.",
+        "Before offline decoding, additionally require bench.run result zero, duration_reached stop reason, no reported failure and no cleanup errors. Otherwise identity is not_decoded and exit status remains nonzero; CPU tests cover all four failure conditions. This guard was not present in the historical research helper."
+      ]
+    }
+  },
+  "published_validation": "CPU-only checks; no GPU capture or renderer compiled/launched during publication."
+}

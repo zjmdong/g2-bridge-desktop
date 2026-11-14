@@ -1,4 +1,4 @@
-# Third-party components — 0.2.5
+# Third-party components — 0.2.6
 
 DJI Goggles Streamer and G2 Bridge, including its audited local SDK patches, are GPL-3.0-only. The
 application installer includes LICENSE and this notice. A source archive is
@@ -20,14 +20,19 @@ redistributed in the installer or project source.
 | Virtual Display Driver | 25.7.23 package, driver 11.30.4.434 | MIT, https://github.com/VirtualDrivers/Virtual-Display-Driver/tree/25.7.23 ; bundled VDD-LICENSE.txt |
 
 FFmpeg is a modified standalone executable, invoked as a separate process; its
-libraries are not linked into the desktop application. This release retains
-the same native binaries and source patch as 0.2.4, based on the minimal LGPL
-build introduced in 0.2.3. Version 0.2.5 changes the desktop H.264 policy to
-High/CABAC with symmetric chroma QP offsets of -4, without modifying FFmpeg,
-RGB conversion or adding a runtime dependency. Native changes
-cover the QPC DDA clock with opt-in source-phase alignment, D3D11 SDR
-conversion/letterboxing, opt-in NVENC completion events, and the single-slot
-raw-frame mailbox. Of the 70 recorded G2 Bridge SDK files, 68 match their
+libraries are not linked into the desktop application. Version 0.2.6 rebuilds
+the minimal LGPL native binary and patch with opt-in bounded fresh-image
+acquisition and source-clock delivery deadlines. The live fresh-image path uses
+zero-timeout DXGI acquisition, with at most 250 microsecond timer intervals
+inside one shared 2 ms budget; it does not bundle a new runtime library.
+Both options default to zero
+in FFmpeg; the desktop explicitly selects `fresh_wait_us=2000` and
+`delivery_delay_us=8000`. The 8 ms deadline is relative to the capture slot,
+not an extra 8 ms after encoding. The 0.2.5 High/CABAC policy and symmetric
+chroma QP offsets of -4 are retained without adding a runtime dependency.
+The remaining native changes cover the QPC DDA clock with opt-in source-phase
+alignment, D3D11 SDR conversion/letterboxing, opt-in NVENC completion events,
+and the single-slot raw-frame mailbox. Of the 70 recorded G2 Bridge SDK files, 68 match their
 original hashes. Two exact audited patches recorded in `sdk-patches.json` cover
 the engine's optional GPU scheduling policy and correction of an invalid D3D
 context assumption in an existing test. The engine is the only modified SDK
@@ -56,7 +61,7 @@ build. Native FFmpeg source, patch, dependency and executable identities are
 recorded separately in `packaging/windows/ffmpeg/manifest.json`.
 
 See the [current implementation notes](IMPLEMENTATION.md),
-[0.2.5 validation record](VALIDATION-0.2.5.md) and
+[0.2.6 validation record](VALIDATION-0.2.6.md) and
 [protocol/performance limits](PROTOCOL_LIMITS.md) for the scope of the changes
 and evidence. The modified build does not establish a new optical latency or
 USB hardware capability merely by retaining these provenance records.

@@ -13,7 +13,7 @@ from .device import probe, VerifiedTransport, CompatibilityError
 from .paths import data_dir
 from .settings import Settings
 from .system import Cancelled, driver_status, environment, run_cancellable
-from .video import start_encoder, check_capture
+from .video import start_encoder, check_capture, FRESH_WAIT_US, DELIVERY_DELAY_US
 from .stream_engine import DesktopBridgeEngine
 from .encoding import H264_ENTROPY_CODER, H264_CHROMA_QP_OFFSET
 
@@ -42,7 +42,10 @@ def stream(settings, stop, emit):
              capture_clock='QPC / high-resolution timer', clock_spin_us=500,
              raw_frame_policy='latest waiting frame', nvenc_completion='Windows async event',
              color_pipeline='D3D11 GPU' if output['vendor_id'] == 0x10de else 'CPU transfer to NVIDIA',
-             sender_pacing=False, capture_gpu=output.get('gpu_name'),
+             capture_fresh_wait_us=FRESH_WAIT_US,
+             native_delivery_pacing='capture_deadline', delivery_delay_us=DELIVERY_DELAY_US,
+             delivery_wait_policy='remaining only; late frames immediate',
+             sender_pacing=False, sdk_sender_mode='immediate', capture_gpu=output.get('gpu_name'),
              capture_adapter_luid=output.get('adapter_luid'))
         emit('checking_capture')
         problem = check_encoder(bridge, run=partial(check_capture, stop=stop, **options))
@@ -60,10 +63,13 @@ def stream(settings, stop, emit):
                     # DesktopBridgeEngine journals this same row after callback.
                     # Persist the adapter policy, not the SDK's unchanged defaults.
                     row.update(intra_refresh=False, multipass='qres', encoder='h264_nvenc',
-                               adapter='desktop-native-latest-v5',
+                               adapter='desktop-native-latest-v6',
                                entropy_coder=H264_ENTROPY_CODER, chroma_qp_offset=H264_CHROMA_QP_OFFSET,
                                nvenc_async=True, raw_frame_queue='latest single slot',
-                               sender_pacing=False, input_graph='direct',
+                               capture_fresh_wait_us=FRESH_WAIT_US,
+                               native_delivery_pacing='capture_deadline', delivery_delay_us=DELIVERY_DELAY_US,
+                               delivery_wait_policy='remaining only; late frames immediate',
+                               sender_pacing=False, sdk_sender_mode='immediate', input_graph='direct',
                                resolution=f'{settings.dimensions[0]}x{settings.dimensions[1]}')
                 emit(**row)
 

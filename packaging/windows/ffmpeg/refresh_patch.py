@@ -13,7 +13,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 COMMIT = '946fcce07b6dcd0331c8cc609192aeff5e1924f8'
-SOURCE_DIRS = ('libavfilter', 'libavcodec', 'fftools')
+SOURCE_DIRS = ('libavfilter', 'libavcodec', 'libavutil', 'fftools')
 
 
 def git(source, *args):
@@ -52,7 +52,7 @@ def main():
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     old_patch_hash = manifest['patch']['sha256']
     old_recipe_hashes = {name: manifest['recipe'].get(name + '_sha256')
-                         for name in ('build_script', 'clock_test')}
+                         for name in ('build_script', 'clock_test', 'fresh_wait_test', 'fresh_wait_runner')}
     for name in old_recipe_hashes:
         manifest['recipe'][name + '_sha256'] = hashlib.sha256(
             (ROOT / manifest['recipe'][name]).read_bytes()).hexdigest()

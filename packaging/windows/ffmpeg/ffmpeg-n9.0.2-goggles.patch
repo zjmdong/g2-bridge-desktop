@@ -1,8 +1,16 @@
 diff --git a/fftools/ffmpeg.h b/fftools/ffmpeg.h
-index c44aaf6032f91aa3365199d187d695371e33af58..a7833109340167cde2a06c95cf374d19a3cf4934 100644
+index c44aaf6032f91aa3365199d187d695371e33af58..8e104ec9d6bab5662fbbcd19b142c0e21152314c 100644
 --- a/fftools/ffmpeg.h
 +++ b/fftools/ffmpeg.h
-@@ -182,6 +182,7 @@ typedef struct OptionsContext {
+@@ -43,6 +43,7 @@
+ #include "libavutil/dict.h"
+ #include "libavutil/eval.h"
+ #include "libavutil/fifo.h"
++#include "libavutil/g2_delivery.h"
+ #include "libavutil/hwcontext.h"
+ #include "libavutil/pixfmt.h"
+ #include "libavutil/rational.h"
+@@ -182,6 +183,7 @@ typedef struct OptionsContext {
      float mux_max_delay;
      float shortest_buf_duration;
      int shortest;
@@ -10,7 +18,7 @@ index c44aaf6032f91aa3365199d187d695371e33af58..a7833109340167cde2a06c95cf374d19
      int bitexact;
  
      int video_disable;
-@@ -637,6 +638,10 @@ typedef struct OutputStream {
+@@ -637,6 +639,10 @@ typedef struct OutputStream {
  
      Encoder *enc;
  
@@ -20,6 +28,14 @@ index c44aaf6032f91aa3365199d187d695371e33af58..a7833109340167cde2a06c95cf374d19
 +
      int bitexact;
      int bits_per_raw_sample;
+ 
+@@ -705,6 +711,7 @@ typedef struct FrameData {
+     int        bits_per_raw_sample;
+ 
+     int64_t wallclock[LATENCY_PROBE_NB];
++    G2DeliveryDeadline delivery;
+ 
+     AVCodecParameters *par_enc;
  
 diff --git a/fftools/ffmpeg_enc.c b/fftools/ffmpeg_enc.c
 index 770533035db2c32233c75008f493052778db22a2..c2e04c1588095322cfb7e95b1bc17e4cf4987a7d 100644
@@ -57,6 +73,209 @@ index 770533035db2c32233c75008f493052778db22a2..c2e04c1588095322cfb7e95b1bc17e4c
          ret = frame_encode(ost, et.frame, et.pkt);
  
          av_packet_unref(et.pkt);
+diff --git a/fftools/ffmpeg_filter.c b/fftools/ffmpeg_filter.c
+index 5b68d831d8cc8615e82f5fcb118b637e97016e7f..9dc76b1814d9c010d98ef30b2acd782d07cd8241 100644
+--- a/fftools/ffmpeg_filter.c
++++ b/fftools/ffmpeg_filter.c
+@@ -2830,6 +2830,16 @@ static int fg_output_step(OutputFilterPriv *ofp, FilterGraphThread *fgt,
+     }
+ 
+     fd->wallclock[LATENCY_PROBE_FILTER_POST] = av_gettime_relative();
++    {
++        const AVDictionaryEntry *entry = av_dict_get(frame->metadata,
++                                                    G2_DELIVERY_METADATA, NULL, 0);
++        fd->delivery = (G2DeliveryDeadline){ 0 };
++        if (entry && !g2_delivery_parse(&fd->delivery, entry->value)) {
++            av_log(ofp, AV_LOG_ERROR, "Invalid source-clock delivery metadata\n");
++            av_frame_unref(frame);
++            return AVERROR(EINVAL);
++        }
++    }
+ 
+     // only use bits_per_raw_sample passed through from the decoder
+     // if the filtergraph did not touch the frame data
+diff --git a/fftools/ffmpeg_mux.c b/fftools/ffmpeg_mux.c
+index b408b02f2a434e70f629f770544fc47be6b34a69..7d6062d77361f19e75be12e15cac5f4f50460293 100644
+--- a/fftools/ffmpeg_mux.c
++++ b/fftools/ffmpeg_mux.c
+@@ -20,6 +20,13 @@
+ #include <stdio.h>
+ #include <string.h>
+ 
++#ifdef _WIN32
++#include <windows.h>
++#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
++#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
++#endif
++#endif
++
+ #include "ffmpeg.h"
+ #include "ffmpeg_mux.h"
+ #include "ffmpeg_utils.h"
+@@ -201,6 +208,119 @@ static int mux_fixup_ts(Muxer *mux, MuxStream *ms, AVPacket *pkt)
+     return 0;
+ }
+ 
++static void mux_delivery_uninit(Muxer *mux)
++{
++    if (mux->delivery_eligible && mux->delivery_frequency > 0) {
++        const double tick_us = 1000000.0 / mux->delivery_frequency;
++        av_log(mux, AV_LOG_INFO,
++               "G2_DELIVERY_SUMMARY eligible=%"PRIu64" waited=%"PRIu64
++               " arrival_late=%"PRIu64" arrival_late_100us=%"PRIu64
++               " max_arrival_late_us=%.3f max_wait_overshoot_us=%.3f"
++               " total_actual_wait_us=%.3f\n",
++               mux->delivery_eligible, mux->delivery_waited,
++               mux->delivery_arrival_late, mux->delivery_arrival_late_100us,
++               mux->delivery_max_arrival_late * tick_us,
++               mux->delivery_max_wait_overshoot * tick_us,
++               mux->delivery_total_wait * tick_us);
++    }
++#ifdef _WIN32
++    if (mux->delivery_timer)
++        CloseHandle((HANDLE)mux->delivery_timer);
++#endif
++    mux->delivery_timer = NULL;
++    mux->delivery_frequency = 0;
++}
++
++/* Opt-in DDA frames carry an absolute deadline through COPY_OPAQUE. Waiting in
++ * this thread leaves capture/encode independent and keeps the existing bounded
++ * packet queue. This holds the current packet, never drops/reorders a reference
++ * picture, and never shifts future deadlines to compensate for a late packet. */
++static int mux_delivery_wait(Muxer *mux, const AVPacket *pkt)
++{
++    const FrameData *fd = pkt->opaque_ref ? (const FrameData *)pkt->opaque_ref->data : NULL;
++    if (!fd || !fd->delivery.frequency)
++        return 0;
++#ifdef _WIN32
++    {
++        LARGE_INTEGER value;
++        int64_t remaining, spin, arrival, deadline;
++        int did_wait;
++        if (!mux->delivery_timer) {
++            if (!QueryPerformanceFrequency(&value) || value.QuadPart <= 0)
++                return AVERROR_EXTERNAL;
++            mux->delivery_frequency = value.QuadPart;
++            mux->delivery_timer = CreateWaitableTimerExW(NULL, NULL,
++                    CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_MODIFY_STATE | SYNCHRONIZE);
++            if (!mux->delivery_timer) {
++                av_log(mux, AV_LOG_ERROR, "Could not create source delivery deadline timer\n");
++                return AVERROR_EXTERNAL;
++            }
++        }
++        if (!QueryPerformanceCounter(&value))
++            return AVERROR_EXTERNAL;
++        remaining = g2_delivery_remaining(&fd->delivery, mux->delivery_frequency,
++                                           value.QuadPart);
++        if (remaining < 0) {
++            av_log(mux, AV_LOG_ERROR, "Invalid source delivery deadline or QPC clock\n");
++            return AVERROR(EINVAL);
++        }
++        arrival = value.QuadPart;
++        deadline = fd->delivery.source_deadline + fd->delivery.delay;
++        did_wait = remaining > 0;
++        mux->delivery_eligible++;
++        if (arrival > deadline) {
++            const int64_t late = arrival - deadline;
++            mux->delivery_arrival_late++;
++            mux->delivery_arrival_late_100us += late > mux->delivery_frequency / 10000;
++            mux->delivery_max_arrival_late = FFMAX(mux->delivery_max_arrival_late, late);
++        }
++        spin = mux->delivery_frequency / 10000; /* At most a 100 us spin tail. */
++        while (remaining > 0) {
++            if (int_cb.callback && int_cb.callback(int_cb.opaque))
++                return AVERROR_EXIT;
++            if (remaining > spin) {
++                LARGE_INTEGER due;
++                DWORD result;
++                /* Validation bounds remaining to <=20 ms and one source frame.
++                 * Relative timers use 100 ns units; QPC is the only clock used
++                 * for deciding whether the absolute delivery deadline passed. */
++                due.QuadPart = -(remaining - spin) * INT64_C(10000000) /
++                              mux->delivery_frequency;
++                if (!due.QuadPart)
++                    due.QuadPart = -1;
++                if (!SetWaitableTimer((HANDLE)mux->delivery_timer, &due, 0, NULL, NULL, FALSE))
++                    return AVERROR_EXTERNAL;
++                result = WaitForSingleObject((HANDLE)mux->delivery_timer,
++                    (DWORD)((remaining * 1000 + mux->delivery_frequency - 1) /
++                            mux->delivery_frequency + 1));
++                if (result != WAIT_OBJECT_0 && result != WAIT_TIMEOUT)
++                    return AVERROR_EXTERNAL;
++            } else {
++                YieldProcessor();
++            }
++            if (!QueryPerformanceCounter(&value))
++                return AVERROR_EXTERNAL;
++            remaining = g2_delivery_remaining(&fd->delivery, mux->delivery_frequency,
++                                               value.QuadPart);
++            if (remaining < 0)
++                return AVERROR(EINVAL);
++        }
++        if (did_wait) {
++            /* Reuse the final loop QPC: no additional clock query or per-frame
++             * output. Only completed waits contribute to these wait metrics;
++             * a wait aborted by shutdown/error remains eligible but not waited. */
++            mux->delivery_waited++;
++            mux->delivery_total_wait += value.QuadPart - arrival;
++            mux->delivery_max_wait_overshoot = FFMAX(mux->delivery_max_wait_overshoot,
++                                                    value.QuadPart - deadline);
++        }
++        return 0;
++    }
++#else
++    return AVERROR(ENOSYS);
++#endif
++}
++
+ static int write_packet(Muxer *mux, OutputStream *ost, AVPacket *pkt)
+ {
+     MuxStream *ms = ms_from_ost(ost);
+@@ -228,6 +348,12 @@ static int write_packet(Muxer *mux, OutputStream *ost, AVPacket *pkt)
+     if (ms->stats.io)
+         enc_stats_write(ost, &ms->stats, NULL, pkt, frame_num);
+ 
++    /* Apply after bitstream filtering, before av_interleaved_write_frame takes
++     * ownership of pkt (including its source deadline opaque_ref). */
++    ret = mux_delivery_wait(mux, pkt);
++    if (ret < 0)
++        goto fail;
++
+     ret = av_interleaved_write_frame(s, pkt);
+     if (ret < 0) {
+         av_log(ost, AV_LOG_ERROR,
+@@ -448,6 +574,7 @@ int muxer_thread(void *arg)
+ 
+ finish:
+     mux_thread_uninit(&mt);
++    mux_delivery_uninit(mux);
+ 
+     return ret;
+ }
+diff --git a/fftools/ffmpeg_mux.h b/fftools/ffmpeg_mux.h
+index f458cc882c9e93a20664109423b44b60f31bfc97..f58b8e7c09bf4a59b218bb16cd0b389da8845cab 100644
+--- a/fftools/ffmpeg_mux.h
++++ b/fftools/ffmpeg_mux.h
+@@ -116,6 +116,18 @@ typedef struct Muxer {
+ 
+     SyncQueue              *sq_mux;
+     AVPacket               *sq_pkt;
++
++    /* Owned solely by the mux thread; lazily allocated for opted-in frames. */
++    void                   *delivery_timer;
++    int64_t                 delivery_frequency;
++    /* Constant-cost mux-thread counters; converted to microseconds at exit. */
++    uint64_t                delivery_eligible;
++    uint64_t                delivery_waited;
++    uint64_t                delivery_arrival_late;
++    uint64_t                delivery_arrival_late_100us;
++    int64_t                 delivery_max_arrival_late;
++    int64_t                 delivery_max_wait_overshoot;
++    uint64_t                delivery_total_wait;
+ } Muxer;
+ 
+ int mux_check_init(void *arg);
 diff --git a/fftools/ffmpeg_mux_init.c b/fftools/ffmpeg_mux_init.c
 index e4bbaa44be1b66f49c2ffdac29f5dabdf9a7f53a..3c8414bc275457ddd19d88f60e05de5e952eb53b 100644
 --- a/fftools/ffmpeg_mux_init.c
@@ -1009,7 +1228,7 @@ index 1203111c499fa09689c543cfa1ec15c9b53f7910..d49b1e6a0b22aa0300d65a6a72825441
  };
  
 diff --git a/libavfilter/vsrc_ddagrab.c b/libavfilter/vsrc_ddagrab.c
-index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e48ae725f 100644
+index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..4e28f3bd55ae0cdd375f432a880445d6e775842d 100644
 --- a/libavfilter/vsrc_ddagrab.c
 +++ b/libavfilter/vsrc_ddagrab.c
 @@ -17,6 +17,7 @@
@@ -1020,7 +1239,15 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
  
  #if !defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0A00
  #undef _WIN32_WINNT
-@@ -47,6 +48,7 @@
+@@ -39,6 +40,7 @@
+ #include "libavutil/time.h"
+ #include "libavutil/avstring.h"
+ #include "libavutil/avassert.h"
++#include "libavutil/g2_delivery.h"
+ #include "libavutil/hwcontext.h"
+ #include "libavutil/hwcontext_d3d11va.h"
+ #include "compat/w32dlfcn.h"
+@@ -47,6 +49,7 @@
  #include "video.h"
  
  #include "vsrc_ddagrab_shaders.h"
@@ -1028,7 +1255,7 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
  
  // avutil/time.h takes and returns time in microseconds
  #define TIMER_RES 1000000
-@@ -77,6 +79,9 @@ typedef struct DdagrabContext {
+@@ -77,6 +80,9 @@ typedef struct DdagrabContext {
      int64_t time_frame;
      int64_t time_timeout;
      int64_t first_pts;
@@ -1038,7 +1265,7 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
  
      DXGI_FORMAT raw_format;
      int raw_width;
-@@ -104,6 +109,11 @@ typedef struct DdagrabContext {
+@@ -104,6 +110,13 @@ typedef struct DdagrabContext {
      int        allow_fallback;
      int        force_fmt;
      int        dup_frames;
@@ -1047,10 +1274,12 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
 +    int        clock_spin_us;
 +    int        source_clock;
 +    int        source_guard_us;
++    int        fresh_wait_us;
++    int        delivery_delay_us;
  } DdagrabContext;
  
  #define OFFSET(x) offsetof(DdagrabContext, x)
-@@ -129,6 +139,16 @@ static const AVOption ddagrab_options[] = {
+@@ -129,6 +142,20 @@ static const AVOption ddagrab_options[] = {
                                                     OFFSET(force_fmt),  AV_OPT_TYPE_BOOL,       { .i64 = 0    },       0,       1, FLAGS },
      { "dup_frames", "duplicate frames to maintain framerate",
                                                     OFFSET(dup_frames), AV_OPT_TYPE_BOOL,       { .i64 = 1    },       0,       1, FLAGS },
@@ -1064,10 +1293,14 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
 +                                                   OFFSET(source_clock), AV_OPT_TYPE_BOOL,     { .i64 = 0    },       0,       1, FLAGS },
 +    { "source_guard_us", "target guard after robust desktop-present phase",
 +                                                   OFFSET(source_guard_us), AV_OPT_TYPE_INT,   { .i64 = 2000 },       0,    5000, FLAGS },
++    { "fresh_wait_us", "bounded wait for a near-ready real desktop image",
++                                                   OFFSET(fresh_wait_us), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 5000, FLAGS },
++    { "delivery_delay_us", "optional source-clock delivery deadline for the ffmpeg muxer",
++                                                   OFFSET(delivery_delay_us), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, G2_DELIVERY_MAX_US, FLAGS },
      { NULL }
  };
  
-@@ -147,6 +167,18 @@ static av_cold void ddagrab_uninit(AVFilterContext *avctx)
+@@ -147,6 +174,18 @@ static av_cold void ddagrab_uninit(AVFilterContext *avctx)
  {
      DdagrabContext *dda = avctx->priv;
  
@@ -1086,7 +1319,17 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
      release_resource(&dda->blend_state);
      release_resource(&dda->blend_state_xor);
      release_resource(&dda->sampler_state);
-@@ -692,9 +724,11 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
+@@ -684,7 +723,8 @@ static int update_mouse_pointer(AVFilterContext *avctx, DXGI_OUTDUPL_FRAME_INFO
+     return 0;
+ }
+ 
+-static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop_texture, int need_frame)
++static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop_texture,
++                               int need_frame, int timeout_override)
+ {
+     DXGI_OUTDUPL_FRAME_INFO frame_info;
+     DdagrabContext *dda = avctx->priv;
+@@ -692,9 +732,12 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
      HRESULT hr;
      int ret;
  
@@ -1095,11 +1338,12 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
      hr = IDXGIOutputDuplication_AcquireNextFrame(
          dda->dxgi_outdupl,
 -        dda->time_timeout,
-+        need_frame || !dda->dup_frames ? FFMAX(1, dda->time_timeout) : dda->time_timeout,
++        timeout_override >= 0 ? timeout_override :
++        (need_frame || !dda->dup_frames ? FFMAX(1, dda->time_timeout) : dda->time_timeout),
          &frame_info,
          &desktop_resource);
      if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
-@@ -735,6 +769,8 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
+@@ -735,6 +778,8 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
          return 0;
      }
  
@@ -1108,14 +1352,115 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
      hr = IDXGIResource_QueryInterface(desktop_resource, &IID_ID3D11Texture2D, (void**)desktop_texture);
      release_resource(&desktop_resource);
      if (FAILED(hr)) {
-@@ -907,6 +943,21 @@ static int ddagrab_config_props(AVFilterLink *outlink)
+@@ -776,6 +821,81 @@ error:
+     return ret;
+ }
+ 
++
++/* A successful pointer-only acquisition still owns a DXGI frame lease. Retry
++ * only after releasing both the returned cached texture reference and that
++ * lease. Pointer state remains in dda; a final cached fallback redraws it over
++ * the clean desktop buffer, never over last_frame's already-drawn old pointer.
++ * frame_owned distinguishes an actual acquired image from that fallback.
++ */
++static int next_frame_live(AVFilterContext *avctx, ID3D11Texture2D **desktop_texture,
++                           int64_t fresh_deadline, int *frame_owned)
++{
++    DdagrabContext *dda = avctx->priv;
++    int ret, pointer_update = 0;
++
++    *frame_owned = 0;
++    if (!dda->fresh_wait_us || !dda->dup_frames) {
++        ret = next_frame_internal(avctx, desktop_texture, 0, -1);
++        *frame_owned = ret >= 0;
++        return ret;
++    }
++
++    for (;;) {
++        int64_t now, remaining;
++        ret = next_frame_internal(avctx, desktop_texture, 0, 0);
++        if (ret >= 0) {
++            HRESULT hr;
++            if (dda->source_present && dda->source_accumulated) {
++                *frame_owned = 1;
++                return ret;
++            }
++            pointer_update = 1;
++            release_resource(desktop_texture);
++            hr = IDXGIOutputDuplication_ReleaseFrame(dda->dxgi_outdupl);
++            if (FAILED(hr)) {
++                av_log(avctx, AV_LOG_ERROR, "DDA retry ReleaseFrame failed!\n");
++                return AVERROR_EXTERNAL;
++            }
++        } else if (ret != AVERROR(EAGAIN)) {
++            /* next_frame_internal releases any lease on its error paths. */
++            return ret;
++        }
++
++        now = dda_clock_ticks();
++        remaining = fresh_deadline - now;
++        if (remaining <= 0)
++            break;
++        {
++            LARGE_INTEGER due;
++            /* A positive DXGI timeout can block beyond the requested budget.
++             * Keep every AcquireNextFrame nonblocking and wait on our existing
++             * high-resolution timer in <=250 us slices. The absolute deadline
++             * never restarts on a pointer-only event. One final Acquire(0) after
++             * the deadline may accept an already-ready image; otherwise stop.
++             * OS scheduling can still wake late, so this is not a hard realtime
++             * guarantee. No extra timer, unbounded busy loop or queued frame. */
++            int64_t slice = FFMIN(remaining, FFMAX(INT64_C(1),
++                                  dda->frame_clock.frequency / 4000));
++            due.QuadPart = -dda_clock_rescale(slice, 10000000,
++                                            dda->frame_clock.frequency);
++            if (due.QuadPart >= 0)
++                due.QuadPart = -1;
++            if (!SetWaitableTimer(dda->frame_clock.timer, &due, 0, NULL, NULL, FALSE) ||
++                WaitForSingleObject(dda->frame_clock.timer, INFINITE) != WAIT_OBJECT_0)
++                return AVERROR_EXTERNAL;
++        }
++    }
++
++    if (pointer_update && dda->buffer_texture) {
++        ID3D11Texture2D_AddRef(dda->buffer_texture);
++        *desktop_texture = dda->buffer_texture;
++        /* No lease is held. Caller copies clean pixels and draws latest mouse. */
++        return 0;
++    }
++    return AVERROR(EAGAIN);
++}
++
+ static int probe_output_format(AVFilterContext *avctx)
+ {
+     DdagrabContext *dda = avctx->priv;
+@@ -785,7 +905,7 @@ static int probe_output_format(AVFilterContext *avctx)
+     av_assert1(!dda->probed_texture);
+ 
+     do {
+-        ret = next_frame_internal(avctx, &dda->probed_texture, 1);
++        ret = next_frame_internal(avctx, &dda->probed_texture, 1, -1);
+     } while(ret == AVERROR(EAGAIN));
+     if (ret < 0)
+         return ret;
+@@ -907,6 +1027,31 @@ static int ddagrab_config_props(AVFilterLink *outlink)
      dda->time_base  = av_inv_q(dda->framerate);
      dda->time_frame = av_gettime_relative() / av_q2d(dda->time_base);
      dda->time_timeout = av_rescale_q(1, dda->time_base, (AVRational) { 1, 1000 }) / 2;
 +    if (dda->acquire_timeout >= 0)
 +        dda->time_timeout = dda->acquire_timeout;
++    if (dda->fresh_wait_us && !dda->precise_clock) {
++        av_log(avctx, AV_LOG_ERROR, "fresh_wait_us requires precise_clock\n");
++        return AVERROR(EINVAL);
++    }
 +    if (dda->source_clock && !dda->precise_clock) {
 +        av_log(avctx, AV_LOG_ERROR, "source_clock requires precise_clock\n");
++        return AVERROR(EINVAL);
++    }
++    if (dda->delivery_delay_us && (!dda->precise_clock ||
++        (int64_t)dda->delivery_delay_us * dda->framerate.num >
++        INT64_C(1000000) * dda->framerate.den)) {
++        av_log(avctx, AV_LOG_ERROR, "delivery_delay_us requires precise_clock and at most one frame period\n");
 +        return AVERROR(EINVAL);
 +    }
 +    if (dda->precise_clock && !dda_clock_init(&dda->frame_clock, dda->framerate.num, dda->framerate.den)) {
@@ -1130,7 +1475,18 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
  
      if (dda->draw_mouse) {
          ret = init_render_resources(avctx);
-@@ -1108,6 +1159,10 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+@@ -1097,7 +1242,9 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+     D3D11_BOX box = { 0 };
+ 
+     int64_t time_frame = dda->time_frame;
+-    int64_t now, delay;
++    int64_t now, delay, fresh_deadline = 0;
++    G2DeliveryDeadline delivery = { 0 };
++    int frame_owned = 1;
+     AVFrame *frame = NULL;
+     HRESULT hr;
+     int ret;
+@@ -1108,6 +1255,10 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
       * The only time rounding error occurs is when multiplying to calculate
       * the delay. So any rounding error there corrects itself over time.
       */
@@ -1141,15 +1497,35 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
      time_frame += TIMER_RES64;
      for (;;) {
          now = av_gettime_relative();
-@@ -1120,6 +1175,7 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+@@ -1120,21 +1271,50 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
          }
          av_usleep(delay);
      }
 +    }
  
++    /* Use this output's scheduled capture grid, not the old desktop present
++     * timestamp, compact encoder PTS, or a previously delivered packet. */
++    if (dda->delivery_delay_us && !g2_delivery_make(&delivery,
++            dda->frame_clock.frequency, dda->frame_clock.last_deadline,
++            dda_clock_ticks(), dda->frame_clock.source_phase.period,
++            dda->delivery_delay_us))
++        return AVERROR(EINVAL);
++    if (dda->fresh_wait_us) {
++        int64_t start = dda_clock_ticks();
++        int64_t budget = dda_clock_rescale(dda->frame_clock.frequency,
++                                           dda->fresh_wait_us, 1000000);
++        fresh_deadline = FFMIN(start + budget, dda->frame_clock.last_deadline +
++                               dda->frame_clock.source_phase.period);
++    }
      if (!dda->first_pts)
          dda->first_pts = now;
-@@ -1132,9 +1188,23 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+     now -= dda->first_pts;
+ 
+     if (!dda->probed_texture) {
+         do {
+-            ret = next_frame_internal(avctx, &cur_texture, 0);
++            ret = next_frame_live(avctx, &cur_texture, fresh_deadline, &frame_owned);
+         } while (ret == AVERROR(EAGAIN) && !dda->dup_frames);
      } else {
          cur_texture = dda->probed_texture;
          dda->probed_texture = NULL;
@@ -1173,7 +1549,7 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
      if (ret == AVERROR(EAGAIN) && dda->last_frame->buf[0]) {
          frame = av_frame_alloc();
          if (!frame)
-@@ -1158,7 +1228,7 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+@@ -1158,7 +1338,7 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
  
      // AcquireNextFrame sometimes has bursts of delay.
      // This increases accuracy of the timestamp, but might upset consumers due to more jittery framerate?
@@ -1182,6 +1558,55 @@ index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..082d688f4eaa5bf993230a144428ba8e
  
      ID3D11Texture2D_GetDesc(cur_texture, &desc);
      if (desc.Format != dda->raw_format ||
+@@ -1191,11 +1371,13 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+ 
+     release_resource(&cur_texture);
+ 
+-    hr = IDXGIOutputDuplication_ReleaseFrame(dda->dxgi_outdupl);
+-    if (FAILED(hr)) {
+-        av_log(avctx, AV_LOG_ERROR, "DDA ReleaseFrame failed!\n");
+-        ret = AVERROR_EXTERNAL;
+-        goto fail;
++    if (frame_owned) {
++        hr = IDXGIOutputDuplication_ReleaseFrame(dda->dxgi_outdupl);
++        if (FAILED(hr)) {
++            av_log(avctx, AV_LOG_ERROR, "DDA ReleaseFrame failed!\n");
++            ret = AVERROR_EXTERNAL;
++            goto fail;
++        }
+     }
+ 
+     if (dda->draw_mouse) {
+@@ -1229,6 +1411,20 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+         return ret;
+ 
+ frame_done:
++    /* Stamp every output, including repeated images. Cached last_frame has no
++     * deadline for this slot, and a repeated picture still needs fresh timing. */
++    if (dda->delivery_delay_us) {
++        char value[192];
++        snprintf(value, sizeof(value),
++                 "v1,%"PRId64",%"PRId64",%"PRId64",%"PRId64",%"PRId64,
++                 delivery.frequency, delivery.source_deadline, delivery.sample,
++                 delivery.period, delivery.delay);
++        ret = av_dict_set(&frame->metadata, G2_DELIVERY_METADATA, value, 0);
++        if (ret < 0) {
++            av_frame_free(&frame);
++            return ret;
++        }
++    }
+     frame->pts = now;
+     dda->time_frame = time_frame;
+ 
+@@ -1238,7 +1434,7 @@ fail:
+     if (frame)
+         av_frame_free(&frame);
+ 
+-    if (cur_texture)
++    if (cur_texture && frame_owned)
+         IDXGIOutputDuplication_ReleaseFrame(dda->dxgi_outdupl);
+ 
+     release_resource(&cur_texture);
 diff --git a/fftools/frame_pacing.h b/fftools/frame_pacing.h
 new file mode 100644
 --- /dev/null
@@ -2177,5 +2602,152 @@ new file mode 100644
 +    missing_updates_and_outlier();
 +    broad_vrr_and_isolated_jitter();
 +    deadline_recovery();
++    return 0;
++}
+diff --git a/libavutil/g2_delivery.h b/libavutil/g2_delivery.h
+new file mode 100644
+--- /dev/null
++++ b/libavutil/g2_delivery.h
+@@ -0,0 +1,90 @@
++/*
++ * Bounded source-clock delivery policy for the G2 desktop experiment.
++ * SPDX-License-Identifier: LGPL-2.1-or-later
++ * Internal header: no OS calls or FFmpeg state, so policy tests need no GPU.
++ */
++#ifndef AVUTIL_G2_DELIVERY_H
++#define AVUTIL_G2_DELIVERY_H
++
++#include <errno.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++
++#define G2_DELIVERY_METADATA "g2.delivery"
++#define G2_DELIVERY_MAX_US 20000
++
++typedef struct G2DeliveryDeadline {
++    int64_t frequency;
++    int64_t source_deadline;
++    int64_t sample;
++    int64_t period;
++    int64_t delay;
++} G2DeliveryDeadline;
++
++static inline int g2_delivery_valid(const G2DeliveryDeadline *d)
++{
++    /* The frequency ceiling also bounds every multiplication in the waiter. */
++    return d->frequency >= 1000 && d->frequency <= INT64_C(1000000000000) &&
++           d->source_deadline > 0 && d->sample >= d->source_deadline &&
++           d->period > 0 && d->period <= d->frequency &&
++           d->delay > 0 && d->delay <= d->period &&
++           d->delay <= d->frequency / 50 &&
++           d->source_deadline <= INT64_MAX - d->delay;
++}
++
++static inline int g2_delivery_make(G2DeliveryDeadline *d, int64_t frequency,
++                                   int64_t source_deadline, int64_t sample,
++                                   int64_t period, int delay_us)
++{
++    *d = (G2DeliveryDeadline){ 0 };
++    if (frequency < 1000 || frequency > INT64_C(1000000000000) ||
++        delay_us <= 0 || delay_us > G2_DELIVERY_MAX_US)
++        return 0;
++    *d = (G2DeliveryDeadline){ frequency, source_deadline, sample, period,
++                             frequency * delay_us / 1000000 };
++    return g2_delivery_valid(d);
++}
++
++/* Negative means invalid, zero means late/on time, positive is bounded wait.
++ * Never base a deadline on previous delivery: late frames do not cause drift. */
++static inline int64_t g2_delivery_remaining(const G2DeliveryDeadline *d,
++                                           int64_t frequency, int64_t now)
++{
++    int64_t deadline;
++    if (!g2_delivery_valid(d) || frequency != d->frequency || now < d->sample)
++        return -1;
++    deadline = d->source_deadline + d->delay;
++    return now >= deadline ? 0 : deadline - now;
++}
++
++static inline int g2_delivery_parse(G2DeliveryDeadline *d, const char *text)
++{
++    G2DeliveryDeadline value = { 0 };
++    int64_t *fields[] = { &value.frequency, &value.source_deadline,
++                         &value.sample, &value.period, &value.delay };
++    const char *next;
++    *d = (G2DeliveryDeadline){ 0 };
++    if (!text || strncmp(text, "v1,", 3))
++        return 0;
++    next = text + 3;
++    for (unsigned i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
++        char *end;
++        long long number;
++        if (*next < '0' || *next > '9')
++            return 0;
++        errno = 0;
++        number = strtoll(next, &end, 10);
++        if (errno == ERANGE || number < 0 || end == next ||
++            (i < 4 ? *end != ',' : *end != '\0'))
++            return 0;
++        *fields[i] = (int64_t)number;
++        next = end + (i < 4);
++    }
++    if (!g2_delivery_valid(&value))
++        return 0;
++    *d = value;
++    return 1;
++}
++
++#endif
+diff --git a/libavutil/tests/g2_delivery.c b/libavutil/tests/g2_delivery.c
+new file mode 100644
+--- /dev/null
++++ b/libavutil/tests/g2_delivery.c
+@@ -0,0 +1,47 @@
++/* Source-clock delivery policy tests: CPU only. */
++#include <assert.h>
++#include <stdio.h>
++#include "libavutil/g2_delivery.h"
++
++int main(void)
++{
++    G2DeliveryDeadline d, copy;
++    const int64_t f = 10000000, base = 1000000000, period = 100000;
++    assert(g2_delivery_make(&d, f, base, base + 2000, period, 8000));
++    assert(g2_delivery_remaining(&d, f, base + 50000) == 30000);
++    assert(g2_delivery_remaining(&d, f, base + 80000) == 0);
++    assert(g2_delivery_remaining(&d, f, base + 200000) == 0);
++    assert(g2_delivery_remaining(&d, f + 1, base + 50000) == -1);
++    assert(g2_delivery_remaining(&d, f, base - 1) == -1);
++    assert(g2_delivery_parse(&copy, "v1,10000000,1000000000,1000002000,100000,80000"));
++    assert(copy.source_deadline == d.source_deadline && copy.delay == d.delay);
++    assert(!g2_delivery_parse(&copy, "v1,10000000,1000000000,1000002000,100000,80000,0"));
++    assert(!g2_delivery_parse(&copy, "v1,999999999999999999999999999,1,1,1,1"));
++    assert(!g2_delivery_parse(&copy, "v1,10000000,1000000000,1000002000,100000,80000x"));
++    assert(!g2_delivery_parse(&copy, "v1,10000000,1000000000,999999999,100000,80000"));
++    assert(!g2_delivery_make(&d, f, base, base, period, 10001));
++    assert(!g2_delivery_make(&d, f, base, base, period, 20001));
++    assert(!g2_delivery_make(&d, f, INT64_MAX - 10, INT64_MAX - 10, period, 8000));
++    assert(!g2_delivery_make(&d, INT64_MAX, base, base, period, 8000));
++    /* Different source frames and duplicate images must get independent grids.
++     * Prior encoder lateness cannot move a later frame's delivery deadline. */
++    for (int i = 0; i < 10000; i++) {
++        int64_t grid = base + i * period;
++        int64_t sample = grid + (i % 3) * 1000;
++        int64_t ready = sample + (i % 7 == 0 ? 120000 : 40000 + (i % 5) * 5000);
++        int64_t remaining, sent;
++        assert(g2_delivery_make(&d, f, grid, sample, period, 8000));
++        remaining = g2_delivery_remaining(&d, f, ready);
++        assert(remaining >= 0 && remaining <= 80000);
++        sent = ready + remaining;
++        assert(sent == (ready > grid + 80000 ? ready : grid + 80000));
++    }
++    /* Capture phase correction changes the schedule, not the wait budget. */
++    for (int i = -1000; i <= 1000; i += 1000) {
++        assert(g2_delivery_make(&d, f, base + period + i,
++                                base + period + i + 1000, period, 8000));
++        assert(g2_delivery_remaining(&d, f, base + period + i + 50000) == 30000);
++    }
++    puts("g2 delivery policy: all tests passed");
 +    return 0;
 +}

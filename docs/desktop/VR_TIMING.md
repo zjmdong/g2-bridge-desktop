@@ -1,6 +1,6 @@
 # VR streaming timing: applicable mechanisms and remaining boundaries
 
-This is a design and source review for 0.2.4, targeting **1920×1080,
+This is a design and source review for 0.2.6, targeting **1920×1080,
 100 fps, 20 Mbps, NVIDIA NVENC**. It explains why wired VR can feel stable,
 which mechanisms this client can use, and which require a headset runtime that
 the recovered Goggles 2 protocol does not expose. It does not establish a new
@@ -9,10 +9,11 @@ optical latency measurement or a ±1% bound.
 Implementation details are in [IMPLEMENTATION.md](IMPLEMENTATION.md).
 Protocol and device limits are in [PROTOCOL_LIMITS.md](PROTOCOL_LIMITS.md).
 The tested host, source-identity results and actual USB-write measurements are
-recorded in [VALIDATION-0.2.4.md](VALIDATION-0.2.4.md). The desktop now adopts
-source-phase alignment with `source_clock=1` and `source_guard_us=3000`; the
-native option remains off by default. These are source-side settings, not
-measurements or controls of the headset display phase.
+recorded in [VALIDATION-0.2.6.md](VALIDATION-0.2.6.md). The desktop retains
+source-phase alignment with `source_clock=1` and `source_guard_us=3000`, and
+explicitly enables `fresh_wait_us=2000` and `delivery_delay_us=8000`.
+Source alignment and both new controls remain off by default for native callers.
+These settings control the host pipeline, not the headset display phase.
 
 ## A cable is only one part of the display path
 
@@ -105,12 +106,14 @@ dependencies or guarantee that adding more in-flight frames reduces latency.
 
 | Mechanism | Current use or boundary |
 | --- | --- |
-| One cadence authority | The capture clock uses QPC and a target interval, without a second encoded-output pacing queue. |
+| One cadence authority | The QPC capture schedule supplies both sampling slots and absolute mux delivery deadlines; no schedule is based on a previous packet's completion. |
 | Source-phase alignment | Qualified desktop-update timestamps steer future capture deadlines, with a 3 ms guard and corrections bounded to ±100 microseconds. Native callers must opt in. |
+| Bounded fresh acquisition | Nonblocking `AcquireNextFrame(0)` attempts, separated by timer waits of at most 250 microseconds, share a 2 ms budget; they cannot replace a missing source render. |
+| Bounded delivery timing | The mux waits until capture slot + 8 ms when an access unit is ready early. Late units go immediately, without moving future deadlines or dropping references. The existing one-packet queue and current held packet still exist. |
 | Keep waiting images fresh | A single-slot raw-frame mailbox replaces an older waiting image before encoding when necessary. Already encoded reference frames retain their order. |
 | Hardware completion notification | The bundled Windows NVENC path uses completion events. An API completion is not a presentation acknowledgment. |
 | Avoid starving the producer | The desktop client requests GPU scheduling class 4 for its own encoder; the SDK's optional policy still defaults to class 5 for existing CLI callers. This is a best-effort request, not a guaranteed GPU time slice. |
-| Fixed quality policy | The requested bitrate remains 20 Mbps for the target scenario. The receiver-compatible rate-control and frame-size safeguards remain relevant. |
+| Fixed quality policy | The target remains 20 Mbps, with 0.2.5 High/CABAC and chroma QP offsets of -4. NVENC ULL/qres, no B frames or lookahead, and receiver-compatible frame-size safeguards remain in place. |
 | Source freshness measurement | Native probes compare real desktop-update timestamps with capture, encode and output stages; source frame IDs distinguish new images from repeated captures. |
 | Headset display feedback | Not available in the recovered PC video path. There is no measured eye-display phase for the sender to lock to. |
 | Timewarp or spacewarp | Not available to this PC client. Implementing it would require suitable headset rendering, pose and presentation integration. |
@@ -140,9 +143,10 @@ turning isolated desktop timestamp jitter into a new capture interval. A
 substantially late wake discards missed timing slots rather than replaying them
 as a burst. The desktop uses a 3 ms guard after the estimated source update,
 adding sampling margin over the 2 ms candidate. Each future-deadline correction
-is bounded to ±100 microseconds; there is no new encoded-frame buffer or
-adaptive bitrate reduction. The comparison and its limited-host acceptance
-evidence are recorded in the release validation.
+is bounded to ±100 microseconds. This phase estimator itself adds no encoded
+queue or adaptive bitrate reduction. The separate 0.2.6 delivery wait is
+described below; historical source-phase evidence remains in
+[0.2.4 validation](VALIDATION-0.2.4.md).
 
 Microsoft defines `LastPresentTime` as the QPC time of the last desktop-image
 update; a mouse-only update does not provide a new desktop-present timestamp.
@@ -156,9 +160,53 @@ source must not be mistaken for 100 distinct source images per second.
 Primary and virtual outputs share capture and encode logic; their actual
 application, compositor and scanout timing can still differ.
 
+### Bounded acquisition and delivery
+
+The fresh-image window shares one absolute deadline across acquisition retries.
+It releases mouse-only duplication leases correctly, and either obtains the
+new image or falls back to the last valid texture. Its budget is bounded by
+`fresh_wait_us` and the next scheduled slot. Every live retry requests zero
+DXGI timeout. The existing timer sleeps for at most 250 microseconds before
+checking again, including one last nonblocking attempt at the shared deadline.
+This avoids the positive-timeout DXGI path in the earlier candidate; that
+candidate still had approximately 20 ms delivery tails in actual USB runs.
+Windows can wake a timer late and a driver call can take longer than its requested
+timeout, so the shared budget is not a hard real-time guarantee. The 16 CPU mock
+cases check policy and ownership, not real driver execution latency.
+
+Capture and encoder completion are different events. Even with regular capture,
+varying GPU/encoder execution time can produce uneven access-unit delivery.
+Version 0.2.6 carries the original capture-slot deadline through metadata,
+`FrameData`, and NVENC's existing `COPY_OPAQUE` association. The mux waits until
+that slot plus 8 ms, after bitstream filtering and before writing AVI.
+The slot is neither the desktop's `LastPresentTime` nor compact encoder PTS;
+every output, including a repeated picture, receives its own slot metadata.
+
+The 8 ms includes work already spent capturing and encoding. Only the remaining
+budget is waited; it is not an additional 8 ms after encoder completion. This
+trades some host latency for less delivery jitter. The actual added wait and
+its test conditions are recorded in [0.2.6 validation](VALIDATION-0.2.6.md).
+It cannot be interpreted as a source-to-lens or input-to-lens measurement.
+
+A mux-owned high-resolution timer handles this wait, with no system timer-policy
+change and at most a 100 us busy tail. Validation limits the budget to one
+source period and 20 ms. The existing one-packet queue is unchanged, and the
+mux retains the current packet while waiting. A late packet is sent immediately;
+the next frame keeps its own source-derived deadline. This preserves the
+reference chain and avoids the accumulating completion-relative pacer removed
+in 0.2.2. After a sufficiently long stall, these rules can still produce late
+or closely spaced outputs; they cannot guarantee constant optical intervals.
+
+One constant-cost shutdown summary separates arrivals already past their
+deadline from overshoot incurred during a completed wait. It reuses QPC reads
+already needed by the waiter and adds no per-frame log or USB request. Arrival
+lateness includes upstream processing and mux scheduling, not just NVENC;
+downstream Python/USB timing is a separate measurement. None of these counters
+provides the receiver feedback used by a VR runtime.
+
 ## Measurement needed to accept a change
 
-At 100 Hz the requested period is 10 ms. Four different observations must stay
+At 100 Hz the requested period is 10 ms. Five different observations must stay
 separate:
 
 1. **Source production:** unique frame IDs, presentation intervals and source
@@ -167,10 +215,13 @@ separate:
 2. **Source age through encoding:** desktop-update QPC to capture, GPU filter
    submission, encoder submission and packet availability. CPU submission
    durations alone do not measure when GPU work actually executes.
-3. **Host USB submission:** full video-message write start/end and completion
+3. **Native delivery:** arrivals past the source-derived deadline, time spent
+   waiting and wait overshoot. These distinguish native scheduling from
+   downstream pipe-reader or USB timing; they are not lens timestamps.
+4. **Host USB submission:** full video-message write start/end and completion
    intervals, separated from control packets. A completed host USB API call
    does not establish decode completion or lens presentation.
-4. **Optical result:** source-to-lens timing and unique displayed frames, which
+5. **Optical result:** source-to-lens timing and unique displayed frames, which
    require independent optical or receiver measurements. Neither a nominal
    100 fps counter nor the metrics above substitute for this.
 
@@ -180,11 +231,37 @@ uses a precomputed moving texture, so expensive procedural shading does not
 become an uncontrolled source of missed frames. Its own timing is retained
 alongside the pipeline observations.
 
+The selected nonblocking 60-second USB experiment illustrates why both timing
+and picture identity matter. Host completion interval P99/maximum were
+10.577/11.2204 ms, with none above 15 ms; nevertheless its 5700-picture identity
+window contained 111 repeats and 62 omitted source submissions. The source
+itself had 111 excess nominal slots in its long gaps and 62 submillisecond
+catch-up submissions. None of the omitted IDs was explicitly observed by sampled
+DXGI presentation statistics, but 35 remain compatible with an unsampled
+presentation. The counts are strongly associated with source timing; they do
+not prove that all omissions occurred before capture. No inference of zero
+drops or stable optical latency is justified. See the versioned validation for
+final production-binary checks and superseded candidates.
+
+Expanding the stdout pipe to 64 KiB did not eliminate the observed tails.
+Increasing the source guard from 3 to 5 ms increased source age and did not
+justify a change. Neither experiment is enabled in the product.
+
+The final production extended-display USB window subsequently contained 5700
+distinct pictures without repeats or omissions. Its primary-display check still
+had two repeated and two omitted IDs among 1700 outputs, with both omitted IDs
+explicitly observed by DXGI presentation statistics. A 4 ms fresh-image budget
+and a separate 5 ms primary source guard each still left one such omission.
+The released 2/3/8 ms policy therefore improves measured sender cadence without
+claiming to have eliminated all presented-source loss. Presentation sampling and
+regular delivery alone cannot resolve every capture/admission-stage omission.
+
 The acceptance question is whether a change reduces measured frame age and
 long gaps without increasing backlog, breaking image integrity or hiding
-repeats. A forced sleep after encoding can regularize a delivery graph while
-making every displayed frame older; padding compressed frames can regularize
-byte counts without improving their content. Neither is evidence of a more
+repeats. The bounded source-derived wait must be evaluated together with its
+added frame age; regular output alone is insufficient. Padding compressed
+frames can regularize byte counts without improving their content. Neither
+a smoother delivery graph nor uniform byte counts alone establishes a more
 responsive simulator.
 
 Wired VR's useful lesson is to control frame ownership, queue depth, timing

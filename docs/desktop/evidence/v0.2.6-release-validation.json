@@ -1,0 +1,663 @@
+{
+  "schema": 2,
+  "version": "0.2.6",
+  "status": "built_installed_and_verified",
+  "scope": "Host capture/encode/USB and installed-file validation; no optical or goggles refresh measurement.",
+  "native_build": {
+    "source_archive": "c1d85f248a1c5e0a106f501f6893b2cdfe902607446d39df562e5f82eefc910e",
+    "patch": "1e0055b6a5190c3cf0879a8052b01110c6d4c74c8c7929546656fdb8cbc90174",
+    "patched_source_files": 24,
+    "release_binaries": {
+      "ffmpeg.exe": {
+        "bytes": 5764608,
+        "sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9"
+      },
+      "ffprobe.exe": {
+        "bytes": 5570048,
+        "sha256": "37ae04f5454e3a38afcb59884bfd9a8773797d0a9a787cc42f4704136d9d7ea1"
+      }
+    },
+    "all_patched_source_hashes_verified": true,
+    "user_absolute_paths_absent_in_binaries": true,
+    "research_per_frame_probes_present": false,
+    "build_log_sha256": "d70491c305e0f0eceeb132e8f6b12f12835dda67fb805533b0d4bcc7b9ec9c03",
+    "fresh_acquisition_cases": 16,
+    "delivery_model_frames": 10000,
+    "clock_source_phase_mailbox_tests": "passed"
+  },
+  "desktop_unittests": {
+    "passed": 89,
+    "log_sha256": "9a81253a921b71407d347c00cb5ab72ec14190cd51b5fb60eb1d29fdda734f92"
+  },
+  "research_tool_unittests": {
+    "frame_cadence": 8,
+    "usb_correlation": 11,
+    "total": 19
+  },
+  "sdk": {
+    "baseline_files": 70,
+    "audited_exact_patches": 2,
+    "additional_sdk_changes": false
+  },
+  "gpu_modes": {
+    "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+    "screen_video_saved": false,
+    "usb": false,
+    "cases": [
+      {
+        "source_output": 0,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 60,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48632,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 60,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48449,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 75,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48812,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 75,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48041,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 90,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 47982,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 90,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 47335,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 100,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 43497,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 100,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 42706,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 60,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48327,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 60,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48126,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 75,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48469,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 75,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 47537,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 90,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 47408,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 90,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 46326,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 100,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 42120,
+        "stderr": ""
+      },
+      {
+        "source_output": 0,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 100,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 41294,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 60,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 49242,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 60,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 49157,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 75,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 49341,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 75,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 49069,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 90,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48704,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 90,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 47547,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 100,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 43986,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1280,
+          720
+        ],
+        "fps": 100,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 43466,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 60,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 49286,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 60,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 48964,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 75,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 49023,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 75,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 47741,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 90,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 44784,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 90,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 42986,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 100,
+        "preset": "p1",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 39937,
+        "stderr": ""
+      },
+      {
+        "source_output": 1,
+        "dimensions": [
+          1920,
+          1080
+        ],
+        "fps": 100,
+        "preset": "p4",
+        "returncode": 0,
+        "frames": 20,
+        "max_frame_bytes": 38349,
+        "stderr": ""
+      }
+    ],
+    "status": "passed"
+  },
+  "gpu_pixel_regression": {
+    "status": "passed",
+    "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+    "screen_capture": false,
+    "usb_access": false,
+    "frames_per_case": 48,
+    "validation_frame_counts": {
+      "cpu_raw": 288,
+      "gpu_raw": 288,
+      "cpu_encoded": 288,
+      "gpu_encoded": 288,
+      "cpu_decoded": 288,
+      "gpu_decoded": 288
+    },
+    "cases": 6,
+    "raw_report_sha256": "e4458032d9f1e56c9bbabb06ac1dd199731d598ceadebcd8ab5f208fb5c19e1a"
+  },
+  "usb_cases": {
+    "usb-old-controlled.json": {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "h264_profile": "high",
+        "usb_write_size": 16384
+      },
+      "ffmpeg_sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd",
+      "stop_reason": "duration_reached",
+      "completed_video_count": 3004,
+      "steady_video_count": 2702,
+      "failed_write_count": 0,
+      "steady_usb_write_ms": {
+        "count": 2702,
+        "min": 0.7188,
+        "mean": 0.8851138045891932,
+        "p50": 0.8857,
+        "p95": 0.9617,
+        "p99": 0.9973,
+        "p999": 1.1468,
+        "max": 2.0087
+      },
+      "steady_completion_interval_ms": {
+        "count": 2702,
+        "min": 5.0647,
+        "mean": 10.000607290895632,
+        "p50": 9.9636,
+        "p95": 12.866,
+        "p99": 13.9856,
+        "p999": 14.8115,
+        "max": 15.3861
+      },
+      "steady_intervals_outside_10ms_plus_minus_1pct": 2479,
+      "failure": null,
+      "cleanup_errors": [],
+      "records_dropped": 0,
+      "encoder_returncodes": [
+        1
+      ],
+      "transports_closed": [
+        true
+      ],
+      "raw_report_sha256": "85e53628bab2aeadecb1ccad5b284e3a6d67b4f64bb3878c785db4b580f60b97"
+    },
+    "usb-release-retry.json": {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "h264_profile": "high",
+        "usb_write_size": 16384
+      },
+      "ffmpeg_sha256": "4bd161c5e66aa04868c28588ce1cf44e64630f6a2d64f8b11e977f2d44910fad",
+      "stop_reason": "duration_reached",
+      "completed_video_count": 2964,
+      "steady_video_count": 2703,
+      "failed_write_count": 0,
+      "steady_usb_write_ms": {
+        "count": 2703,
+        "min": 0.6723,
+        "mean": 0.8809832408435072,
+        "p50": 0.8822,
+        "p95": 0.9652,
+        "p99": 1.0186,
+        "p999": 1.1221,
+        "max": 1.8689
+      },
+      "steady_completion_interval_ms": {
+        "count": 2703,
+        "min": 2.1245,
+        "mean": 10.003662227155013,
+        "p50": 9.9936,
+        "p95": 10.6397,
+        "p99": 18.4467,
+        "p999": 19.8061,
+        "max": 21.0767
+      },
+      "steady_intervals_outside_10ms_plus_minus_1pct": 1988,
+      "failure": null,
+      "cleanup_errors": [],
+      "records_dropped": 0,
+      "encoder_returncodes": [
+        1
+      ],
+      "transports_closed": [
+        true
+      ],
+      "raw_report_sha256": "e18d807dc55a00ebfb3a8a50544d8676eee6dfc238c99925e68e27468b8cf574"
+    },
+    "usb-final-production-60-host.json": {
+      "settings": {
+        "width": 1920,
+        "height": 1080,
+        "fps": 100,
+        "bitrate_mbps": 20,
+        "preset": "p4",
+        "encoder": "h264_nvenc",
+        "h264_profile": "high",
+        "usb_write_size": 16384
+      },
+      "ffmpeg_sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+      "stop_reason": "duration_reached",
+      "completed_video_count": 6004,
+      "steady_video_count": 5703,
+      "failed_write_count": 0,
+      "steady_usb_write_ms": {
+        "count": 5703,
+        "min": 0.6895,
+        "mean": 0.8570476941960372,
+        "p50": 0.8576,
+        "p95": 0.9345,
+        "p99": 0.9712,
+        "p999": 1.0099,
+        "max": 1.0652
+      },
+      "steady_completion_interval_ms": {
+        "count": 5703,
+        "min": 9.0228,
+        "mean": 10.000037015605821,
+        "p50": 9.9998,
+        "p95": 10.4229,
+        "p99": 10.5925,
+        "p999": 10.8461,
+        "max": 11.2006
+      },
+      "steady_intervals_outside_10ms_plus_minus_1pct": 3970,
+      "failure": null,
+      "cleanup_errors": [],
+      "records_dropped": 0,
+      "encoder_returncodes": [
+        1
+      ],
+      "transports_closed": [
+        true
+      ],
+      "raw_report_sha256": "109028706648579fdc410742d425c23950a6cc077b93b4990f7a1b6407b978bf"
+    }
+  },
+  "installation": {
+    "status": "verified",
+    "version": "0.2.6",
+    "matching_packaged_files": 215,
+    "missing_files": [],
+    "mismatched_files": [],
+    "native_sha256": {
+      "ffmpeg.exe": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9",
+      "ffprobe.exe": "37ae04f5454e3a38afcb59884bfd9a8773797d0a9a787cc42f4704136d9d7ea1"
+    },
+    "settings_preserved_byte_for_byte": true,
+    "settings_sha256": "f73bf7f259fd9c4809f1041a6b221efd91524066d1ef06aef519e1267ed51248",
+    "installer_sha256": "6b55cd28603333966f53a3a7b6d4a8f6b2cebc95eef218e6136db7a0e694c3a7",
+    "administrator_elevation": false,
+    "gui_window_title": "DJI Goggles Streamer 0.2.6",
+    "test_virtual_display_released": true,
+    "primary_mode_preserved": [
+      3440,
+      1440,
+      100
+    ]
+  },
+  "delivery_files": {
+    "DJI-Goggles-Streamer-0.2.6-Setup.exe": {
+      "bytes": 53102086,
+      "sha256": "6b55cd28603333966f53a3a7b6d4a8f6b2cebc95eef218e6136db7a0e694c3a7"
+    }
+  },
+  "usb_interpretation": "old-controlled is the 0.2.5 reference; release-retry is the rejected blocking acquisition candidate; final-production is the clean nonblocking release binary. USB write completion is not optical display. Warmup is excluded consistently. No hard realtime or +/-1% guarantee is inferred.",
+  "packaging": {
+    "build_log_sha256": "8f9fca9d7e37c070b49ab877cc59f4d6862027cf2bdbab54e9ecda3c6153f9cd",
+    "frozen_worker_nvenc_probe": "passed",
+    "frozen_usb_watcher_cleanup": "passed"
+  }
+}

@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from goggles_bridge.engine import encoder_command
 from desktop_app.settings import Settings
-from desktop_app.video import compatible_command, frame_selection
+from desktop_app.video import compatible_command, frame_selection, FRESH_WAIT_US, DELIVERY_DELAY_US
 from desktop_app.displays import DEVMODE, DisplayError, select_source, enable_extended, disable_extended
 from desktop_app.virtual_driver import verify_package
 
@@ -41,6 +41,7 @@ class VideoTests(unittest.TestCase):
                 self.assertNotIn('hwdownload',vf)
                 self.assertIn('setsar=1',vf)
                 self.assertIn('color_trc=unknown',vf)
+                self.assertIn('fresh_wait_us=2000:delivery_delay_us=8000', vf)
                 self.assertEqual(command[command.index('-intra-refresh')+1], '0')
                 self.assertEqual(command[command.index('-c:v')+1], 'h264_nvenc')
                 self.assertEqual(settings.h264_profile, 'high')
@@ -90,22 +91,34 @@ class VideoTests(unittest.TestCase):
         self.assertNotIn('gfxcapture', ' '.join(adapted))
 
     def test_both_sources_share_one_native_clock_without_resampling_or_cpu_transfer(self):
+        self.assertEqual((FRESH_WAIT_US, DELIVERY_DELAY_US), (2000, 8000))
         for fps in (60, 75, 90, 100):
-            settings = Settings(fps=fps).bridge()
-            graphs = []
-            for output in (0, 1):
-                command = compatible_command(encoder_command(settings),
-                                             output=dict(adapter=0, output=output))
-                graph = command[command.index('-filter_complex')+1]
-                self.assertNotIn(',fps=', graph)
-                self.assertIn(f'framerate={fps}:', graph)
-                self.assertIn('precise_clock=1:acquire_timeout=0:clock_spin_us=500', graph)
-                self.assertIn('source_clock=1:source_guard_us=3000', graph)
-                self.assertNotIn('select=', graph)
-                self.assertNotIn('framerate=240', graph)
-                self.assertNotIn('hwdownload', graph)
-                graphs.append(graph.replace(f'output_idx={output}', 'output_idx=TARGET'))
-            self.assertEqual(graphs[0], graphs[1])
+            for resolution in ('720p', '1080p'):
+                with self.subTest(fps=fps, resolution=resolution):
+                    settings = Settings(fps=fps, resolution=resolution)
+                    bridge = settings.bridge()
+                    self.assertEqual(bridge.capture_fps, fps)
+                    self.assertLessEqual(DELIVERY_DELAY_US, 1_000_000 // fps)
+                    graphs = []
+                    for output in (0, 1):
+                        command = compatible_command(encoder_command(bridge),
+                            output=dict(adapter=0, output=output), dimensions=settings.dimensions)
+                        graph = command[command.index('-filter_complex')+1]
+                        self.assertNotIn(',fps=', graph)
+                        self.assertIn(f'framerate={fps}:', graph)
+                        self.assertIn('precise_clock=1:acquire_timeout=0:clock_spin_us=500', graph)
+                        self.assertIn('source_clock=1:source_guard_us=3000', graph)
+                        self.assertIn('fresh_wait_us=2000:delivery_delay_us=8000', graph)
+                        self.assertEqual(graph.count('fresh_wait_us='), 1)
+                        self.assertEqual(graph.count('delivery_delay_us='), 1)
+                        self.assertIn(f'width={settings.dimensions[0]}:height={settings.dimensions[1]}', graph)
+                        self.assertNotIn('select=', graph)
+                        self.assertNotIn('framerate=240', graph)
+                        self.assertNotIn('hwdownload', graph)
+                        self.assertEqual(command[command.index('-c:v')+1], 'h264_nvenc')
+                        self.assertEqual(command[command.index('-thread_queue_size')+1], '1')
+                        graphs.append(graph.replace(f'output_idx={output}', 'output_idx=TARGET'))
+                    self.assertEqual(graphs[0], graphs[1])
 
     def test_other_vendor_capture_uses_explicit_transfer_but_still_nvenc(self):
         command = compatible_command(encoder_command(Settings().bridge()),

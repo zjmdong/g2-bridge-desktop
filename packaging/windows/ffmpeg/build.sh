@@ -70,7 +70,7 @@ cd "$WORK/build"
   --enable-decoder=h264,rawvideo,wrapped_avframe,png \
   --enable-encoder=h264_nvenc,rawvideo,wrapped_avframe,png \
   --enable-bsf=filter_units,h264_metadata,h264_mp4toannexb,trace_headers \
-  --enable-filter=ddagrab,scale_d3d11,hwupload,hwdownload,format,scale,pad,setsar,setparams,setpts,settb,select,testsrc2,testsrc,color,drawbox,null,split,psnr,ssim,trim,negate,framestep \
+  --enable-filter=ddagrab,scale_d3d11,hwupload,hwdownload,format,scale,pad,setsar,setparams,setpts,settb,select,testsrc2,testsrc,color,drawbox,null,split,psnr,ssim,trim,negate,framestep,crop \
   --extra-ldflags='-static -Wl,--no-insert-timestamp' --extra-libs=-lwinmm \
   --extra-version=goggles-streamer-clock
 # FFmpeg resolves out-of-tree source paths to absolute paths. Remap __FILE__
@@ -83,6 +83,13 @@ gcc -O2 -static -I "$SOURCE/libavfilter" "$HERE/check_clock.c" -o check_clock.ex
 gcc -std=c17 -O2 -static -I "$SOURCE/libavfilter" \
     "$SOURCE/libavfilter/tests/ddagrab_source_clock.c" -o check_source_clock.exe -lwinmm
 ./check_source_clock.exe
+gcc -std=c17 -O2 -Wall -Wextra -Werror -UNDEBUG -static -I "$SOURCE" \
+    "$SOURCE/libavutil/tests/g2_delivery.c" -o check_delivery.exe
+./check_delivery.exe
+# Use the project Windows interpreter with the same compiler PATH as make.
+"${GOGGLES_FFMPEG_PYTHON:-$ROOT/.venv/Scripts/python.exe}" "$HERE/check_fresh_wait.py" \
+    --source "$SOURCE/libavfilter/vsrc_ddagrab.c" \
+    --output-dir "$WORK/build/fresh-wait-test" --cc gcc --run
 gcc -std=c17 -O2 -Wall -Wextra -Werror \
     -Wno-unused-parameter -Wno-cast-function-type -U__STRICT_ANSI__ -DWIN32_LEAN_AND_MEAN \
     -I . -I "$SOURCE" "$SOURCE/fftools/tests/thread_queue_mailbox.c" \

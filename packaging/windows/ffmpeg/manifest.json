@@ -174,8 +174,8 @@
   },
   "patch": {
     "path": "packaging/windows/ffmpeg/ffmpeg-n9.0.2-goggles.patch",
-    "bytes": 85412,
-    "sha256": "3b8db5928ca8ac2beb6b0d1a20cb9407eec7f7f6c717adfb06e599ec9b3941a9"
+    "bytes": 109337,
+    "sha256": "1e0055b6a5190c3cf0879a8052b01110c6d4c74c8c7929546656fdb8cbc90174"
   },
   "recipe": {
     "build_script": "packaging/windows/ffmpeg/build.sh",
@@ -183,12 +183,19 @@
     "source_date_epoch": 1789687190,
     "pe_timestamp": 1789687190,
     "reproducibility_note": "Pinned inputs, remapped source/build __FILE__ macros and disabled PE link timestamps; compare clean-build hashes before claiming bit-for-bit reproducibility.",
-    "build_script_sha256": "0831b27ca82b14b7be5e34ccae84fc9f48737c71ef318afc32a4cad623c9c963",
-    "clock_test_sha256": "b61559673e213710eaab1c8a1da0fd8ebab34328f18526ed4f7069a10bbf99f1"
+    "build_script_sha256": "c8053776da9f06fbadec4c2935b0442cbddb02c67ff392aa19fc403ffd3e217f",
+    "clock_test_sha256": "b61559673e213710eaab1c8a1da0fd8ebab34328f18526ed4f7069a10bbf99f1",
+    "fresh_wait_test": "packaging/windows/ffmpeg/check_fresh_wait.c",
+    "fresh_wait_runner": "packaging/windows/ffmpeg/check_fresh_wait.py",
+    "fresh_wait_test_sha256": "2905c3f5e09c2036c1e7f076bd584a1fbfadd3257fde04270ac01049cbb890f3",
+    "fresh_wait_runner_sha256": "15dae9db279a0c5d2601b7a62264609326cbe2747d5e4cfd80a763a23d106ff0"
   },
   "patched_source_files": {
-    "fftools/ffmpeg.h": "c04b1e692e01ef0056581b87668bf088ec187900d91d4da0a82b64ffcc56281d",
+    "fftools/ffmpeg.h": "64417753326c0e99552ea1afb29bd400e4936b71908906d2363421b4a83e126e",
     "fftools/ffmpeg_enc.c": "7a3221bccb5ec50960efd0fc006264afa130a74168fa0aacb655714bb2cd3dd6",
+    "fftools/ffmpeg_filter.c": "999ac7f3e716d1b5a78640e13f4d39502acf289a70a133d61c413fd3f9a92ce6",
+    "fftools/ffmpeg_mux.c": "28e77dc5cd382d4b66d83ca83945c20ee2594cfa57d763d4a6cd13566a6116bc",
+    "fftools/ffmpeg_mux.h": "c064d53d8d81ca209a2cb8e98f10c087caf05aaec13be904c2a925e24f17edba",
     "fftools/ffmpeg_mux_init.c": "9549f6ef1fef218be356621cfa3e0bd7d3e2d39e8ef7f624cc7be9af150e06ff",
     "fftools/ffmpeg_opt.c": "d556bd941cbb29f3de8f8aa7772329b6f9007ed4f297ce780d1450e838021052",
     "fftools/ffmpeg_sched.c": "94422ea5366f41b3c2c1cea8e8d7d4c5bfadc4941618b6b8f8f28f1d69941bc4",
@@ -205,17 +212,24 @@
     "libavfilter/ddagrab_phase.h": "04375251e76f3a8daf177e115eb1399cef28fe3c6c8980ea2c5191ab5a29f723",
     "libavfilter/tests/ddagrab_source_clock.c": "0898a6973890123faba6be8341a9476e4478a43800e7aa1f5c569f9a3b0b9b3a",
     "libavfilter/vf_scale_d3d11.c": "f42c0f34c122bdca812ee83b3e852c7d6c2e60bf29874dddf40165528323b53a",
-    "libavfilter/vsrc_ddagrab.c": "ad342c2ea6ac1a9508aa79c7a951044e11412f365d911cc0f57587e9a3d7be58"
+    "libavfilter/vsrc_ddagrab.c": "6e78109bd7ea96e2e534c73e77ca410cc1824b61b1c5fc050dc9583f162b579d",
+    "libavutil/g2_delivery.h": "03621e9d9bd4cd6e2384326f2a1bc885495230c91645ad8731baed180e0841c2",
+    "libavutil/tests/g2_delivery.c": "a4c35b42b0ce9bad573ac2263e4060835f76a0b92432b82adba0280b99f23ef4"
   },
   "source_hash_line_endings": "LF",
   "release_binaries": {
     "ffmpeg.exe": {
-      "bytes": 5758976,
-      "sha256": "bff0c6fe837a68f64f8f426fdd403de04e84e3211fe46875655bdf001ebf28fd"
+      "bytes": 5764608,
+      "sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9"
     },
     "ffprobe.exe": {
-      "bytes": 5567488,
-      "sha256": "a625e94dafe54cc363d0fca74f7ea18f52f5088f9d55363651cc7a2e5bcd8ec5"
+      "bytes": 5570048,
+      "sha256": "37ae04f5454e3a38afcb59884bfd9a8773797d0a9a787cc42f4704136d9d7ea1"
     }
+  },
+  "validated_outputs": {
+    "source": "clean pinned archive plus manifest patch; native tests passed",
+    "binary_hashes": "release_binaries",
+    "optical_latency_measured": false
   }
 }

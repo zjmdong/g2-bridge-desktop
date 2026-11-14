@@ -4,7 +4,7 @@ Stream your Windows or Mac desktop to DJI Goggles 2 or DJI Goggles Integra over 
 
 ## DJI Goggles Streamer desktop client
 
-This fork adds **DJI Goggles Streamer 0.2.5**, a Windows x64 graphical client.
+This fork adds **DJI Goggles Streamer 0.2.6**, a Windows x64 graphical client.
 It wraps the SDK with environment and firmware checks, integrated
 driver setup, streaming controls, persistent settings and offline help.
 It offers borderless primary/virtual desktop capture at 720p or 1080p, four frame
@@ -12,14 +12,29 @@ rates up to 100 fps, automatic USB streaming/display lifecycle and sender metric
 The desktop adapter uses NVIDIA NVENC H.264 exclusively, without a software
 fallback; the SDK's original encoder defaults remain unchanged. Window selection and a
 macOS GUI are planned.
-Version 0.2.5 uses H.264 High with explicit CABAC and symmetric chroma QP offsets
-of -4 instead of the early Baseline compatibility setting. Generated comparisons
-show improved motion detail and colour edges at the same configured 20 Mbps
-target; actual coded bitrate remains content-dependent. RGB conversion is unchanged.
-It retains qres multipass, the VBV/frame-size guards, no B frames or lookahead,
-one reference frame and the existing startup keyframes. No extra output buffer
-or periodic IDR is introduced. The bundled native binaries and SDK patches are
-unchanged from 0.2.4.
+Version 0.2.6 addresses capture readiness and delivery cadence. Within a shared
+2 ms fresh-image budget, every live retry uses nonblocking `AcquireNextFrame(0)`
+with timer waits of at most 250 microseconds between attempts. This replaces a
+positive-timeout candidate that still produced long gaps during actual USB streaming.
+The source-phase guard remains 3 ms. Completed
+H.264 frames are released against each capture slot's absolute +8 ms deadline;
+only the remaining time is waited, and late frames leave immediately without
+moving later deadlines. This smooths ordinary encoder completion variation at
+the cost of a small bounded wait; it cannot repair source/GPU/USB stalls or
+synchronize with the goggles' unreported scanout clock.
+
+The version retains 0.2.5 H.264 High/CABAC, symmetric chroma QP offsets of -4,
+qres multipass, VBV/frame-size guards, no B frames or lookahead, one reference
+frame and startup keyframes. Colour conversion and compression quality settings
+are unchanged. No adaptive bitrate reduction or software encoder is introduced.
+The modified native FFmpeg is rebuilt from the pinned corresponding sources.
+One final 60-second extended-display synthetic USB check of the production binary had no host
+completion interval over 15 ms and 5700 distinct source pictures without repeats
+or skipped IDs in its steady window. This finite result is not optical-latency,
+universal zero-drop or ±1% acceptance. The primary-display check still contained
+two repeated and two omitted pictures; those omissions included presented source
+images and remain unresolved. See the versioned validation record for
+conditions, superseded experiments and production-binary identities.
 
 The client retains one target-rate QPC capture clock, GPU BT.709 NV12 conversion
 with correct letterboxing, asynchronous NVENC completion events, and a single
@@ -55,7 +70,7 @@ before running the desktop packaging preparation step.
 
 See the [Windows user and build guide](docs/desktop/USER_GUIDE.md),
 [current implementation notes](docs/desktop/IMPLEMENTATION.md),
-[0.2.5 validation record](docs/desktop/VALIDATION-0.2.5.md),
+[0.2.6 validation record](docs/desktop/VALIDATION-0.2.6.md),
 [motion-quality comparison](docs/desktop/evidence/v0.2.5-motion-quality.md),
 [VR timing design and sources](docs/desktop/VR_TIMING.md),
 [protocol and performance limits](docs/desktop/PROTOCOL_LIMITS.md) and

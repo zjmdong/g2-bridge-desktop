@@ -1,9 +1,83 @@
 # Windows implementation history
 
+## 0.2.6 bounded acquisition and source-clock delivery
+
+The desktop explicitly enables `fresh_wait_us=2000` and
+`delivery_delay_us=8000` for both primary and virtual display capture. Both new
+native options default to zero, so other FFmpeg callers keep the previous
+behavior unless they opt in. The target remains 1080p100/20 Mbps/P4; retain the
+0.2.5 High/CABAC and symmetric chroma QP offsets, NVENC ULL/qres, no B frames or
+lookahead, startup IDRs at 0/1/2 seconds, and the existing bitrate and frame-size guards.
+
+After the scheduled DDA sample, a bounded fresh-image acquisition window can
+catch a desktop update that was nearly ready. The window shares one absolute
+deadline across retries and respects the next capture slot. Every retry on this
+live path calls `AcquireNextFrame(0)`; the existing high-resolution timer waits
+at most 250 microseconds between attempts, without a polling spin loop. One
+final nonblocking attempt can accept an image already ready at the deadline.
+This replaces the positive-DXGI-timeout prototype, whose actual USB runs still
+showed approximately 20 ms output tails. A zero requested timeout does not
+guarantee a bounded driver call or OS scheduling delay. Initial format probing
+and callers with the fresh-image option disabled retain their existing policy.
+Mouse-only updates do not become new image samples. Timeout fallback reuses the last valid image
+with explicit texture/duplication-frame ownership. This cannot create a new
+source frame when the simulator or compositor has not produced one.
+
+Each output, including a repeated picture, carries its scheduled capture slot
+and QPC clock information through frame metadata and FFmpeg `FrameData`.
+NVENC's existing `COPY_OPAQUE` mapping associates that information with the
+completed H.264 access unit. The mux thread waits only until **capture slot +
+8 ms** before writing AVI. This budget includes the intervening capture, GPU
+processing and encoding; it is not an extra 8 ms sleep after encoding. Initial
+prototype measurements placed the additional host wait at roughly 3 ms median;
+the release-specific results and conditions belong in
+[0.2.6 validation](VALIDATION-0.2.6.md), not an optical-latency claim.
+
+The high-resolution timer belongs to the mux thread. Its budget is validated
+against one source period and a 20 ms maximum, with a bounded 100 us spin tail.
+Late access units are sent immediately without moving later deadlines or
+dropping encoded references. The existing single-packet queue remains; the mux
+also holds the current packet while waiting. This is bounded added latency,
+not zero buffering. The accumulating sender pacer removed in 0.2.2 remains
+removed: no deadline is derived from a previous USB completion.
+
+Constant-cost counters reuse the waiter's existing QPC samples. One shutdown
+summary distinguishes arrival after the deadline from overshoot while waiting;
+it adds no per-frame logging, allocation or USB readback. Source-frame identity,
+host output cadence and these counters must be assessed separately: stable
+packet output does not prove distinct source images or stable lens presentation.
+The recovered protocol still supplies no headset VSync or presentation feedback.
+No universal zero-drop, optical-latency or ±1% guarantee is established.
+
+The native source patch and binaries are rebuilt for this release. CPU checks
+cover 16 fresh-acquisition scenarios and a 10,000-frame delivery-deadline model,
+alongside clock, source-phase and mailbox tests. The SDK protocol and audited
+SDK patches remain unchanged. See the [VR timing review](VR_TIMING.md) and
+[native build guide](../../packaging/windows/ffmpeg/README.md).
+
+The selected nonblocking 60-second USB experiment measured host completion
+interval P99 10.577 ms and maximum 11.2204 ms, with none above 15 ms. Its decoded
+identity window still contained 111 repeats and 62 omitted source submissions;
+source presentation gaps and catch-up bursts explain much of this distinction,
+but sparse presentation samples leave some omissions unresolved. This is not
+evidence of zero missing pictures or constant optical latency. Increasing the
+stdout pipe to 64 KiB did not remove the long tails; moving the source guard to
+5 ms increased source age and did not justify adoption. Both experiments were
+rejected. The default pipe and 3 ms guard remain.
+
+The final clean production binary's extended-display USB run had 5700 unique
+steady-window pictures with no repeats or omitted IDs. Its separate 20-second
+primary-display check retained two repeats and two omissions among 1700 outputs;
+both omitted IDs were explicitly observed in DXGI presentation statistics.
+Increasing fresh wait to 4 ms or the primary source guard to 5 ms still left one
+repeat and one presented-but-omitted ID per run. Neither change was adopted.
+The remaining primary-source loss has not been fully eliminated; it must not be
+attributed entirely to missing application renders or hidden by regular AU timing.
+
 ## 0.2.5 motion coding quality
 
-The desktop now selects H.264 High, explicitly requests CABAC entropy coding,
-and sets both chroma QP offsets to -4.
+Version 0.2.5 selected H.264 High, explicitly requested CABAC entropy coding,
+and set both chroma QP offsets to -4.
 The environment probe, settings-to-SDK adapter, capture command and reported
 profile share this policy. Baseline was retained during early compatibility
 debugging; the receiver supports High, and the separate colour-description-free
@@ -49,7 +123,7 @@ binaries, source patch and dependency manifest. The two audited SDK patches
 remain unchanged; the quality policy is implemented only in the desktop adapter.
 
 The following sections preserve earlier configurations and measurements,
-including the former Baseline profile. They are not new 0.2.5 acceptance results.
+including the former Baseline profile. They are not new 0.2.6 acceptance results.
 
 ## 0.2.4 source-phase alignment and GPU scheduling
 
@@ -196,7 +270,9 @@ The previous post-encode pacer preserved timing regularity by retaining old
 reference frames. Its initial 20 ms wait was not a latency bound: repeated late
 writes shifted its deadline and prevented faster draining. A deterministic
 100 fps model with a 25 ms stall each second reached 355 ms frame age after
-30 seconds. Remove this pacer entirely; keep encoded reference pictures ordered.
+30 seconds. Version 0.2.2 removed this pacer entirely while keeping encoded
+reference pictures ordered. The bounded capture-slot deadline introduced in
+0.2.6 does not restore its completion-relative, accumulating schedule.
 
 The old fps filter also waited for a second input and filled timestamp gaps with
 old pictures. Apply the SDK's existing select/setpts admission rule before pixel

@@ -1,10 +1,11 @@
 # Windows capture build
 
 This builds the modified FFmpeg used for Desktop Duplication and NVIDIA H.264
-encoding. It changes capture timing and the D3D11 scaler, adds opt-in source-phase
-alignment, asynchronous
-NVENC output and a bounded raw-frame mailbox, and preserves the existing FFmpeg
-command interface. It does not alter the goggles USB protocol.
+encoding. Version 0.2.6 adds opt-in bounded fresh-image acquisition and
+source-clock delivery deadlines to the existing DDA timing, source-phase
+alignment, D3D11 scaler, asynchronous NVENC output and bounded raw-frame mailbox.
+The command interface is retained; both new options default to zero. It does
+not alter the goggles USB protocol or roll back the desktop's High/CABAC policy.
 
 The default output is `work/ffmpeg-repro-n9.0.2/install/bin`. The build script
 does not overwrite `vendor/ffmpeg/ffmpeg.exe`; promotion of a validated binary is
@@ -54,13 +55,18 @@ bash packaging/windows/ffmpeg/build.sh
 ```
 
 The script checks the source hash, applies the patch to a fresh work directory,
-builds FFmpeg/ffprobe, runs the clock arithmetic, source-phase acquisition/recovery,
-and raw-frame mailbox tests,
+builds FFmpeg/ffprobe, runs clock arithmetic, source-phase acquisition/recovery,
+16 bounded fresh-acquisition scenarios, a 10,000-frame delivery-deadline model
+with invalid-input checks, and raw-frame mailbox tests,
 performs a tiny synthetic CPU encode, and records output hashes. It does not capture the screen, open USB,
 start a stream, or require a connected NVIDIA device merely to build.
 
 Optional variables: `GOGGLES_FFMPEG_WORK`, `GOGGLES_FFMPEG_OUTPUT`,
-`GOGGLES_FFMPEG_SOURCE_TAR`, and `GOGGLES_FFMPEG_JOBS`. Use a work/source path
+`GOGGLES_FFMPEG_SOURCE_TAR`, `GOGGLES_FFMPEG_JOBS`, and
+`GOGGLES_FFMPEG_PYTHON`. The fresh-acquisition test runner uses the project's
+`.venv/Scripts/python.exe` by default; set `GOGGLES_FFMPEG_PYTHON` to an explicit
+Python interpreter path when reproducing outside that environment.
+Use a work/source path
 without spaces, as FFmpeg rejects spaces in out-of-tree source paths.
 Choose a new work directory when changing source inputs; the script deliberately
 does not delete an existing build tree. A portable toolchain under
@@ -85,11 +91,52 @@ With the pinned Binutils toolchain, the PE timestamp is the fixed
 
 ## Timing controls and interpretation
 
-The patched DDA defaults are `precise_clock=1:acquire_timeout=0:clock_spin_us=500`.
+The patched DDA defaults are
+`precise_clock=1:acquire_timeout=0:clock_spin_us=500:fresh_wait_us=0:delivery_delay_us=0`.
 The clock uses QPC and a high-resolution waitable timer, with a bounded 500 us
 busy tail. At 100 fps this consumes at most 5% of one logical core for the tail.
 It skips expired deadlines after a stall instead of replaying an unbounded
-backlog. Texture ownership and release follow the upstream DDA implementation.
+backlog. The bounded fresh-acquisition path explicitly tracks texture references
+and ownership of a DXGI duplication frame across retries and timeout fallback.
+
+The desktop explicitly sets `source_clock=1:source_guard_us=3000`,
+`fresh_wait_us=2000`, and `delivery_delay_us=8000` for both primary and virtual
+display sources. The native defaults leave source alignment and both new controls
+off for existing callers. Fresh acquisition has one shared deadline across
+retries, capped by its configured budget and the next capture slot. Every retry
+on this live path calls `AcquireNextFrame(0)` and uses the existing high-resolution
+timer for intervals of at most 250 microseconds; no positive DXGI timeout or
+unbounded spin loop is used. The final nonblocking poll may accept an already
+ready image at the deadline. A mouse-only update does not count as a new desktop
+image. Initial probing and callers with fresh retry disabled retain their existing
+acquisition policy. OS/driver scheduling can still overshoot a requested timer
+deadline, and a zero timeout is not a hard bound on API execution.
+
+The earlier positive-timeout retry candidate had approximately 20 ms long tails
+in actual USB streaming despite improved host-only cadence. It was superseded
+by this nonblocking policy. A 64 KiB stdout-pipe experiment and a 5 ms source
+guard were not adopted; the production pipe and 3 ms guard remain unchanged.
+The primary-display follow-up with a 4 ms fresh-image budget also retained a
+presented-but-omitted source ID. The production fresh-image budget remains
+2 ms; the available checks do not establish universal zero picture loss.
+
+Delivery uses **scheduled capture slot + 8 ms**, carried through metadata,
+`FrameData`, and the existing NVENC `COPY_OPAQUE` association. It is not an extra
+8 ms sleep after encoding. The mux thread waits only for remaining budget after
+bitstream filtering, before AVI output. Each frame, including repeats, has its
+own deadline; late access units go immediately without shifting later deadlines
+or dropping encoded references. The existing single-packet queue remains, and
+the mux holds the current packet during its wait. This is bounded added latency,
+not zero buffering and not the accumulating sender pacer removed in 0.2.2.
+
+The mux owns a high-resolution waitable timer and uses at most a 100 us spin
+tail, without a new system timer-policy change. Validation rejects budgets
+exceeding one source frame period or 20 ms, invalid metadata and mismatched QPC
+clocks. A single INFO `G2_DELIVERY_SUMMARY` at shutdown reports eligible frames,
+completed waits, late arrivals, arrivals over 100 us late, maximum arrival
+lateness, maximum wait overshoot and total actual wait. It reuses existing QPC
+reads and adds no per-frame log, allocation or USB readback. A wait interrupted
+by shutdown/error is eligible but not counted as a completed wait.
 
 For a comparison using the same executable, set
 `precise_clock=0:acquire_timeout=-1`; this selects the upstream-style sleep clock
@@ -97,11 +144,15 @@ and half-frame acquisition timeout. `clock_spin_us` accepts 0 through 1000.
 The standalone test includes the actual clock header from the patched source;
 run its generated `check_clock.exe --measure 500` for a timer-only measurement.
 
-These controls act before capture/encoding. They do not delay completed H.264
-pictures at the USB sender. Static desktop repeats, a 60 Hz source streamed at
+Capture clock/source-phase controls act before encoding; the opt-in delivery
+deadline also holds early completed access units in the native mux thread.
+There is no added Python USB-sender pacer. Static desktop repeats, a 60 Hz source streamed at
 100 fps, GPU scheduling, encoding, USB completion and headset scanout are separate
 effects. Host timing tests do not establish optical latency or a universal 1%
 variation bound.
+The release's host measurements and added-wait tradeoff are documented in
+[0.2.6 validation](../../../docs/desktop/VALIDATION-0.2.6.md); they are not a new
+optical-latency acceptance result.
 
 See `NOTICE.txt` and `licenses/` for redistribution notices. Distribute the
 complete source archive and this directory with the app's source release.
@@ -115,8 +166,8 @@ scaler, NVENC or scheduling sources, run:
 python packaging/windows/ffmpeg/refresh_patch.py --source-tree work/ffmpeg-src-n9.0.2
 ```
 
-This includes changes throughout `libavfilter`, `libavcodec` and `fftools`,
-including new source headers and the PowerShell mailbox test runner under
+This includes changes throughout `libavfilter`, `libavcodec`, `libavutil` and `fftools`,
+including the delivery-policy header/tests, new source headers and the PowerShell mailbox test runner under
 `fftools/tests`, verifies reverse application against the working tree, and
 updates source and recipe hashes. It removes obsolete executable identities when
 the patch or recipe changes. Use a fresh work directory for the subsequent build, validate it, then

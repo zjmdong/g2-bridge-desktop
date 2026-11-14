@@ -33,7 +33,7 @@ class Settings:
         self.validate()
         return BridgeSettings(dll=find_dll(), ffmpeg=ffmpeg_path(), fps=self.fps,
                               bitrate_mbps=self.bitrate_mbps, preset=self.preset,
-                              capture=self.capture, display_index=display_index,
+                              capture=self.capture, capture_fps=self.fps, display_index=display_index,
                               show_cursor=self.show_cursor, h264_profile=H264_PROFILE, keyframe_seconds=3)
 
     def validate(self):
