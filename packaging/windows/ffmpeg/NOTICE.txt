@@ -1,0 +1,37 @@
+This directory provides the source patch and build recipe for the modified
+FFmpeg used by the Goggles Bridge Windows desktop integration.
+
+FFmpeg n9.0.2 is copyright its respective contributors and is configured here
+under GNU LGPL version 2.1 or later. Preserve all source copyright notices.
+The local DDA clock, D3D11 scaler, asynchronous NVENC, raw-frame scheduling,
+bounded fresh-image acquisition and source-clock delivery deadline changes
+use the same license as the corresponding FFmpeg components. The delivery
+policy header carries LGPL-2.1-or-later identification.
+
+The build adds fresh_wait_us and delivery_delay_us as opt-in native
+controls, both disabled by default. The desktop enables 2000 us acquisition
+and capture-slot-plus-8000 us delivery budgets. Live fresh-image retries use
+AcquireNextFrame with zero timeout and the existing timer in slices of at most
+250 us, sharing one absolute budget. The 3000 us source guard is retained.
+This is not an additional
+8000 us wait after encoding. Late access units retain their order and do not
+shift later deadlines. Host timing changes do not establish a new measured
+headset display latency or alter the recovered goggles USB protocol.
+
+The NVIDIA ff nvcodec API headers carry the NVIDIA permissive license in
+licenses/NVENC-headers-LICENSE. The NVIDIA driver itself is not redistributed.
+
+The MinGW-w64 winpthreads notice is in licenses/winpthreads-COPYING.
+GCC runtime components are covered by GPLv3 with the GCC Runtime Library
+Exception 3.1; both texts are retained in licenses/.
+
+When distributing the executable, include these notices and provide its
+complete corresponding FFmpeg source archive, this patch, build script and
+dependency manifest. The full source archive is distributed beside the app's
+source package at vendor/ffmpeg/source/ffmpeg-upstream-n9.0.2.tar.gz; vendor is
+not tracked by Git. The README explains how to reconstruct that archive from
+the pinned public upstream repository.
+
+This recipe builds a standalone FFmpeg executable. It does not link FFmpeg
+libraries into the desktop application. The desktop application's own license
+and the separate licenses of any other bundled FFmpeg build still apply.

@@ -1,0 +1,2753 @@
+diff --git a/fftools/ffmpeg.h b/fftools/ffmpeg.h
+index c44aaf6032f91aa3365199d187d695371e33af58..8e104ec9d6bab5662fbbcd19b142c0e21152314c 100644
+--- a/fftools/ffmpeg.h
++++ b/fftools/ffmpeg.h
+@@ -43,6 +43,7 @@
+ #include "libavutil/dict.h"
+ #include "libavutil/eval.h"
+ #include "libavutil/fifo.h"
++#include "libavutil/g2_delivery.h"
+ #include "libavutil/hwcontext.h"
+ #include "libavutil/pixfmt.h"
+ #include "libavutil/rational.h"
+@@ -182,6 +183,7 @@ typedef struct OptionsContext {
+     float mux_max_delay;
+     float shortest_buf_duration;
+     int shortest;
++    int latest_frame;
+     int bitexact;
+ 
+     int video_disable;
+@@ -637,6 +639,10 @@ typedef struct OutputStream {
+ 
+     Encoder *enc;
+ 
++    /* Opt-in single-video live mode; never used by packet queues. */
++    int latest_frame;
++    AVRational latest_frame_rate;
++
+     int bitexact;
+     int bits_per_raw_sample;
+ 
+@@ -705,6 +711,7 @@ typedef struct FrameData {
+     int        bits_per_raw_sample;
+ 
+     int64_t wallclock[LATENCY_PROBE_NB];
++    G2DeliveryDeadline delivery;
+ 
+     AVCodecParameters *par_enc;
+ 
+diff --git a/fftools/ffmpeg_enc.c b/fftools/ffmpeg_enc.c
+index 770533035db2c32233c75008f493052778db22a2..c2e04c1588095322cfb7e95b1bc17e4cf4987a7d 100644
+--- a/fftools/ffmpeg_enc.c
++++ b/fftools/ffmpeg_enc.c
+@@ -20,6 +20,7 @@
+ #include <stdint.h>
+ 
+ #include "ffmpeg.h"
++#include "frame_pacing.h"
+ 
+ #include "libavutil/avassert.h"
+ #include "libavutil/avstring.h"
+@@ -218,6 +219,8 @@ int enc_open(void *opaque, const AVFrame *frame)
+     if (ost->type == AVMEDIA_TYPE_AUDIO || ost->type == AVMEDIA_TYPE_VIDEO) {
+         enc_ctx->time_base      = frame->time_base;
+         enc_ctx->framerate      = fd->frame_rate_filter;
++        if (ost->latest_frame)
++            enc_ctx->framerate = ost->latest_frame_rate;
+     }
+ 
+     switch (enc_ctx->codec_type) {
+@@ -893,6 +896,14 @@ int encoder_thread(void *arg)
+             name_set = 1;
+         }
+ 
++        if (ost->latest_frame) {
++            ret = frame_pacing_compact(et.frame, e->frames_encoded, ost->latest_frame_rate);
++            if (ret < 0) {
++                av_log(e, AV_LOG_ERROR, "Cannot represent latest-frame timestamps at the encoder time base\n");
++                break;
++            }
++        }
++
+         ret = frame_encode(ost, et.frame, et.pkt);
+ 
+         av_packet_unref(et.pkt);
+diff --git a/fftools/ffmpeg_filter.c b/fftools/ffmpeg_filter.c
+index 5b68d831d8cc8615e82f5fcb118b637e97016e7f..9dc76b1814d9c010d98ef30b2acd782d07cd8241 100644
+--- a/fftools/ffmpeg_filter.c
++++ b/fftools/ffmpeg_filter.c
+@@ -2830,6 +2830,16 @@ static int fg_output_step(OutputFilterPriv *ofp, FilterGraphThread *fgt,
+     }
+ 
+     fd->wallclock[LATENCY_PROBE_FILTER_POST] = av_gettime_relative();
++    {
++        const AVDictionaryEntry *entry = av_dict_get(frame->metadata,
++                                                    G2_DELIVERY_METADATA, NULL, 0);
++        fd->delivery = (G2DeliveryDeadline){ 0 };
++        if (entry && !g2_delivery_parse(&fd->delivery, entry->value)) {
++            av_log(ofp, AV_LOG_ERROR, "Invalid source-clock delivery metadata\n");
++            av_frame_unref(frame);
++            return AVERROR(EINVAL);
++        }
++    }
+ 
+     // only use bits_per_raw_sample passed through from the decoder
+     // if the filtergraph did not touch the frame data
+diff --git a/fftools/ffmpeg_mux.c b/fftools/ffmpeg_mux.c
+index b408b02f2a434e70f629f770544fc47be6b34a69..7d6062d77361f19e75be12e15cac5f4f50460293 100644
+--- a/fftools/ffmpeg_mux.c
++++ b/fftools/ffmpeg_mux.c
+@@ -20,6 +20,13 @@
+ #include <stdio.h>
+ #include <string.h>
+ 
++#ifdef _WIN32
++#include <windows.h>
++#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
++#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
++#endif
++#endif
++
+ #include "ffmpeg.h"
+ #include "ffmpeg_mux.h"
+ #include "ffmpeg_utils.h"
+@@ -201,6 +208,119 @@ static int mux_fixup_ts(Muxer *mux, MuxStream *ms, AVPacket *pkt)
+     return 0;
+ }
+ 
++static void mux_delivery_uninit(Muxer *mux)
++{
++    if (mux->delivery_eligible && mux->delivery_frequency > 0) {
++        const double tick_us = 1000000.0 / mux->delivery_frequency;
++        av_log(mux, AV_LOG_INFO,
++               "G2_DELIVERY_SUMMARY eligible=%"PRIu64" waited=%"PRIu64
++               " arrival_late=%"PRIu64" arrival_late_100us=%"PRIu64
++               " max_arrival_late_us=%.3f max_wait_overshoot_us=%.3f"
++               " total_actual_wait_us=%.3f\n",
++               mux->delivery_eligible, mux->delivery_waited,
++               mux->delivery_arrival_late, mux->delivery_arrival_late_100us,
++               mux->delivery_max_arrival_late * tick_us,
++               mux->delivery_max_wait_overshoot * tick_us,
++               mux->delivery_total_wait * tick_us);
++    }
++#ifdef _WIN32
++    if (mux->delivery_timer)
++        CloseHandle((HANDLE)mux->delivery_timer);
++#endif
++    mux->delivery_timer = NULL;
++    mux->delivery_frequency = 0;
++}
++
++/* Opt-in DDA frames carry an absolute deadline through COPY_OPAQUE. Waiting in
++ * this thread leaves capture/encode independent and keeps the existing bounded
++ * packet queue. This holds the current packet, never drops/reorders a reference
++ * picture, and never shifts future deadlines to compensate for a late packet. */
++static int mux_delivery_wait(Muxer *mux, const AVPacket *pkt)
++{
++    const FrameData *fd = pkt->opaque_ref ? (const FrameData *)pkt->opaque_ref->data : NULL;
++    if (!fd || !fd->delivery.frequency)
++        return 0;
++#ifdef _WIN32
++    {
++        LARGE_INTEGER value;
++        int64_t remaining, spin, arrival, deadline;
++        int did_wait;
++        if (!mux->delivery_timer) {
++            if (!QueryPerformanceFrequency(&value) || value.QuadPart <= 0)
++                return AVERROR_EXTERNAL;
++            mux->delivery_frequency = value.QuadPart;
++            mux->delivery_timer = CreateWaitableTimerExW(NULL, NULL,
++                    CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_MODIFY_STATE | SYNCHRONIZE);
++            if (!mux->delivery_timer) {
++                av_log(mux, AV_LOG_ERROR, "Could not create source delivery deadline timer\n");
++                return AVERROR_EXTERNAL;
++            }
++        }
++        if (!QueryPerformanceCounter(&value))
++            return AVERROR_EXTERNAL;
++        remaining = g2_delivery_remaining(&fd->delivery, mux->delivery_frequency,
++                                           value.QuadPart);
++        if (remaining < 0) {
++            av_log(mux, AV_LOG_ERROR, "Invalid source delivery deadline or QPC clock\n");
++            return AVERROR(EINVAL);
++        }
++        arrival = value.QuadPart;
++        deadline = fd->delivery.source_deadline + fd->delivery.delay;
++        did_wait = remaining > 0;
++        mux->delivery_eligible++;
++        if (arrival > deadline) {
++            const int64_t late = arrival - deadline;
++            mux->delivery_arrival_late++;
++            mux->delivery_arrival_late_100us += late > mux->delivery_frequency / 10000;
++            mux->delivery_max_arrival_late = FFMAX(mux->delivery_max_arrival_late, late);
++        }
++        spin = mux->delivery_frequency / 10000; /* At most a 100 us spin tail. */
++        while (remaining > 0) {
++            if (int_cb.callback && int_cb.callback(int_cb.opaque))
++                return AVERROR_EXIT;
++            if (remaining > spin) {
++                LARGE_INTEGER due;
++                DWORD result;
++                /* Validation bounds remaining to <=20 ms and one source frame.
++                 * Relative timers use 100 ns units; QPC is the only clock used
++                 * for deciding whether the absolute delivery deadline passed. */
++                due.QuadPart = -(remaining - spin) * INT64_C(10000000) /
++                              mux->delivery_frequency;
++                if (!due.QuadPart)
++                    due.QuadPart = -1;
++                if (!SetWaitableTimer((HANDLE)mux->delivery_timer, &due, 0, NULL, NULL, FALSE))
++                    return AVERROR_EXTERNAL;
++                result = WaitForSingleObject((HANDLE)mux->delivery_timer,
++                    (DWORD)((remaining * 1000 + mux->delivery_frequency - 1) /
++                            mux->delivery_frequency + 1));
++                if (result != WAIT_OBJECT_0 && result != WAIT_TIMEOUT)
++                    return AVERROR_EXTERNAL;
++            } else {
++                YieldProcessor();
++            }
++            if (!QueryPerformanceCounter(&value))
++                return AVERROR_EXTERNAL;
++            remaining = g2_delivery_remaining(&fd->delivery, mux->delivery_frequency,
++                                               value.QuadPart);
++            if (remaining < 0)
++                return AVERROR(EINVAL);
++        }
++        if (did_wait) {
++            /* Reuse the final loop QPC: no additional clock query or per-frame
++             * output. Only completed waits contribute to these wait metrics;
++             * a wait aborted by shutdown/error remains eligible but not waited. */
++            mux->delivery_waited++;
++            mux->delivery_total_wait += value.QuadPart - arrival;
++            mux->delivery_max_wait_overshoot = FFMAX(mux->delivery_max_wait_overshoot,
++                                                    value.QuadPart - deadline);
++        }
++        return 0;
++    }
++#else
++    return AVERROR(ENOSYS);
++#endif
++}
++
+ static int write_packet(Muxer *mux, OutputStream *ost, AVPacket *pkt)
+ {
+     MuxStream *ms = ms_from_ost(ost);
+@@ -228,6 +348,12 @@ static int write_packet(Muxer *mux, OutputStream *ost, AVPacket *pkt)
+     if (ms->stats.io)
+         enc_stats_write(ost, &ms->stats, NULL, pkt, frame_num);
+ 
++    /* Apply after bitstream filtering, before av_interleaved_write_frame takes
++     * ownership of pkt (including its source deadline opaque_ref). */
++    ret = mux_delivery_wait(mux, pkt);
++    if (ret < 0)
++        goto fail;
++
+     ret = av_interleaved_write_frame(s, pkt);
+     if (ret < 0) {
+         av_log(ost, AV_LOG_ERROR,
+@@ -448,6 +574,7 @@ int muxer_thread(void *arg)
+ 
+ finish:
+     mux_thread_uninit(&mt);
++    mux_delivery_uninit(mux);
+ 
+     return ret;
+ }
+diff --git a/fftools/ffmpeg_mux.h b/fftools/ffmpeg_mux.h
+index f458cc882c9e93a20664109423b44b60f31bfc97..f58b8e7c09bf4a59b218bb16cd0b389da8845cab 100644
+--- a/fftools/ffmpeg_mux.h
++++ b/fftools/ffmpeg_mux.h
+@@ -116,6 +116,18 @@ typedef struct Muxer {
+ 
+     SyncQueue              *sq_mux;
+     AVPacket               *sq_pkt;
++
++    /* Owned solely by the mux thread; lazily allocated for opted-in frames. */
++    void                   *delivery_timer;
++    int64_t                 delivery_frequency;
++    /* Constant-cost mux-thread counters; converted to microseconds at exit. */
++    uint64_t                delivery_eligible;
++    uint64_t                delivery_waited;
++    uint64_t                delivery_arrival_late;
++    uint64_t                delivery_arrival_late_100us;
++    int64_t                 delivery_max_arrival_late;
++    int64_t                 delivery_max_wait_overshoot;
++    uint64_t                delivery_total_wait;
+ } Muxer;
+ 
+ int mux_check_init(void *arg);
+diff --git a/fftools/ffmpeg_mux_init.c b/fftools/ffmpeg_mux_init.c
+index e4bbaa44be1b66f49c2ffdac29f5dabdf9a7f53a..3c8414bc275457ddd19d88f60e05de5e952eb53b 100644
+--- a/fftools/ffmpeg_mux_init.c
++++ b/fftools/ffmpeg_mux_init.c
+@@ -743,7 +743,22 @@ static int new_stream_video(Muxer *mux, const OptionsContext *o,
+                 return ret;
+         }
+ 
+-        if ((ms->frame_rate.num || ms->max_frame_rate.num) &&
++        if (o->latest_frame) {
++            if (ms->frame_rate.num <= 0 || ms->frame_rate.den <= 0 ||
++                ms->max_frame_rate.num ||
++                (fps_mode && *vsync_method != VSYNC_PASSTHROUGH)) {
++                av_log(ost, AV_LOG_ERROR,
++                       "-latest_frame requires an explicit -r and passthrough fps mode; -fpsmax/CFR/VFR are unsupported\n");
++                return AVERROR(EINVAL);
++            }
++            /* The requested rate configures the encoder and compact output
++             * timestamps, not duplication of stale input frames. */
++            *vsync_method = VSYNC_PASSTHROUGH;
++            ost->latest_frame = 1;
++            ost->latest_frame_rate = ms->frame_rate;
++        }
++
++        if (!o->latest_frame && (ms->frame_rate.num || ms->max_frame_rate.num) &&
+             !(*vsync_method == VSYNC_AUTO ||
+               *vsync_method == VSYNC_CFR || *vsync_method == VSYNC_VSCFR)) {
+             av_log(ost, AV_LOG_FATAL, "One of -r/-fpsmax was specified "
+@@ -3297,6 +3312,11 @@ int of_open(const OptionsContext *o, const char *filename, Scheduler *sch)
+     int64_t recording_time = o->recording_time;
+     int64_t stop_time      = o->stop_time;
+ 
++    if (o->latest_frame != 0 && o->latest_frame != 1) {
++        av_log(NULL, AV_LOG_ERROR, "-latest_frame must be 0 or 1\n");
++        return AVERROR(EINVAL);
++    }
++
+     mux = mux_alloc();
+     if (!mux)
+         return AVERROR(ENOMEM);
+@@ -3369,6 +3389,20 @@ int of_open(const OptionsContext *o, const char *filename, Scheduler *sch)
+     if (err < 0)
+         return err;
+ 
++    if (o->latest_frame) {
++        OutputStream *ost = of->nb_streams == 1 ? of->streams[0] : NULL;
++        if (!ost || ost->type != AVMEDIA_TYPE_VIDEO || !ost->enc ||
++            o->shortest || copy_ts || ms_from_ost(ost)->max_frames != INT64_MAX ||
++            (ost->enc->enc_ctx->flags & (AV_CODEC_FLAG_PASS1 | AV_CODEC_FLAG_PASS2))) {
++            av_log(mux, AV_LOG_ERROR,
++                   "-latest_frame supports one encoded live video stream only; audio, shortest, copyts, -frames and two-pass encoding are unsupported (use -t or stop the live process)\n");
++            return AVERROR(EINVAL);
++        }
++        err = sch_enc_latest_frame(sch, ms_from_ost(ost)->sch_idx_enc);
++        if (err < 0)
++            return err;
++    }
++
+     /* check if all codec options have been used */
+     err = check_avoptions_used(o->g->codec_opts, mux->enc_opts_used, mux, 0);
+     av_dict_free(&mux->enc_opts_used);
+diff --git a/fftools/ffmpeg_opt.c b/fftools/ffmpeg_opt.c
+index 2c362c64af8fffb02438af0051609281bfaa45d5..14fca7a74ab998ecb861b822db0134c6b48f1729 100644
+--- a/fftools/ffmpeg_opt.c
++++ b/fftools/ffmpeg_opt.c
+@@ -1693,6 +1693,9 @@ const OptionDef options[] = {
+     { "shortest",               OPT_TYPE_BOOL, OPT_EXPERT | OPT_OFFSET | OPT_OUTPUT,
+         { .off = OFFSET(shortest) },
+         "finish encoding within shortest input" },
++    { "latest_frame",           OPT_TYPE_INT, OPT_EXPERT | OPT_OFFSET | OPT_OUTPUT,
++        { .off = OFFSET(latest_frame) },
++        "replace waiting raw frames in single-video live output (0 or 1; requires -r)", "0|1" },
+     { "shortest_buf_duration",  OPT_TYPE_FLOAT, OPT_EXPERT | OPT_OFFSET | OPT_OUTPUT,
+         { .off = OFFSET(shortest_buf_duration) },
+         "maximum buffering duration (in seconds) for the -shortest option" },
+diff --git a/fftools/ffmpeg_sched.c b/fftools/ffmpeg_sched.c
+index dddd1d2c6746448500493e10fc08eb306dc3e5e9..09943f03fbf73291de51ff25c0fd403a8f6e5cc9 100644
+--- a/fftools/ffmpeg_sched.c
++++ b/fftools/ffmpeg_sched.c
+@@ -22,6 +22,7 @@
+ #include <stdatomic.h>
+ #include <stddef.h>
+ #include <stdint.h>
++#include <inttypes.h>
+ 
+ #include "cmdutils.h"
+ #include "ffmpeg_sched.h"
+@@ -142,6 +143,7 @@ typedef struct SchEnc {
+     ThreadQueue        *queue;
+     // tq_send() to queue returned EOF
+     int                 in_finished;
++    int                 latest_frame;
+ 
+     // temporary storage used by sch_enc_send()
+     AVPacket           *send_pkt;
+@@ -850,6 +852,31 @@ int sch_add_enc(Scheduler *sch, SchThreadFunc func, void *ctx,
+     return idx;
+ }
+ 
++int sch_enc_latest_frame(Scheduler *sch, unsigned enc_idx)
++{
++    SchEnc *enc;
++    ThreadQueue *queue = NULL;
++    int ret;
++
++    if (sch->state != SCH_STATE_UNINIT || enc_idx >= sch->nb_enc)
++        return AVERROR(EINVAL);
++    enc = &sch->enc[enc_idx];
++    if (enc->opened || enc->sq_idx[0] >= 0)
++        return AVERROR(EINVAL);
++    ret = queue_alloc(&queue, 1, 1, QUEUE_FRAMES);
++    if (ret < 0)
++        return ret;
++    ret = tq_set_latest_frame(queue);
++    if (ret < 0) {
++        tq_free(&queue);
++        return ret;
++    }
++    tq_free(&enc->queue);
++    enc->queue = queue;
++    enc->latest_frame = 1;
++    return 0;
++}
++
+ static const AVClass sch_fg_class = {
+     .class_name                = "SchFilterGraph",
+     .version                   = LIBAVUTIL_VERSION_INT,
+@@ -936,6 +963,11 @@ int sch_sq_add_enc(Scheduler *sch, unsigned sq_idx, unsigned enc_idx,
+     av_assert0(enc_idx < sch->nb_enc);
+     enc = &sch->enc[enc_idx];
+ 
++    if (enc->latest_frame) {
++        av_log(enc, AV_LOG_ERROR, "Latest-frame input cannot use an encoding synchronization queue\n");
++        return AVERROR(EINVAL);
++    }
++
+     ret = GROW_ARRAY(sq->enc_idx, sq->nb_enc_idx);
+     if (ret < 0)
+         return ret;
+@@ -1742,6 +1774,16 @@ int sch_start(Scheduler *sch)
+ {
+     int ret;
+ 
++    for (unsigned i = 0; i < sch->nb_enc; i++) {
++        if (sch->enc[i].latest_frame &&
++            (sch->nb_enc != 1 || sch->nb_mux != 1 || sch->mux[0].nb_streams != 1 ||
++             sch->enc[i].sq_idx[0] >= 0)) {
++            av_log(sch->enc + i, AV_LOG_ERROR,
++                   "Latest-frame input requires a single video encoder and a single-stream output\n");
++            return AVERROR(EINVAL);
++        }
++    }
++
+     ret = start_prepare(sch);
+     if (ret < 0)
+         return ret;
+@@ -2539,6 +2581,10 @@ static int enc_done(Scheduler *sch, unsigned enc_idx)
+ 
+     tq_receive_finish(enc->queue, 0);
+ 
++    if (enc->latest_frame)
++        av_log(enc, AV_LOG_INFO, "Latest-frame mailbox replaced %"PRIu64" unencoded video frames\n",
++               tq_latest_frame_dropped(enc->queue));
++
+     for (unsigned i = 0; i < enc->nb_dst; i++) {
+         int err = enc_send_to_dst(sch, enc->dst[i], &enc->dst_finished[i], NULL);
+         if (err < 0 && err != AVERROR_EOF)
+diff --git a/fftools/ffmpeg_sched.h b/fftools/ffmpeg_sched.h
+index 2cf3034437a5c43f51807bf7cdab1bbb2fb07d3f..2cd9a195ce3dea5635c187b757667438582fcc96 100644
+--- a/fftools/ffmpeg_sched.h
++++ b/fftools/ffmpeg_sched.h
+@@ -317,6 +317,9 @@ int sch_sdp_filename(Scheduler *sch, const char *sdp_filename);
+ int sch_add_enc(Scheduler *sch, SchThreadFunc func, void *ctx,
+                 int (*open_cb)(void *func_arg, const struct AVFrame *frame));
+ 
++/* Enable a one-slot raw video mailbox before scheduling starts. */
++int sch_enc_latest_frame(Scheduler *sch, unsigned enc_idx);
++
+ /**
+  * Add an pre-encoding sync queue to the scheduler.
+  *
+diff --git a/fftools/thread_queue.c b/fftools/thread_queue.c
+index 9fa8a46cacb91ba16adfa55b309ad2d5c3c24df1..df17186590f61c27a3197ff001d4c3e858c2400d 100644
+--- a/fftools/thread_queue.c
++++ b/fftools/thread_queue.c
+@@ -39,6 +39,8 @@ enum {
+ 
+ struct ThreadQueue {
+     int             choked;
++    int             latest_frame;
++    uint64_t        latest_frame_dropped;
+     int              *finished;
+     unsigned int    nb_streams;
+ 
+@@ -114,6 +116,30 @@ fail:
+     return NULL;
+ }
+ 
++int tq_set_latest_frame(ThreadQueue *tq)
++{
++    int ret = 0;
++
++    pthread_mutex_lock(&tq->lock);
++    if (tq->type != THREAD_QUEUE_FRAMES || tq->nb_streams != 1 ||
++        av_fifo_can_read(tq->fifo_stream_index) ||
++        av_fifo_can_write(tq->fifo_stream_index) != 1 || tq->finished[0])
++        ret = AVERROR(EINVAL);
++    else
++        tq->latest_frame = 1;
++    pthread_mutex_unlock(&tq->lock);
++    return ret;
++}
++
++uint64_t tq_latest_frame_dropped(ThreadQueue *tq)
++{
++    uint64_t dropped;
++    pthread_mutex_lock(&tq->lock);
++    dropped = tq->latest_frame_dropped;
++    pthread_mutex_unlock(&tq->lock);
++    return dropped;
++}
++
+ int tq_send(ThreadQueue *tq, unsigned int stream_idx, void *data)
+ {
+     int *finished;
+@@ -129,12 +155,39 @@ int tq_send(ThreadQueue *tq, unsigned int stream_idx, void *data)
+         goto finish;
+     }
+ 
+-    while (!(*finished & FINISHED_RECV) && !av_fifo_can_write(tq->fifo_stream_index))
++    while (!tq->latest_frame && !(*finished & FINISHED_RECV) &&
++           !av_fifo_can_write(tq->fifo_stream_index))
+         pthread_cond_wait(&tq->cond, &tq->lock);
+ 
+     if (*finished & FINISHED_RECV) {
+         ret = AVERROR_EOF;
+         *finished |= FINISHED_SEND;
++    } else if (tq->latest_frame) {
++        AVFrame *frame = data;
++
++        if (frame->width <= 0 || frame->height <= 0 || frame->nb_samples || !frame->buf[0]) {
++            ret = AVERROR(EINVAL);
++            goto finish;
++        }
++        if (av_container_fifo_can_read(tq->fifo)) {
++            void *waiting;
++            ret = av_container_fifo_peek(tq->fifo, &waiting, 0);
++            av_assert0(ret >= 0);
++            /* Move references, never overwrite pixels in a GPU surface. The
++             * consumer cannot own this frame while the queue lock is held. */
++            av_frame_unref(waiting);
++            av_frame_move_ref(waiting, frame);
++            tq->latest_frame_dropped++;
++        } else {
++            /* Allocation failure leaves both queues empty and the input with
++             * its caller. The index FIFO already has one free allocated slot. */
++            ret = av_container_fifo_write(tq->fifo, data, 0);
++            if (ret < 0)
++                goto finish;
++            ret = av_fifo_write(tq->fifo_stream_index, &stream_idx, 1);
++            av_assert0(ret >= 0);
++        }
++        pthread_cond_broadcast(&tq->cond);
+     } else {
+         ret = av_fifo_write(tq->fifo_stream_index, &stream_idx, 1);
+         if (ret < 0)
+diff --git a/fftools/thread_queue.h b/fftools/thread_queue.h
+index 756545df4441f5797a4d32acd2802aabc0c887ba..5ea88c9e23afef6ba7cd4d5cd0a932ddaff04150 100644
+--- a/fftools/thread_queue.h
++++ b/fftools/thread_queue.h
+@@ -20,6 +20,7 @@
+ #define FFTOOLS_THREAD_QUEUE_H
+ 
+ #include <string.h>
++#include <stdint.h>
+ 
+ enum ThreadQueueType {
+     THREAD_QUEUE_FRAMES,
+@@ -46,6 +47,16 @@ ThreadQueue *tq_alloc(unsigned int nb_streams, size_t queue_size,
+                       enum ThreadQueueType type);
+ void         tq_free(ThreadQueue **tq);
+ 
++/**
++ * Before use, enable replacement of the single waiting raw video frame.
++ * Only a one-stream, one-slot frame queue is supported. No packet queues,
++ * audio frames or EOF markers are dropped. Default queues are unchanged.
++ */
++int tq_set_latest_frame(ThreadQueue *tq);
++
++/** Number of waiting raw frames replaced by newer frames, not EOF discards. */
++uint64_t tq_latest_frame_dropped(ThreadQueue *tq);
++
+ /**
+  * Send an item for the given stream to the queue.
+  *
+diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
+index 9203fb65c05f8261de396ca02ebca411329e4dce..01f0de052723e9cf5b96cbf10300a237ba1f1683 100644
+--- a/libavcodec/nvenc.c
++++ b/libavcodec/nvenc.c
+@@ -44,6 +44,10 @@
+ #include "encode.h"
+ #include "internal.h"
+ 
++#ifdef _WIN32
++#include <windows.h>
++#endif
++
+ #define CHECK_CU(x) FF_CUDA_CHECK_DL(avctx, dl_fn->cuda_dl, x)
+ 
+ #define NVENC_CAP 0x30
+@@ -346,6 +350,105 @@ static int nvenc_pop_context(AVCodecContext *avctx)
+     return CHECK_CU(dl_fn->cuda_dl->cuCtxPopCurrent(&dummy));
+ }
+ 
++#ifdef _WIN32
++/* This bounds our event wait, not arbitrary calls inside the display driver. */
++#define NVENC_ASYNC_WAIT_MS 1000
++
++static int nvenc_create_completion_event(AVCodecContext *avctx, void **event)
++{
++    NvencContext *ctx = avctx->priv_data;
++    NV_ENCODE_API_FUNCTION_LIST *nvenc = &ctx->nvenc_dload_funcs.nvenc_funcs;
++    NV_ENC_EVENT_PARAMS params = { .version = NV_ENC_EVENT_PARAMS_VER };
++    NVENCSTATUS status;
++    HANDLE handle = CreateEvent(NULL, FALSE, FALSE, NULL);
++
++    if (!handle) {
++        av_log(avctx, AV_LOG_ERROR, "CreateEvent failed: %lu\n", GetLastError());
++        return AVERROR_EXTERNAL;
++    }
++    params.completionEvent = handle;
++    status = nvenc->nvEncRegisterAsyncEvent(ctx->nvencoder, &params);
++    if (status != NV_ENC_SUCCESS) {
++        CloseHandle(handle);
++        return nvenc_print_error(avctx, status, "RegisterAsyncEvent failed");
++    }
++    *event = handle;
++    return 0;
++}
++
++static int nvenc_destroy_completion_event(AVCodecContext *avctx, void **event)
++{
++    NvencContext *ctx = avctx->priv_data;
++    NV_ENCODE_API_FUNCTION_LIST *nvenc = &ctx->nvenc_dload_funcs.nvenc_funcs;
++    NV_ENC_EVENT_PARAMS params = { .version = NV_ENC_EVENT_PARAMS_VER };
++    NVENCSTATUS status;
++
++    if (!*event)
++        return 0;
++    params.completionEvent = *event;
++    status = nvenc->nvEncUnregisterAsyncEvent(ctx->nvencoder, &params);
++    if (status != NV_ENC_SUCCESS)
++        return nvenc_print_error(avctx, status, "UnregisterAsyncEvent failed");
++    CloseHandle(*event);
++    *event = NULL;
++    return 0;
++}
++
++static int nvenc_wait_completion_event(AVCodecContext *avctx, void *event)
++{
++    DWORD result = WaitForSingleObject(event, NVENC_ASYNC_WAIT_MS);
++
++    if (result == WAIT_OBJECT_0)
++        return 0;
++    if (result == WAIT_TIMEOUT) {
++        av_log(avctx, AV_LOG_ERROR, "NVENC completion event timed out after %d ms\n",
++               NVENC_ASYNC_WAIT_MS);
++        return AVERROR(ETIMEDOUT);
++    }
++    av_log(avctx, AV_LOG_ERROR, "NVENC completion event wait failed: %lu\n", GetLastError());
++    return AVERROR_EXTERNAL;
++}
++
++static int nvenc_wait_eos(AVCodecContext *avctx)
++{
++    NvencContext *ctx = avctx->priv_data;
++    int ret;
++
++    if (!ctx->async_eos_pending)
++        return 0;
++    ret = nvenc_wait_completion_event(avctx, ctx->async_eos_event);
++    if (ret < 0)
++        return ret;
++    ctx->async_eos_pending = 0;
++    ctx->async_has_work = 0;
++    return 0;
++}
++
++/* The caller has pushed the encode context. Never release in-flight resources
++ * after a timeout: NVENC has no per-picture cancellation operation. */
++static int nvenc_drain_async(AVCodecContext *avctx)
++{
++    NvencContext *ctx = avctx->priv_data;
++    NV_ENCODE_API_FUNCTION_LIST *nvenc = &ctx->nvenc_dload_funcs.nvenc_funcs;
++    NV_ENC_PIC_PARAMS params = { .version = NV_ENC_PIC_PARAMS_VER,
++                               .encodePicFlags = NV_ENC_PIC_FLAG_EOS };
++    NVENCSTATUS status;
++
++    if (ctx->async_eos_pending)
++        return nvenc_wait_eos(avctx);
++    if (!ctx->async_has_work)
++        return 0;
++    if (!ResetEvent(ctx->async_eos_event))
++        return AVERROR_EXTERNAL;
++    params.completionEvent = ctx->async_eos_event;
++    status = nvenc->nvEncEncodePicture(ctx->nvencoder, &params);
++    if (status != NV_ENC_SUCCESS)
++        return nvenc_print_error(avctx, status, "Async EOS submission failed");
++    ctx->async_eos_pending = 1;
++    return nvenc_wait_eos(avctx);
++}
++#endif
++
+ static av_cold int nvenc_open_session(AVCodecContext *avctx)
+ {
+     NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS params = { 0 };
+@@ -436,6 +539,14 @@ static int nvenc_check_capabilities(AVCodecContext *avctx)
+         return ret;
+     }
+ 
++#ifdef _WIN32
++    if (ctx->async_encode &&
++        nvenc_check_cap(avctx, NV_ENC_CAPS_ASYNC_ENCODE_SUPPORT) <= 0) {
++        av_log(avctx, AV_LOG_ERROR, "Windows asynchronous encoding is not supported by this device/driver\n");
++        return AVERROR(ENOSYS);
++    }
++#endif
++
+     ret = nvenc_check_cap(avctx, NV_ENC_CAPS_SUPPORT_YUV444_ENCODE);
+     if (IS_YUV444(ctx->data_pix_fmt) && ret <= 0) {
+         av_log(avctx, AV_LOG_WARNING, "YUV444P not supported\n");
+@@ -983,6 +1094,12 @@ static av_cold int nvenc_recalc_surfaces(AVCodecContext *avctx)
+         // otherwise use user specified value
+     }
+ 
++#ifdef _WIN32
++    /* The SDK's asynchronous IO pool recommendation is 4 + number of B frames.
++     * Allocation does not add output delay; -delay continues to control that. */
++    if (ctx->async_encode)
++        ctx->nb_surfaces = FFMAX(ctx->nb_surfaces, 4 + FFMAX(0, ctx->encode_config.frameIntervalP - 1));
++#endif
+     ctx->nb_surfaces = FFMAX(1, FFMIN(MAX_REGISTERED_FRAMES, ctx->nb_surfaces));
+     ctx->async_depth = FFMIN(ctx->async_depth, ctx->nb_surfaces - 1);
+ 
+@@ -1723,6 +1840,11 @@ static av_cold int nvenc_setup_encoder(AVCodecContext *avctx)
+ #endif
+ 
+     ctx->init_encode_params.enableEncodeAsync = 0;
++#ifdef _WIN32
++    ctx->init_encode_params.enableEncodeAsync = ctx->async_encode;
++    if (ctx->async_encode)
++        ctx->init_encode_params.enableOutputInVidmem = 0;
++#endif
+     ctx->init_encode_params.enablePTD = 1;
+ 
+     /* If lookahead isn't set from CLI, use value from preset.
+@@ -1923,6 +2045,14 @@ static av_cold int nvenc_alloc_surface(AVCodecContext *avctx, int idx)
+ 
+     ctx->surfaces[idx].output_surface = allocOut.bitstreamBuffer;
+ 
++#ifdef _WIN32
++    if (ctx->async_encode) {
++        int ret = nvenc_create_completion_event(avctx, &tmp_surface->completion_event);
++        if (ret < 0)
++            return ret;
++    }
++#endif
++
+     av_fifo_write(ctx->unused_surface_queue, &tmp_surface, 1);
+ 
+     return 0;
+@@ -1961,6 +2091,15 @@ static av_cold int nvenc_setup_surfaces(AVCodecContext *avctx)
+     if (res < 0)
+         return res;
+ 
++#ifdef _WIN32
++    if (ctx->async_encode) {
++        res = nvenc_create_completion_event(avctx, &ctx->async_eos_event);
++        if (res < 0)
++            goto fail;
++        av_log(avctx, AV_LOG_VERBOSE, "Using Windows NVENC asynchronous completion events\n");
++    }
++#endif
++
+     for (i = 0; i < ctx->nb_surfaces; i++) {
+         if ((res = nvenc_alloc_surface(avctx, i)) < 0)
+             goto fail;
+@@ -2024,6 +2163,24 @@ av_cold int ff_nvenc_encode_close(AVCodecContext *avctx)
+         if (res < 0)
+             return res;
+ 
++#ifdef _WIN32
++        if (ctx->async_encode) {
++            res = nvenc_drain_async(avctx);
++            if (res < 0)
++                goto async_close_failed;
++
++            if (ctx->surfaces) {
++                for (i = 0; i < ctx->nb_surfaces; i++) {
++                    res = nvenc_destroy_completion_event(avctx, &ctx->surfaces[i].completion_event);
++                    if (res < 0)
++                        goto async_close_failed;
++                }
++            }
++            res = nvenc_destroy_completion_event(avctx, &ctx->async_eos_event);
++            if (res < 0)
++                goto async_close_failed;
++        } else
++#endif
+         p_nvenc->nvEncEncodePicture(ctx->nvencoder, &params);
+     }
+ 
+@@ -2083,6 +2240,11 @@ av_cold int ff_nvenc_encode_close(AVCodecContext *avctx)
+     }
+ #endif
+ 
++#ifdef _WIN32
++    av_buffer_unref(&ctx->async_hw_frames_ref);
++    av_buffer_unref(&ctx->async_hw_device_ref);
++#endif
++
+     nvenc_free_functions(&dl_fn->nvenc_dl);
+     cuda_free_functions(&dl_fn->cuda_dl);
+ 
+@@ -2091,6 +2253,21 @@ av_cold int ff_nvenc_encode_close(AVCodecContext *avctx)
+     av_log(avctx, AV_LOG_VERBOSE, "Nvenc unloaded\n");
+ 
+     return 0;
++
++#ifdef _WIN32
++async_close_failed:
++    /* An event timeout is not cancellation. Keep the driver, event handles,
++     * surfaces and their AVFrame references alive until process exit rather
++     * than letting the GPU access freed memory. The failed session cannot be
++     * reused. Independent async_hw_* refs also retain borrowed CUDA devices
++     * when avcodec_close() releases the public AVCodecContext's own refs.
++     * A supervised FFmpeg process may now be terminated safely. */
++    ctx->async_error = res;
++    av_log(avctx, AV_LOG_ERROR,
++           "NVENC asynchronous shutdown failed; retaining in-flight resources until process exit\n");
++    nvenc_pop_context(avctx);
++    return res;
++#endif
+ }
+ 
+ av_cold int ff_nvenc_encode_init(AVCodecContext *avctx)
+@@ -2121,6 +2298,23 @@ av_cold int ff_nvenc_encode_init(AVCodecContext *avctx)
+         return AVERROR(EINVAL);
+     }
+ 
++#ifdef _WIN32
++    if (ctx->async_encode) {
++        /* Allocate independent ownership before submitting any work, not on
++         * the fatal path where allocating another reference could fail. */
++        if (avctx->hw_device_ctx) {
++            ctx->async_hw_device_ref = av_buffer_ref(avctx->hw_device_ctx);
++            if (!ctx->async_hw_device_ref)
++                return AVERROR(ENOMEM);
++        }
++        if (avctx->hw_frames_ctx) {
++            ctx->async_hw_frames_ref = av_buffer_ref(avctx->hw_frames_ctx);
++            if (!ctx->async_hw_frames_ref)
++                return AVERROR(ENOMEM);
++        }
++    }
++#endif
++
+     ctx->frame = av_frame_alloc();
+     if (!ctx->frame)
+         return AVERROR(ENOMEM);
+@@ -2577,6 +2771,18 @@ static int process_output_surface(AVCodecContext *avctx, AVPacket *pkt, NvencSur
+ 
+     lock_params.version = NV_ENC_LOCK_BITSTREAM_VER;
+ 
++#ifdef _WIN32
++    if (ctx->async_encode) {
++        res = nvenc_wait_completion_event(avctx, tmpoutsurf->completion_event);
++        if (res < 0) {
++            ctx->async_error = res;
++            goto error;
++        }
++    }
++#endif
++    /* DirectX capture can run on another FFmpeg thread. NVENC guide section
++     * 6.3 recommends async=1, system-memory output and doNotWait=0 for this
++     * case. Wait above, outside the driver lock, before touching bitstream. */
+     lock_params.doNotWait = 0;
+     lock_params.outputBitstream = tmpoutsurf->output_surface;
+ 
+@@ -2660,6 +2866,15 @@ error:
+     timestamp_queue_dequeue(ctx->timestamp_list);
+ 
+ error2:
++#ifdef _WIN32
++    if (ctx->async_encode) {
++        /* This surface has already left the ready queue. A failed retrieval
++         * must never be treated as permission to submit another frame. */
++        if (res == AVERROR(EAGAIN))
++            res = AVERROR_EXTERNAL;
++        ctx->async_error = res;
++    }
++#endif
+     return res;
+ }
+ 
+@@ -2978,6 +3193,20 @@ static int nvenc_send_frame(AVCodecContext *avctx, const AVFrame *frame)
+     if ((!ctx->cu_context && !ctx->d3d11_device) || !ctx->nvencoder)
+         return AVERROR(EINVAL);
+ 
++#ifdef _WIN32
++    if (ctx->async_encode) {
++        if (ctx->async_error)
++            return ctx->async_error;
++        /* Flush may be followed by new input after avcodec_flush_buffers().
++         * Do not reset/reuse the EOS event while its previous use is active. */
++        res = nvenc_wait_eos(avctx);
++        if (res < 0) {
++            ctx->async_error = res;
++            return res;
++        }
++    }
++#endif
++
+     if (frame && frame->buf[0]) {
+         in_surf = get_free_frame(ctx);
+         if (!in_surf)
+@@ -3004,6 +3233,15 @@ static int nvenc_send_frame(AVCodecContext *avctx, const AVFrame *frame)
+         pic_params.inputHeight = in_surf->height;
+         pic_params.inputPitch = in_surf->pitch;
+         pic_params.outputBitstream = in_surf->output_surface;
++#ifdef _WIN32
++        if (ctx->async_encode) {
++            if (!ResetEvent(in_surf->completion_event)) {
++                ctx->async_error = AVERROR_EXTERNAL;
++                return ctx->async_error;
++            }
++            pic_params.completionEvent = in_surf->completion_event;
++        }
++#endif
+ 
+         if (avctx->flags & AV_CODEC_FLAG_INTERLACED_DCT) {
+             if (frame->flags & AV_FRAME_FLAG_TOP_FIELD_FIRST)
+@@ -3091,14 +3329,34 @@ static int nvenc_send_frame(AVCodecContext *avctx, const AVFrame *frame)
+         nvenc_codec_specific_pic_params(avctx, frame, &pic_params, ctx->sei_data, sei_count);
+     } else {
+         pic_params.encodePicFlags = NV_ENC_PIC_FLAG_EOS;
++#ifdef _WIN32
++        if (ctx->async_encode) {
++            if (!ResetEvent(ctx->async_eos_event)) {
++                ctx->async_error = AVERROR_EXTERNAL;
++                return ctx->async_error;
++            }
++            pic_params.completionEvent = ctx->async_eos_event;
++        }
++#endif
+     }
+ 
+     res = nvenc_push_context(avctx);
+     if (res < 0)
+         return res;
+ 
++#ifdef _WIN32
++    /* A driver failure is not proof that no work was enqueued. Close must
++     * establish EOS completion before releasing this session's resources. */
++    if (ctx->async_encode && frame && frame->buf[0])
++        ctx->async_has_work = 1;
++#endif
+     nv_status = p_nvenc->nvEncEncodePicture(ctx->nvencoder, &pic_params);
+ 
++#ifdef _WIN32
++    if (ctx->async_encode && (!frame || !frame->buf[0]) && nv_status == NV_ENC_SUCCESS)
++        ctx->async_eos_pending = 1;
++#endif
++
+     for (i = 0; i < sei_count; i++)
+         av_freep(&(ctx->sei_data[i].payload));
+ 
+@@ -3107,8 +3365,24 @@ static int nvenc_send_frame(AVCodecContext *avctx, const AVFrame *frame)
+         return res;
+ 
+     if (nv_status != NV_ENC_SUCCESS &&
+-        nv_status != NV_ENC_ERR_NEED_MORE_INPUT)
+-        return nvenc_print_error(avctx, nv_status, "EncodePicture failed!");
++        nv_status != NV_ENC_ERR_NEED_MORE_INPUT) {
++        res = nvenc_print_error(avctx, nv_status, "EncodePicture failed!");
++#ifdef _WIN32
++        if (ctx->async_encode) {
++            if (res == AVERROR(EAGAIN))
++                res = AVERROR_EXTERNAL;
++            ctx->async_error = res;
++        }
++#endif
++        return res;
++    }
++#ifdef _WIN32
++    if (ctx->async_encode && (!frame || !frame->buf[0]) && nv_status != NV_ENC_SUCCESS) {
++        ctx->async_error = AVERROR_EXTERNAL;
++        av_log(avctx, AV_LOG_ERROR, "NVENC asynchronous EOS did not flush pending input\n");
++        return ctx->async_error;
++    }
++#endif
+ 
+     if (frame && frame->buf[0]) {
+         av_fifo_write(ctx->output_surface_queue, &in_surf, 1);
+diff --git a/libavcodec/nvenc.h b/libavcodec/nvenc.h
+index ad6ddaa4347a03e8b319ac57c6ce4a55b06224ee..d7ae0b5ecf1c7044562007b13cba5b0405f344de 100644
+--- a/libavcodec/nvenc.h
++++ b/libavcodec/nvenc.h
+@@ -91,6 +91,9 @@ typedef struct NvencSurface
+ 
+     NV_ENC_OUTPUT_PTR output_surface;
+     NV_ENC_BUFFER_FORMAT format;
++#ifdef _WIN32
++    void *completion_event;
++#endif
+ } NvencSurface;
+ 
+ typedef struct NvencFrameData
+@@ -228,6 +231,15 @@ typedef struct NvencContext
+     int device;
+     int flags;
+     int async_depth;
++#ifdef _WIN32
++    int async_encode;
++    int async_error;
++    int async_has_work;
++    int async_eos_pending;
++    void *async_eos_event;
++    AVBufferRef *async_hw_device_ref;
++    AVBufferRef *async_hw_frames_ref;
++#endif
+     int rc_lookahead;
+     int aq;
+     int no_scenecut;
+diff --git a/libavcodec/nvenc_h264.c b/libavcodec/nvenc_h264.c
+index 103c9a95fdac79a57eab02b93a862e9a912f832a..48c2202776ae3c69f01bf9fa929098a0863a563b 100644
+--- a/libavcodec/nvenc_h264.c
++++ b/libavcodec/nvenc_h264.c
+@@ -99,6 +99,10 @@ static const AVOption options[] = {
+     { "disabled",     "Disables support, throws an error.", 0,                    AV_OPT_TYPE_CONST, { .i64 = NVENC_RGB_MODE_DISABLED },  0, 0, VE, .unit = "rgb_mode" },
+     { "delay",        "Delay frame output by the given amount of frames",
+                                                             OFFSET(async_depth),  AV_OPT_TYPE_INT,   { .i64 = INT_MAX }, 0, INT_MAX, VE },
++#ifdef _WIN32
++    { "async_encode", "Wait for Windows NVENC completion events before retrieving output",
++                                                            OFFSET(async_encode), AV_OPT_TYPE_BOOL,  { .i64 = 0 }, 0, 1, VE },
++#endif
+     { "no-scenecut",  "When lookahead is enabled, set this to 1 to disable adaptive I-frame insertion at scene cuts",
+                                                             OFFSET(no_scenecut),  AV_OPT_TYPE_BOOL,  { .i64 = 0 }, 0,  1, VE },
+     { "forced-idr",   "If forcing keyframes, force them as IDR frames.",
+diff --git a/libavfilter/vf_scale_d3d11.c b/libavfilter/vf_scale_d3d11.c
+index 1203111c499fa09689c543cfa1ec15c9b53f7910..d49b1e6a0b22aa0300d65a6a728254417489346b 100644
+--- a/libavfilter/vf_scale_d3d11.c
++++ b/libavfilter/vf_scale_d3d11.c
+@@ -38,6 +38,7 @@ typedef struct ScaleD3D11Context {
+     char *w_expr;
+     char *h_expr;
+     enum AVPixelFormat format;
++    int desktop_sdr;
+ 
+     ///< D3D11 objects
+     ID3D11Device *device;
+@@ -96,6 +97,9 @@ static int scale_d3d11_configure_processor(ScaleD3D11Context *s, AVFilterContext
+         case AV_PIX_FMT_P010:
+             s->output_format = DXGI_FORMAT_P010;
+             break;
++        case AV_PIX_FMT_BGRA:
++            s->output_format = DXGI_FORMAT_B8G8R8A8_UNORM;
++            break;
+         default:
+             av_log(ctx, AV_LOG_ERROR, "Invalid output format specified\n");
+             return AVERROR(EINVAL);
+@@ -155,6 +159,8 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+     AVFrame *out = NULL;
+     int ret = 0;
+     HRESULT hr;
++    AVD3D11VADeviceContext *device_hwctx = NULL;
++    int locked = 0;
+ 
+     ///< Validate input frame
+     if (!in) {
+@@ -210,6 +216,12 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+         s->inputWidth = textureDesc.Width;
+         s->inputHeight = textureDesc.Height;
+         s->input_format = textureDesc.Format;
++        if (s->desktop_sdr && s->input_format != DXGI_FORMAT_B8G8R8A8_UNORM &&
++            s->input_format != DXGI_FORMAT_R8G8B8A8_UNORM) {
++            av_log(ctx, AV_LOG_ERROR, "desktop_sdr requires an 8-bit RGB texture\n");
++            ret = AVERROR(EINVAL);
++            goto fail;
++        }
+ 
+         ret = scale_d3d11_configure_processor(s, ctx);
+         if (ret < 0) {
+@@ -223,7 +235,7 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+     int subIdx = (int)(intptr_t)in->data[1];
+ 
+     D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC inputViewDesc = {
+-        .FourCC = s->input_format,
++        .FourCC = 0, /* Use the resource's DXGI format, not a FOURCC enum cast. */
+         .ViewDimension = D3D11_VPIV_DIMENSION_TEXTURE2D,
+         .Texture2D.ArraySlice = subIdx
+     };
+@@ -238,10 +250,18 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+ 
+     ///< Create output view for current texture
+     ID3D11Texture2D *output_texture = (ID3D11Texture2D *)out->data[0];
++    D3D11_TEXTURE2D_DESC output_desc;
+     D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC outputViewDesc = {
+-        .ViewDimension = D3D11_VPOV_DIMENSION_TEXTURE2D,
+-        .Texture2D = { .MipSlice = 0 },
++        .ViewDimension = D3D11_VPOV_DIMENSION_TEXTURE2DARRAY,
++        .Texture2DArray = { .MipSlice = 0,
++                           .FirstArraySlice = (UINT)(intptr_t)out->data[1],
++                           .ArraySize = 1 },
+     };
++    output_texture->lpVtbl->GetDesc(output_texture, &output_desc);
++    if (output_desc.ArraySize == 1) {
++        outputViewDesc.ViewDimension = D3D11_VPOV_DIMENSION_TEXTURE2D;
++        outputViewDesc.Texture2D.MipSlice = 0;
++    }
+ 
+     hr = s->videoDevice->lpVtbl->CreateVideoProcessorOutputView(
+         s->videoDevice, (ID3D11Resource *)output_texture, s->enumerator, &outputViewDesc, &s->outputView);
+@@ -266,6 +286,54 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+         goto fail;
+     }
+ 
++    device_hwctx = ((AVHWDeviceContext *)s->hw_device_ctx->data)->hwctx;
++    device_hwctx->lock(device_hwctx->lock_ctx);
++    locked = 1;
++    if (s->desktop_sdr) {
++        /* Desktop SDR: full-range RGB -> limited-range BT.709 NV12. No
++         * driver-selected enhancement or temporal processing. Preserve the
++         * entire desktop with even-aligned letterboxing for 4:2:0 output. */
++        int w = s->width, h = s->height;
++        RECT source = { 0, 0, in->width, in->height };
++        RECT target = { 0, 0, s->width, s->height };
++        RECT dest;
++        D3D11_VIDEO_PROCESSOR_COLOR_SPACE input_cs = {
++            .RGB_Range = 0, .YCbCr_Matrix = 1,
++            .Nominal_Range = D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_0_255,
++        };
++        D3D11_VIDEO_PROCESSOR_COLOR_SPACE output_cs = {
++            .RGB_Range = s->format == AV_PIX_FMT_BGRA ? 0 : 1, .YCbCr_Matrix = 1,
++            .Nominal_Range = s->format == AV_PIX_FMT_BGRA ?
++                D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_0_255 : D3D11_VIDEO_PROCESSOR_NOMINAL_RANGE_16_235,
++        };
++        /* Background is already in the output's limited-range YCbCr space.
++         * RGB zero can become Y=0 when the driver applies the limited RGB
++         * setting, contaminating both padding and edge chroma. */
++        D3D11_VIDEO_COLOR black = { .YCbCr = { 16.f / 255.f,
++                                              128.f / 255.f, 128.f / 255.f, 1.f } };
++        if (s->format == AV_PIX_FMT_BGRA) {
++            black.RGBA.R = black.RGBA.G = black.RGBA.B = 0.f;
++            black.RGBA.A = 1.f;
++        }
++        if ((int64_t)in->width * h > (int64_t)in->height * w)
++            h = ((int64_t)in->height * w / in->width) & ~1;
++        else
++            w = ((int64_t)in->width * h / in->height) & ~1;
++        dest.left = ((s->width - w) / 2) & ~1;
++        dest.top = ((s->height - h) / 2) & ~1;
++        dest.right = dest.left + w;
++        dest.bottom = dest.top + h;
++        videoContext->lpVtbl->VideoProcessorSetStreamFrameFormat(videoContext, s->processor, 0,
++                                                                D3D11_VIDEO_FRAME_FORMAT_PROGRESSIVE);
++        videoContext->lpVtbl->VideoProcessorSetStreamAutoProcessingMode(videoContext, s->processor, 0, FALSE);
++        videoContext->lpVtbl->VideoProcessorSetStreamColorSpace(videoContext, s->processor, 0, &input_cs);
++        videoContext->lpVtbl->VideoProcessorSetOutputColorSpace(videoContext, s->processor, &output_cs);
++        videoContext->lpVtbl->VideoProcessorSetStreamSourceRect(videoContext, s->processor, 0, TRUE, &source);
++        videoContext->lpVtbl->VideoProcessorSetStreamDestRect(videoContext, s->processor, 0, TRUE, &dest);
++        videoContext->lpVtbl->VideoProcessorSetOutputTargetRect(videoContext, s->processor, TRUE, &target);
++        videoContext->lpVtbl->VideoProcessorSetOutputBackgroundColor(videoContext, s->processor,
++                                                                   s->format != AV_PIX_FMT_BGRA, &black);
++    }
+     ///< Process the frame
+     hr = videoContext->lpVtbl->VideoProcessorBlt(videoContext, s->processor, s->outputView, 0, 1, &stream);
+     if (FAILED(hr)) {
+@@ -273,6 +341,9 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+         ret = AVERROR_EXTERNAL;
+         goto fail;
+     }
++    s->context->lpVtbl->Flush(s->context);
++    device_hwctx->unlock(device_hwctx->lock_ctx);
++    locked = 0;
+ 
+     ///< Set up output frame
+     ret = av_frame_copy_props(out, in);
+@@ -282,10 +353,14 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+     }
+ 
+     out->data[0] = (uint8_t *)output_texture;
+-    out->data[1] = (uint8_t *)(intptr_t)0;
++    /* Preserve the output pool's actual array slice for NVENC/hwdownload. */
+     out->width = s->width;
+     out->height = s->height;
+     out->format = AV_PIX_FMT_D3D11;
++    if (s->desktop_sdr) {
++        out->color_range = s->format == AV_PIX_FMT_BGRA ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
++        out->colorspace = s->format == AV_PIX_FMT_BGRA ? AVCOL_SPC_RGB : AVCOL_SPC_BT709;
++    }
+ 
+     ///< Clean up resources
+     inputView->lpVtbl->Release(inputView);
+@@ -300,6 +375,8 @@ static int scale_d3d11_filter_frame(AVFilterLink *inlink, AVFrame *in)
+     return ff_filter_frame(outlink, out);
+ 
+ fail:
++    if (locked)
++        device_hwctx->unlock(device_hwctx->lock_ctx);
+     if (inputView)
+         inputView->lpVtbl->Release(inputView);
+     if (videoContext)
+@@ -324,6 +401,8 @@ static int scale_d3d11_config_props(AVFilterLink *outlink)
+ 
+     ///< Clean up any previous resources
+     release_d3d11_resources(s);
++    av_buffer_unref(&s->hw_frames_ctx_out);
++    av_buffer_unref(&s->hw_device_ctx);
+ 
+     ///< Evaluate output dimensions
+     ret = ff_scale_eval_dimensions(s, s->w_expr, s->h_expr, inlink, outlink, &s->width, &s->height);
+@@ -373,14 +452,16 @@ static int scale_d3d11_config_props(AVFilterLink *outlink)
+     frames_ctx->sw_format = s->format;
+     frames_ctx->width = s->width;
+     frames_ctx->height = s->height;
+-    frames_ctx->initial_pool_size = 10;
++    /* Individual pooled textures avoid unsupported NV12 render-target arrays.
++     * The AVFrame lifetime keeps a surface owned until its consumer releases it. */
++    frames_ctx->initial_pool_size = 0;
+ 
+-    if (ctx->extra_hw_frames > 0)
+-        frames_ctx->initial_pool_size += ctx->extra_hw_frames;
+ 
+     AVD3D11VAFramesContext *frames_hwctx = frames_ctx->hwctx;
+     frames_hwctx->MiscFlags = 0;
+-    frames_hwctx->BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_VIDEO_ENCODER;
++    /* NVENC registers D3D11 resources directly; the Windows video-encoder bind
++     * flag is not required and is unsupported by several NVIDIA drivers. */
++    frames_hwctx->BindFlags = D3D11_BIND_RENDER_TARGET;
+ 
+     ret = av_hwframe_ctx_init(s->hw_frames_ctx_out);
+     if (ret < 0) {
+@@ -436,6 +517,7 @@ static const AVOption scale_d3d11_options[] = {
+     { "width",  "Output video width",  OFFSET(w_expr), AV_OPT_TYPE_STRING, {.str = "iw"}, .flags = FLAGS },
+     { "height", "Output video height", OFFSET(h_expr), AV_OPT_TYPE_STRING, {.str = "ih"}, .flags = FLAGS },
+     { "format", "Output video pixel format", OFFSET(format), AV_OPT_TYPE_PIXEL_FMT, { .i64 = AV_PIX_FMT_NONE }, INT_MIN, INT_MAX, .flags=FLAGS },
++    { "desktop_sdr", "Letterbox SDR RGB desktop to limited BT.709", OFFSET(desktop_sdr), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, .flags=FLAGS },
+     { NULL }
+ };
+ 
+diff --git a/libavfilter/vsrc_ddagrab.c b/libavfilter/vsrc_ddagrab.c
+index e035ac9bc45d5a71f9e24dde2fa3d7513a6def44..4e28f3bd55ae0cdd375f432a880445d6e775842d 100644
+--- a/libavfilter/vsrc_ddagrab.c
++++ b/libavfilter/vsrc_ddagrab.c
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include "config.h"
++#include <inttypes.h>
+ 
+ #if !defined(_WIN32_WINNT) || _WIN32_WINNT < 0x0A00
+ #undef _WIN32_WINNT
+@@ -39,6 +40,7 @@
+ #include "libavutil/time.h"
+ #include "libavutil/avstring.h"
+ #include "libavutil/avassert.h"
++#include "libavutil/g2_delivery.h"
+ #include "libavutil/hwcontext.h"
+ #include "libavutil/hwcontext_d3d11va.h"
+ #include "compat/w32dlfcn.h"
+@@ -47,6 +49,7 @@
+ #include "video.h"
+ 
+ #include "vsrc_ddagrab_shaders.h"
++#include "ddagrab_clock.h"
+ 
+ // avutil/time.h takes and returns time in microseconds
+ #define TIMER_RES 1000000
+@@ -77,6 +80,9 @@ typedef struct DdagrabContext {
+     int64_t time_frame;
+     int64_t time_timeout;
+     int64_t first_pts;
++    DdaFrameClock frame_clock;
++    int64_t source_present;
++    unsigned source_accumulated;
+ 
+     DXGI_FORMAT raw_format;
+     int raw_width;
+@@ -104,6 +110,13 @@ typedef struct DdagrabContext {
+     int        allow_fallback;
+     int        force_fmt;
+     int        dup_frames;
++    int        precise_clock;
++    int        acquire_timeout;
++    int        clock_spin_us;
++    int        source_clock;
++    int        source_guard_us;
++    int        fresh_wait_us;
++    int        delivery_delay_us;
+ } DdagrabContext;
+ 
+ #define OFFSET(x) offsetof(DdagrabContext, x)
+@@ -129,6 +142,20 @@ static const AVOption ddagrab_options[] = {
+                                                    OFFSET(force_fmt),  AV_OPT_TYPE_BOOL,       { .i64 = 0    },       0,       1, FLAGS },
+     { "dup_frames", "duplicate frames to maintain framerate",
+                                                    OFFSET(dup_frames), AV_OPT_TYPE_BOOL,       { .i64 = 1    },       0,       1, FLAGS },
++    { "precise_clock", "use a high-resolution deadline clock without catch-up bursts",
++                                                   OFFSET(precise_clock), AV_OPT_TYPE_BOOL,    { .i64 = 1    },       0,       1, FLAGS },
++    { "acquire_timeout", "desktop acquisition timeout in ms (-1 uses half a frame)",
++                                                   OFFSET(acquire_timeout), AV_OPT_TYPE_INT,   { .i64 = 0    },      -1,    1000, FLAGS },
++    { "clock_spin_us", "maximum busy wait tail before a capture deadline",
++                                                   OFFSET(clock_spin_us), AV_OPT_TYPE_INT,     { .i64 = 500  },       0,    1000, FLAGS },
++    { "source_clock", "adapt future capture phase to consistent real desktop updates",
++                                                   OFFSET(source_clock), AV_OPT_TYPE_BOOL,     { .i64 = 0    },       0,       1, FLAGS },
++    { "source_guard_us", "target guard after robust desktop-present phase",
++                                                   OFFSET(source_guard_us), AV_OPT_TYPE_INT,   { .i64 = 2000 },       0,    5000, FLAGS },
++    { "fresh_wait_us", "bounded wait for a near-ready real desktop image",
++                                                   OFFSET(fresh_wait_us), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 5000, FLAGS },
++    { "delivery_delay_us", "optional source-clock delivery deadline for the ffmpeg muxer",
++                                                   OFFSET(delivery_delay_us), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, G2_DELIVERY_MAX_US, FLAGS },
+     { NULL }
+ };
+ 
+@@ -147,6 +174,18 @@ static av_cold void ddagrab_uninit(AVFilterContext *avctx)
+ {
+     DdagrabContext *dda = avctx->priv;
+ 
++    if (dda->source_clock && dda->frame_clock.frequency > 0) {
++        const DdaSourcePhase *phase = &dda->frame_clock.source_phase;
++        av_log(avctx, AV_LOG_INFO,
++               "DDA_SOURCE_CLOCK locked=%d window=%d corrections=%"PRIu64
++               " repeats=%"PRIu64" rejects=%"PRIu64" total_slew_us=%"PRId64" guard_us=%d\n",
++               phase->locked, phase->count, phase->corrections, phase->repeats,
++               phase->rejects,
++               dda_clock_rescale(phase->total_slew, 1000000, dda->frame_clock.frequency),
++               dda->source_guard_us);
++    }
++    dda_clock_close(&dda->frame_clock);
++
+     release_resource(&dda->blend_state);
+     release_resource(&dda->blend_state_xor);
+     release_resource(&dda->sampler_state);
+@@ -684,7 +723,8 @@ static int update_mouse_pointer(AVFilterContext *avctx, DXGI_OUTDUPL_FRAME_INFO
+     return 0;
+ }
+ 
+-static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop_texture, int need_frame)
++static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop_texture,
++                               int need_frame, int timeout_override)
+ {
+     DXGI_OUTDUPL_FRAME_INFO frame_info;
+     DdagrabContext *dda = avctx->priv;
+@@ -692,9 +732,12 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
+     HRESULT hr;
+     int ret;
+ 
++    dda->source_present = 0;
++    dda->source_accumulated = 0;
+     hr = IDXGIOutputDuplication_AcquireNextFrame(
+         dda->dxgi_outdupl,
+-        dda->time_timeout,
++        timeout_override >= 0 ? timeout_override :
++        (need_frame || !dda->dup_frames ? FFMAX(1, dda->time_timeout) : dda->time_timeout),
+         &frame_info,
+         &desktop_resource);
+     if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
+@@ -735,6 +778,8 @@ static int next_frame_internal(AVFilterContext *avctx, ID3D11Texture2D **desktop
+         return 0;
+     }
+ 
++    dda->source_present = frame_info.LastPresentTime.QuadPart;
++    dda->source_accumulated = frame_info.AccumulatedFrames;
+     hr = IDXGIResource_QueryInterface(desktop_resource, &IID_ID3D11Texture2D, (void**)desktop_texture);
+     release_resource(&desktop_resource);
+     if (FAILED(hr)) {
+@@ -776,6 +821,81 @@ error:
+     return ret;
+ }
+ 
++
++/* A successful pointer-only acquisition still owns a DXGI frame lease. Retry
++ * only after releasing both the returned cached texture reference and that
++ * lease. Pointer state remains in dda; a final cached fallback redraws it over
++ * the clean desktop buffer, never over last_frame's already-drawn old pointer.
++ * frame_owned distinguishes an actual acquired image from that fallback.
++ */
++static int next_frame_live(AVFilterContext *avctx, ID3D11Texture2D **desktop_texture,
++                           int64_t fresh_deadline, int *frame_owned)
++{
++    DdagrabContext *dda = avctx->priv;
++    int ret, pointer_update = 0;
++
++    *frame_owned = 0;
++    if (!dda->fresh_wait_us || !dda->dup_frames) {
++        ret = next_frame_internal(avctx, desktop_texture, 0, -1);
++        *frame_owned = ret >= 0;
++        return ret;
++    }
++
++    for (;;) {
++        int64_t now, remaining;
++        ret = next_frame_internal(avctx, desktop_texture, 0, 0);
++        if (ret >= 0) {
++            HRESULT hr;
++            if (dda->source_present && dda->source_accumulated) {
++                *frame_owned = 1;
++                return ret;
++            }
++            pointer_update = 1;
++            release_resource(desktop_texture);
++            hr = IDXGIOutputDuplication_ReleaseFrame(dda->dxgi_outdupl);
++            if (FAILED(hr)) {
++                av_log(avctx, AV_LOG_ERROR, "DDA retry ReleaseFrame failed!\n");
++                return AVERROR_EXTERNAL;
++            }
++        } else if (ret != AVERROR(EAGAIN)) {
++            /* next_frame_internal releases any lease on its error paths. */
++            return ret;
++        }
++
++        now = dda_clock_ticks();
++        remaining = fresh_deadline - now;
++        if (remaining <= 0)
++            break;
++        {
++            LARGE_INTEGER due;
++            /* A positive DXGI timeout can block beyond the requested budget.
++             * Keep every AcquireNextFrame nonblocking and wait on our existing
++             * high-resolution timer in <=250 us slices. The absolute deadline
++             * never restarts on a pointer-only event. One final Acquire(0) after
++             * the deadline may accept an already-ready image; otherwise stop.
++             * OS scheduling can still wake late, so this is not a hard realtime
++             * guarantee. No extra timer, unbounded busy loop or queued frame. */
++            int64_t slice = FFMIN(remaining, FFMAX(INT64_C(1),
++                                  dda->frame_clock.frequency / 4000));
++            due.QuadPart = -dda_clock_rescale(slice, 10000000,
++                                            dda->frame_clock.frequency);
++            if (due.QuadPart >= 0)
++                due.QuadPart = -1;
++            if (!SetWaitableTimer(dda->frame_clock.timer, &due, 0, NULL, NULL, FALSE) ||
++                WaitForSingleObject(dda->frame_clock.timer, INFINITE) != WAIT_OBJECT_0)
++                return AVERROR_EXTERNAL;
++        }
++    }
++
++    if (pointer_update && dda->buffer_texture) {
++        ID3D11Texture2D_AddRef(dda->buffer_texture);
++        *desktop_texture = dda->buffer_texture;
++        /* No lease is held. Caller copies clean pixels and draws latest mouse. */
++        return 0;
++    }
++    return AVERROR(EAGAIN);
++}
++
+ static int probe_output_format(AVFilterContext *avctx)
+ {
+     DdagrabContext *dda = avctx->priv;
+@@ -785,7 +905,7 @@ static int probe_output_format(AVFilterContext *avctx)
+     av_assert1(!dda->probed_texture);
+ 
+     do {
+-        ret = next_frame_internal(avctx, &dda->probed_texture, 1);
++        ret = next_frame_internal(avctx, &dda->probed_texture, 1, -1);
+     } while(ret == AVERROR(EAGAIN));
+     if (ret < 0)
+         return ret;
+@@ -907,6 +1027,31 @@ static int ddagrab_config_props(AVFilterLink *outlink)
+     dda->time_base  = av_inv_q(dda->framerate);
+     dda->time_frame = av_gettime_relative() / av_q2d(dda->time_base);
+     dda->time_timeout = av_rescale_q(1, dda->time_base, (AVRational) { 1, 1000 }) / 2;
++    if (dda->acquire_timeout >= 0)
++        dda->time_timeout = dda->acquire_timeout;
++    if (dda->fresh_wait_us && !dda->precise_clock) {
++        av_log(avctx, AV_LOG_ERROR, "fresh_wait_us requires precise_clock\n");
++        return AVERROR(EINVAL);
++    }
++    if (dda->source_clock && !dda->precise_clock) {
++        av_log(avctx, AV_LOG_ERROR, "source_clock requires precise_clock\n");
++        return AVERROR(EINVAL);
++    }
++    if (dda->delivery_delay_us && (!dda->precise_clock ||
++        (int64_t)dda->delivery_delay_us * dda->framerate.num >
++        INT64_C(1000000) * dda->framerate.den)) {
++        av_log(avctx, AV_LOG_ERROR, "delivery_delay_us requires precise_clock and at most one frame period\n");
++        return AVERROR(EINVAL);
++    }
++    if (dda->precise_clock && !dda_clock_init(&dda->frame_clock, dda->framerate.num, dda->framerate.den)) {
++        av_log(avctx, AV_LOG_ERROR, "Could not create the capture deadline timer\n");
++        return AVERROR_EXTERNAL;
++    }
++    dda->frame_clock.spin_us = dda->clock_spin_us;
++    if (dda->precise_clock)
++        dda_phase_init(&dda->frame_clock.source_phase, dda->frame_clock.frequency,
++                       dda->framerate.num, dda->framerate.den,
++                       dda->source_clock, dda->source_guard_us);
+ 
+     if (dda->draw_mouse) {
+         ret = init_render_resources(avctx);
+@@ -1097,7 +1242,9 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+     D3D11_BOX box = { 0 };
+ 
+     int64_t time_frame = dda->time_frame;
+-    int64_t now, delay;
++    int64_t now, delay, fresh_deadline = 0;
++    G2DeliveryDeadline delivery = { 0 };
++    int frame_owned = 1;
+     AVFrame *frame = NULL;
+     HRESULT hr;
+     int ret;
+@@ -1108,6 +1255,10 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+      * The only time rounding error occurs is when multiplying to calculate
+      * the delay. So any rounding error there corrects itself over time.
+      */
++    if (dda->precise_clock) {
++        if (!dda_clock_wait(&dda->frame_clock, &now))
++            return AVERROR_EXTERNAL;
++    } else {
+     time_frame += TIMER_RES64;
+     for (;;) {
+         now = av_gettime_relative();
+@@ -1120,21 +1271,50 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+         }
+         av_usleep(delay);
+     }
++    }
+ 
++    /* Use this output's scheduled capture grid, not the old desktop present
++     * timestamp, compact encoder PTS, or a previously delivered packet. */
++    if (dda->delivery_delay_us && !g2_delivery_make(&delivery,
++            dda->frame_clock.frequency, dda->frame_clock.last_deadline,
++            dda_clock_ticks(), dda->frame_clock.source_phase.period,
++            dda->delivery_delay_us))
++        return AVERROR(EINVAL);
++    if (dda->fresh_wait_us) {
++        int64_t start = dda_clock_ticks();
++        int64_t budget = dda_clock_rescale(dda->frame_clock.frequency,
++                                           dda->fresh_wait_us, 1000000);
++        fresh_deadline = FFMIN(start + budget, dda->frame_clock.last_deadline +
++                               dda->frame_clock.source_phase.period);
++    }
+     if (!dda->first_pts)
+         dda->first_pts = now;
+     now -= dda->first_pts;
+ 
+     if (!dda->probed_texture) {
+         do {
+-            ret = next_frame_internal(avctx, &cur_texture, 0);
++            ret = next_frame_live(avctx, &cur_texture, fresh_deadline, &frame_owned);
+         } while (ret == AVERROR(EAGAIN) && !dda->dup_frames);
+     } else {
+         cur_texture = dda->probed_texture;
+         dda->probed_texture = NULL;
++        /* The probe can predate expensive filter/encoder initialization. It
++         * must not establish the phase of the subsequent live capture. */
++        dda->source_present = 0;
++        dda->source_accumulated = 0;
+         ret = 0;
+     }
+ 
++    /* Time both a newly acquired and a repeated picture at the same boundary. */
++    now = (dda->precise_clock ? dda_clock_us(&dda->frame_clock) : av_gettime_relative()) - dda->first_pts;
++    if (dda->source_clock) {
++        int64_t capture = dda_clock_ticks();
++        int64_t shift = dda_phase_observe(&dda->frame_clock.source_phase,
++                                         dda->source_present, dda->source_accumulated,
++                                         capture, dda->frame_clock.last_deadline);
++        dda->frame_clock.origin += shift;
++    }
++
+     if (ret == AVERROR(EAGAIN) && dda->last_frame->buf[0]) {
+         frame = av_frame_alloc();
+         if (!frame)
+@@ -1158,7 +1338,7 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+ 
+     // AcquireNextFrame sometimes has bursts of delay.
+     // This increases accuracy of the timestamp, but might upset consumers due to more jittery framerate?
+-    now = av_gettime_relative() - dda->first_pts;
++    now = (dda->precise_clock ? dda_clock_us(&dda->frame_clock) : av_gettime_relative()) - dda->first_pts;
+ 
+     ID3D11Texture2D_GetDesc(cur_texture, &desc);
+     if (desc.Format != dda->raw_format ||
+@@ -1191,11 +1371,13 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+ 
+     release_resource(&cur_texture);
+ 
+-    hr = IDXGIOutputDuplication_ReleaseFrame(dda->dxgi_outdupl);
+-    if (FAILED(hr)) {
+-        av_log(avctx, AV_LOG_ERROR, "DDA ReleaseFrame failed!\n");
+-        ret = AVERROR_EXTERNAL;
+-        goto fail;
++    if (frame_owned) {
++        hr = IDXGIOutputDuplication_ReleaseFrame(dda->dxgi_outdupl);
++        if (FAILED(hr)) {
++            av_log(avctx, AV_LOG_ERROR, "DDA ReleaseFrame failed!\n");
++            ret = AVERROR_EXTERNAL;
++            goto fail;
++        }
+     }
+ 
+     if (dda->draw_mouse) {
+@@ -1229,6 +1411,20 @@ static int ddagrab_request_frame(AVFilterLink *outlink)
+         return ret;
+ 
+ frame_done:
++    /* Stamp every output, including repeated images. Cached last_frame has no
++     * deadline for this slot, and a repeated picture still needs fresh timing. */
++    if (dda->delivery_delay_us) {
++        char value[192];
++        snprintf(value, sizeof(value),
++                 "v1,%"PRId64",%"PRId64",%"PRId64",%"PRId64",%"PRId64,
++                 delivery.frequency, delivery.source_deadline, delivery.sample,
++                 delivery.period, delivery.delay);
++        ret = av_dict_set(&frame->metadata, G2_DELIVERY_METADATA, value, 0);
++        if (ret < 0) {
++            av_frame_free(&frame);
++            return ret;
++        }
++    }
+     frame->pts = now;
+     dda->time_frame = time_frame;
+ 
+@@ -1238,7 +1434,7 @@ fail:
+     if (frame)
+         av_frame_free(&frame);
+ 
+-    if (cur_texture)
++    if (cur_texture && frame_owned)
+         IDXGIOutputDuplication_ReleaseFrame(dda->dxgi_outdupl);
+ 
+     release_resource(&cur_texture);
+diff --git a/fftools/frame_pacing.h b/fftools/frame_pacing.h
+new file mode 100644
+--- /dev/null
++++ b/fftools/frame_pacing.h
+@@ -0,0 +1,35 @@
++/*
++ * Helpers for opt-in live raw-frame pacing.
++ * This file is part of FFmpeg, licensed under the GNU LGPL version 2.1 or later.
++ */
++#ifndef FFTOOLS_FRAME_PACING_H
++#define FFTOOLS_FRAME_PACING_H
++
++#include <stdint.h>
++
++#include "libavutil/error.h"
++#include "libavutil/frame.h"
++#include "libavutil/mathematics.h"
++
++/* Called only after a frame leaves the raw mailbox. Compact timestamps prevent
++ * AVI gap-fill packets; they are not measurements of capture or wall-clock age.
++ * Pixel buffers and source-specific frame metadata are deliberately untouched. */
++static inline int frame_pacing_compact(AVFrame *frame, uint64_t index, AVRational rate)
++{
++    int64_t pts, next;
++
++    if (index >= INT64_MAX || rate.num <= 0 || rate.den <= 0 ||
++        frame->time_base.num <= 0 || frame->time_base.den <= 0)
++        return AVERROR(EINVAL);
++
++    pts  = av_rescale_q(index,     av_inv_q(rate), frame->time_base);
++    next = av_rescale_q(index + 1, av_inv_q(rate), frame->time_base);
++    if (pts < 0 || next <= pts)
++        return AVERROR(EINVAL);
++
++    frame->pts = pts;
++    frame->duration = next - pts;
++    return 0;
++}
++
++#endif
+diff --git a/fftools/tests/run_mailbox_test.ps1 b/fftools/tests/run_mailbox_test.ps1
+new file mode 100644
+--- /dev/null
++++ b/fftools/tests/run_mailbox_test.ps1
+@@ -0,0 +1,37 @@
++param(
++    [Parameter(Mandatory = $true)][string]$BuildDirectory,
++    [Parameter(Mandatory = $true)][string]$Compiler
++)
++
++$ErrorActionPreference = 'Stop'
++$sourceRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
++$buildRoot = (Resolve-Path -LiteralPath $BuildDirectory).Path
++$compilerPath = (Resolve-Path -LiteralPath $Compiler).Path
++$testBinary = Join-Path $buildRoot 'thread_queue_mailbox.exe'
++$savedPath = $env:PATH
++
++try {
++    $env:PATH = (Split-Path -Parent $compilerPath) + ';' + $savedPath
++    $compilerArguments = @(
++        '-std=c17', '-O2', '-Wall', '-Wextra', '-Werror',
++        '-Wno-unused-parameter', '-Wno-cast-function-type',
++        '-U__STRICT_ANSI__', '-DWIN32_LEAN_AND_MEAN',
++        "-I$buildRoot", "-I$sourceRoot",
++        (Join-Path $PSScriptRoot 'thread_queue_mailbox.c'),
++        (Join-Path $sourceRoot 'fftools/thread_queue.c'),
++        (Join-Path $buildRoot 'libavcodec/libavcodec.a'),
++        (Join-Path $buildRoot 'libavutil/libavutil.a'),
++        '-static', '-lm', '-luser32', '-lbcrypt', '-latomic', '-lole32', '-lwinmm',
++        '-o', $testBinary
++    )
++    & $compilerPath @compilerArguments
++    if ($LASTEXITCODE -ne 0) {
++        throw "Mailbox test compilation failed with exit code $LASTEXITCODE"
++    }
++    & $testBinary
++    if ($LASTEXITCODE -ne 0) {
++        throw "Mailbox test failed with exit code $LASTEXITCODE"
++    }
++} finally {
++    $env:PATH = $savedPath
++}
+diff --git a/fftools/tests/thread_queue_mailbox.c b/fftools/tests/thread_queue_mailbox.c
+new file mode 100644
+--- /dev/null
++++ b/fftools/tests/thread_queue_mailbox.c
+@@ -0,0 +1,314 @@
++/*
++ * Tests the real fftools/thread_queue.c and frame_pacing.h, without a GPU.
++ * This file is part of FFmpeg, licensed under the GNU LGPL version 2.1 or later.
++ */
++#include <stdatomic.h>
++#include <stdint.h>
++#include <stdio.h>
++
++#include "fftools/thread_queue.h"
++#include "fftools/frame_pacing.h"
++#include "libavcodec/packet.h"
++#include "libavutil/avassert.h"
++#include "libavutil/buffer.h"
++#include "libavutil/mem.h"
++#include "libavutil/thread.h"
++
++#define MAX_FRAMES 30000
++#define STRESS_FRAMES 10000
++
++typedef struct ReleaseRecord {
++    atomic_int count;
++    int id;
++} ReleaseRecord;
++
++static ReleaseRecord records[MAX_FRAMES];
++static atomic_int created;
++
++static void release_pixels(void *opaque, uint8_t *data)
++{
++    ReleaseRecord *record = opaque;
++    av_assert0(*(int *)data == record->id);
++    av_assert0(atomic_fetch_add(&record->count, 1) == 0);
++    av_free(data);
++}
++
++static AVFrame *new_frame(void)
++{
++    AVFrame *frame = av_frame_alloc();
++    int id = atomic_fetch_add(&created, 1);
++    uint8_t *pixels;
++
++    av_assert0(frame && id < MAX_FRAMES);
++    records[id].id = id;
++    pixels = av_malloc(sizeof(int));
++    av_assert0(pixels);
++    *(int *)pixels = id;
++    frame->buf[0] = av_buffer_create(pixels, sizeof(int), release_pixels, &records[id], 0);
++    av_assert0(frame->buf[0]);
++    frame->data[0] = pixels;
++    frame->linesize[0] = 2;
++    frame->format = AV_PIX_FMT_GRAY8;
++    frame->width = frame->height = 2;
++    frame->pts = id;
++    frame->time_base = (AVRational){ 1, 100 };
++    frame->duration = 1;
++    return frame;
++}
++
++static ThreadQueue *mailbox(void)
++{
++    ThreadQueue *queue = tq_alloc(1, 1, THREAD_QUEUE_FRAMES);
++    av_assert0(queue && tq_set_latest_frame(queue) == 0);
++    return queue;
++}
++
++static int send_new(ThreadQueue *queue)
++{
++    AVFrame *frame = new_frame();
++    int id = frame->pts;
++    av_assert0(tq_send(queue, 0, frame) == 0);
++    av_assert0(!frame->buf[0]);
++    av_frame_free(&frame);
++    return id;
++}
++
++static int receive_id(ThreadQueue *queue, AVFrame *frame)
++{
++    int stream;
++    av_assert0(tq_receive(queue, &stream, frame, 0) == 0);
++    av_assert0(stream == 0 && frame->buf[0]);
++    av_assert0(*(int *)frame->data[0] == frame->pts);
++    return frame->pts;
++}
++
++static void test_replacement_ownership_and_eof(void)
++{
++    ThreadQueue *queue = mailbox();
++    AVFrame *held = av_frame_alloc(), *out = av_frame_alloc(), *rejected;
++    AVBufferRef *extra;
++    int first = send_new(queue), second, third, fourth, stream;
++
++    av_assert0(held && out);
++    av_assert0(receive_id(queue, held) == first);
++    extra = av_buffer_ref(held->buf[0]);
++    av_assert0(extra);
++    second = send_new(queue);
++    third = send_new(queue);
++    fourth = send_new(queue);
++    av_assert0(tq_latest_frame_dropped(queue) == 2);
++    av_assert0(atomic_load(&records[second].count) == 1);
++    av_assert0(atomic_load(&records[third].count) == 1);
++    av_assert0(atomic_load(&records[first].count) == 0);
++    av_assert0(*(int *)held->data[0] == first); // no overwrite of in-flight pixels
++
++    tq_send_finish(queue, 0);
++    rejected = new_frame();
++    av_assert0(tq_send(queue, 0, rejected) == AVERROR(EINVAL));
++    av_assert0(rejected->buf[0]);
++    av_frame_free(&rejected);
++    av_assert0(receive_id(queue, out) == fourth); // final data precedes EOF
++    av_frame_unref(out);
++    av_assert0(tq_receive(queue, &stream, out, 0) == AVERROR_EOF && stream == 0);
++    av_assert0(tq_receive(queue, &stream, out, 0) == AVERROR_EOF && stream == -1);
++    av_frame_free(&out);
++    av_frame_free(&held);
++    av_assert0(atomic_load(&records[first].count) == 0);
++    av_buffer_unref(&extra);
++    av_assert0(atomic_load(&records[first].count) == 1);
++    tq_free(&queue);
++}
++
++static void test_empty_eof_consumer_finish_and_choke(void)
++{
++    ThreadQueue *queue = mailbox();
++    AVFrame *out = av_frame_alloc(), *rejected;
++    int stream, pending, latest;
++
++    av_assert0(out);
++    tq_send_finish(queue, 0);
++    av_assert0(tq_receive(queue, &stream, out, 0) == AVERROR_EOF && stream == 0);
++    av_assert0(tq_set_latest_frame(queue) == AVERROR(EINVAL));
++    tq_free(&queue);
++
++    queue = mailbox();
++    pending = send_new(queue);
++    tq_receive_finish(queue, 0);
++    rejected = new_frame();
++    av_assert0(tq_send(queue, 0, rejected) == AVERROR_EOF);
++    av_assert0(rejected->buf[0]);
++    av_frame_free(&rejected);
++    av_assert0(tq_receive(queue, &stream, out, THREAD_QUEUE_FLAG_NO_BLOCK) == AVERROR_EOF);
++    av_assert0(atomic_load(&records[pending].count) == 1);
++    av_assert0(tq_latest_frame_dropped(queue) == 0); // EOF cleanup is not replacement
++    tq_free(&queue);
++
++    queue = mailbox();
++    tq_choke(queue, 1);
++    send_new(queue);
++    latest = send_new(queue);
++    av_assert0(tq_receive(queue, &stream, out, THREAD_QUEUE_FLAG_NO_BLOCK) == AVERROR(EAGAIN));
++    tq_send_finish(queue, 0); // EOF must unchoke and deliver the final frame
++    av_assert0(receive_id(queue, out) == latest);
++    av_frame_unref(out);
++    av_assert0(tq_receive(queue, &stream, out, 0) == AVERROR_EOF);
++    av_assert0(tq_latest_frame_dropped(queue) == 1);
++    tq_free(&queue);
++    av_frame_free(&out);
++}
++
++static void test_default_and_rejected_modes(void)
++{
++    ThreadQueue *queue = tq_alloc(1, 2, THREAD_QUEUE_FRAMES);
++    AVFrame *out = av_frame_alloc(), *invalid;
++    AVPacket *packet = av_packet_alloc(), *received = av_packet_alloc();
++    int a, b, stream;
++
++    av_assert0(queue && out && packet && received);
++    av_assert0(tq_set_latest_frame(queue) == AVERROR(EINVAL));
++    a = send_new(queue);
++    b = send_new(queue);
++    av_assert0(receive_id(queue, out) == a);
++    av_frame_unref(out);
++    av_assert0(receive_id(queue, out) == b);
++    av_frame_unref(out);
++    av_assert0(tq_latest_frame_dropped(queue) == 0);
++    tq_free(&queue);
++
++    queue = tq_alloc(2, 1, THREAD_QUEUE_FRAMES);
++    av_assert0(queue && tq_set_latest_frame(queue) == AVERROR(EINVAL));
++    tq_free(&queue);
++    queue = tq_alloc(1, 1, THREAD_QUEUE_PACKETS);
++    av_assert0(queue && tq_set_latest_frame(queue) == AVERROR(EINVAL));
++    av_assert0(av_new_packet(packet, 1) == 0);
++    packet->data[0] = 42;
++    av_assert0(tq_send(queue, 0, packet) == 0);
++    av_assert0(tq_receive(queue, &stream, received, 0) == 0);
++    av_assert0(received->data[0] == 42 && tq_latest_frame_dropped(queue) == 0);
++    tq_free(&queue);
++    av_packet_free(&packet);
++    av_packet_free(&received);
++
++    queue = mailbox();
++    invalid = new_frame();
++    invalid->nb_samples = 1; // audio/control-shaped data must never be replaced
++    av_assert0(tq_send(queue, 0, invalid) == AVERROR(EINVAL));
++    av_assert0(invalid->buf[0]);
++    av_frame_free(&invalid);
++    a = send_new(queue);
++    tq_free(&queue); // undelivered raw reference released on teardown
++    av_assert0(atomic_load(&records[a].count) == 1);
++    av_frame_free(&out);
++}
++
++typedef struct Stress {
++    ThreadQueue *queue;
++    pthread_mutex_t lock;
++    pthread_cond_t cond;
++    int gate;
++    unsigned received;
++    int last;
++} Stress;
++
++static void *producer(void *opaque)
++{
++    Stress *s = opaque;
++    for (unsigned i = 0; i < STRESS_FRAMES; i++) {
++        send_new(s->queue);
++        if (i == 99) {
++            pthread_mutex_lock(&s->lock);
++            s->gate = 1;
++            pthread_cond_broadcast(&s->cond);
++            pthread_mutex_unlock(&s->lock);
++        }
++    }
++    tq_send_finish(s->queue, 0);
++    return NULL;
++}
++
++static void *consumer(void *opaque)
++{
++    Stress *s = opaque;
++    AVFrame *out = av_frame_alloc();
++    int stream, ret;
++    av_assert0(out);
++    pthread_mutex_lock(&s->lock);
++    while (!s->gate)
++        pthread_cond_wait(&s->cond, &s->lock);
++    pthread_mutex_unlock(&s->lock);
++
++    while ((ret = tq_receive(s->queue, &stream, out, 0)) == 0) {
++        av_assert0(stream == 0 && out->pts > s->last);
++        av_assert0(*(int *)out->data[0] == out->pts);
++        s->last = out->pts;
++        s->received++;
++        av_frame_unref(out);
++    }
++    av_assert0(ret == AVERROR_EOF);
++    av_frame_free(&out);
++    return NULL;
++}
++
++static void test_concurrent_overwrite(void)
++{
++    Stress s = { .queue = mailbox(), .last = -1 };
++    pthread_t producer_thread, consumer_thread;
++    int start = atomic_load(&created);
++    uint64_t replaced;
++    av_assert0(pthread_mutex_init(&s.lock, NULL) == 0);
++    av_assert0(pthread_cond_init(&s.cond, NULL) == 0);
++    av_assert0(pthread_create(&consumer_thread, NULL, consumer, &s) == 0);
++    av_assert0(pthread_create(&producer_thread, NULL, producer, &s) == 0);
++    av_assert0(pthread_join(producer_thread, NULL) == 0);
++    av_assert0(pthread_join(consumer_thread, NULL) == 0);
++    replaced = tq_latest_frame_dropped(s.queue);
++    av_assert0(replaced >= 99);
++    av_assert0(replaced + s.received == STRESS_FRAMES);
++    av_assert0(s.last == start + STRESS_FRAMES - 1);
++    tq_free(&s.queue);
++    pthread_cond_destroy(&s.cond);
++    pthread_mutex_destroy(&s.lock);
++}
++
++static void test_compact_timestamps(void)
++{
++    AVFrame *frame = new_frame();
++    int original_id = *(int *)frame->data[0];
++    int64_t end = 0;
++
++    for (unsigned i = 0; i < 1000; i++) {
++        frame->pts = 10000 + i * 3; // source IDs/PTS gaps must not create AVI holes
++        av_assert0(frame_pacing_compact(frame, i, (AVRational){ 100, 1 }) == 0);
++        av_assert0(frame->pts == i && frame->duration == 1);
++        av_assert0(*(int *)frame->data[0] == original_id);
++    }
++    frame->time_base = (AVRational){ 1, 1000 };
++    for (unsigned i = 0; i < 75; i++) {
++        av_assert0(frame_pacing_compact(frame, i, (AVRational){ 75, 1 }) == 0);
++        av_assert0(frame->pts == end && frame->duration > 0);
++        end = frame->pts + frame->duration;
++    }
++    av_assert0(end == 1000);
++    frame->time_base = (AVRational){ 1, 90000 };
++    av_assert0(frame_pacing_compact(frame, 100, (AVRational){ 30000, 1001 }) == 0);
++    av_assert0(frame->pts == 300300 && frame->duration == 3003);
++    av_assert0(frame_pacing_compact(frame, UINT64_MAX, (AVRational){ 100, 1 }) < 0);
++    av_assert0(frame_pacing_compact(frame, 0, (AVRational){ 0, 1 }) < 0);
++    frame->time_base = (AVRational){ 1, 1 };
++    av_assert0(frame_pacing_compact(frame, 0, (AVRational){ 100, 1 }) < 0);
++    av_frame_free(&frame);
++}
++
++int main(void)
++{
++    test_replacement_ownership_and_eof();
++    test_empty_eof_consumer_finish_and_choke();
++    test_default_and_rejected_modes();
++    test_concurrent_overwrite();
++    test_compact_timestamps();
++    for (int i = 0; i < atomic_load(&created); i++)
++        av_assert0(atomic_load(&records[i].count) == 1);
++    printf("PASS: real thread_queue mailbox, FIFO compatibility, EOF, references, concurrency, compact PTS (%d frames released exactly once)\n",
++           atomic_load(&created));
++    return 0;
++}
+diff --git a/libavfilter/ddagrab_clock.h b/libavfilter/ddagrab_clock.h
+new file mode 100644
+--- /dev/null
++++ b/libavfilter/ddagrab_clock.h
+@@ -0,0 +1,136 @@
++/*
++ * High-resolution, non-catching-up Desktop Duplication clock.
++ * Copyright (c) 2026 DJI Goggles Streamer contributors
++ * SPDX-License-Identifier: LGPL-2.1-or-later
++ */
++#ifndef AVFILTER_DDAGRAB_CLOCK_H
++#define AVFILTER_DDAGRAB_CLOCK_H
++
++#include <stdint.h>
++#include <windows.h>
++#include <timeapi.h>
++#include "ddagrab_phase.h"
++
++#ifndef CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
++#define CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 0x00000002
++#endif
++
++typedef struct DdaFrameClock {
++    HANDLE timer;
++    int64_t frequency;
++    int64_t origin;
++    int64_t next_slot;
++    int fps_num;
++    int fps_den;
++    int spin_us;
++    int period_requested;
++    int64_t last_deadline;
++    DdaSourcePhase source_phase;
++} DdaFrameClock;
++
++/* Positive rational conversion without overflowing on a long QPC uptime. */
++static inline int64_t dda_clock_rescale(int64_t value, int64_t num, int64_t den)
++{
++    return (value / den) * num + (value % den) * num / den;
++}
++
++static inline int64_t dda_clock_ticks(void)
++{
++    LARGE_INTEGER now;
++    QueryPerformanceCounter(&now);
++    return now.QuadPart;
++}
++
++static inline int64_t dda_clock_us(const DdaFrameClock *clock)
++{
++    return dda_clock_rescale(dda_clock_ticks(), 1000000, clock->frequency);
++}
++
++static inline int64_t dda_clock_deadline(DdaFrameClock *clock, int64_t now)
++{
++    const int64_t numerator = clock->frequency * clock->fps_den;
++    if (clock->source_phase.enabled) {
++        int64_t deadline = clock->origin +
++                           dda_clock_rescale(clock->next_slot, numerator, clock->fps_num);
++        /* A seriously delayed source consumes one current frame, then waits a
++         * complete period. It must not replay missed slots or squeeze a short
++         * catch-up capture in just before the next old-grid deadline. */
++        if (now - deadline > clock->source_phase.period / 4) {
++            clock->origin = now;
++            clock->next_slot = 0;
++            dda_phase_reset(&clock->source_phase);
++            return now;
++        }
++        return deadline;
++    }
++    int64_t due = dda_clock_rescale(now - clock->origin, clock->fps_num, numerator);
++    /* A slow consumer misses slots. Never replay those slots as a catch-up burst. */
++    if (due > clock->next_slot)
++        clock->next_slot = due;
++    return clock->origin + dda_clock_rescale(clock->next_slot, numerator, clock->fps_num);
++}
++
++static inline void dda_clock_close(DdaFrameClock *clock)
++{
++    if (clock->timer)
++        CloseHandle(clock->timer);
++    if (clock->period_requested)
++        timeEndPeriod(1);
++    clock->timer = NULL;
++    clock->period_requested = 0;
++}
++
++static inline int dda_clock_init(DdaFrameClock *clock, int num, int den)
++{
++    LARGE_INTEGER frequency;
++    if (!QueryPerformanceFrequency(&frequency) || frequency.QuadPart <= 0)
++        return 0;
++    clock->frequency = frequency.QuadPart;
++    clock->fps_num = num;
++    clock->fps_den = den;
++    dda_phase_init(&clock->source_phase, clock->frequency, num, den, 0, 2000);
++    clock->spin_us = 500;
++    clock->timer = CreateWaitableTimerExW(NULL, NULL,
++        CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
++    if (!clock->timer) {
++        clock->period_requested = timeBeginPeriod(1) == TIMERR_NOERROR;
++        clock->timer = CreateWaitableTimerExW(NULL, NULL, 0, TIMER_ALL_ACCESS);
++    }
++    if (!clock->timer) {
++        dda_clock_close(clock);
++        return 0;
++    }
++    clock->origin = dda_clock_ticks();
++    clock->next_slot = 1;
++    return 1;
++}
++
++static inline int dda_clock_wait(DdaFrameClock *clock, int64_t *now_us)
++{
++    int64_t now = dda_clock_ticks();
++    int64_t deadline = dda_clock_deadline(clock, now);
++    /* 500 us bounds the busy tail to 5% of one core at 100 fps. */
++    int64_t tail = dda_clock_rescale(clock->frequency, clock->spin_us, 1000000);
++    while (now < deadline) {
++        int64_t remaining = deadline - now;
++        if (remaining > tail) {
++            LARGE_INTEGER due;
++            due.QuadPart = -dda_clock_rescale(remaining - tail, 10000000, clock->frequency);
++            if (due.QuadPart >= 0)
++                due.QuadPart = -1;
++            if (!SetWaitableTimer(clock->timer, &due, 0, NULL, NULL, FALSE) ||
++                WaitForSingleObject(clock->timer, INFINITE) != WAIT_OBJECT_0)
++                return 0;
++        } else {
++            YieldProcessor();
++        }
++        now = dda_clock_ticks();
++    }
++    /* Rebase directly to the current slot if the OS delayed the wake itself. */
++    clock->last_deadline = dda_clock_deadline(clock, now);
++    clock->next_slot++;
++    *now_us = dda_clock_rescale(now, 1000000, clock->frequency);
++    return 1;
++}
++
++#endif
+diff --git a/libavfilter/ddagrab_phase.h b/libavfilter/ddagrab_phase.h
+new file mode 100644
+--- /dev/null
++++ b/libavfilter/ddagrab_phase.h
+@@ -0,0 +1,183 @@
++/*
++ * Bounded source-present phase estimator for Desktop Duplication.
++ * This file is part of FFmpeg, licensed under GNU LGPL version 2.1 or later.
++ * Pure integer arithmetic: no waits, allocation, device calls, or logging.
++ */
++#ifndef AVFILTER_DDAGRAB_PHASE_H
++#define AVFILTER_DDAGRAB_PHASE_H
++
++#include <stdint.h>
++
++#define DDA_PHASE_WINDOW 16
++
++typedef struct DdaSourcePhase {
++    int enabled;
++    int locked;
++    int count;
++    int next;
++    int64_t period;
++    int64_t guard;
++    int64_t max_slew;
++    int64_t last_present;
++    int64_t last_fresh_capture;
++    int64_t source_index;
++    int64_t presents[DDA_PHASE_WINDOW];
++    int64_t indices[DDA_PHASE_WINDOW];
++    unsigned char cadence_evidence[DDA_PHASE_WINDOW];
++    uint64_t corrections;
++    uint64_t repeats;
++    uint64_t rejects;
++    int64_t total_slew;
++} DdaSourcePhase;
++
++static inline int64_t dda_phase_rescale(int64_t value, int64_t num, int64_t den)
++{
++    return (value / den) * num + (value % den) * num / den;
++}
++
++static inline void dda_phase_init(DdaSourcePhase *phase, int64_t frequency,
++                                 int fps_num, int fps_den, int enabled, int guard_us)
++{
++    *phase = (DdaSourcePhase){ 0 };
++    phase->enabled = enabled;
++    phase->period = dda_phase_rescale(frequency, fps_den, fps_num);
++    phase->guard = dda_phase_rescale(frequency, guard_us, 1000000);
++    phase->max_slew = dda_phase_rescale(frequency, 100, 1000000);
++    if (phase->max_slew < 1)
++        phase->max_slew = 1;
++}
++
++static inline void dda_phase_reset(DdaSourcePhase *phase)
++{
++    phase->locked = phase->count = phase->next = 0;
++    phase->last_present = phase->last_fresh_capture = 0;
++    phase->source_index = 0;
++}
++
++static inline void dda_phase_restart(DdaSourcePhase *phase, int64_t present, int64_t capture)
++{
++    phase->locked = 0;
++    phase->count = 1;
++    phase->next = 1;
++    phase->presents[0] = present;
++    phase->indices[0] = phase->source_index = 0;
++    phase->cadence_evidence[0] = 0;
++    phase->last_present = present;
++    phase->last_fresh_capture = capture;
++}
++
++/* Return a correction for FUTURE deadlines only. The capture clock remains the
++ * cadence authority. A source timestamp is not a future presentation promise.
++ *
++ * Require 16 genuine updates, with at least 12 of 15 intervals near one nominal
++ * period or near two periods with DXGI confirming two accumulated updates.
++ * A missed acquisition must not prevent the phase adjustment needed to recover
++ * from it. A real 50 Hz source has only one update in two periods, so it cannot
++ * masquerade as 100 Hz by normalizing all intervals. Their cumulative
++ * frequency must match the cadence within 3%; individual intervals may jitter.
++ * Repeats/mouse-only events never steer the clock or keep it locked.
++ * A median of phase residuals rejects DWM's individual +/-2 ms timestamp jitter.
++ */
++static inline int64_t dda_phase_observe(DdaSourcePhase *phase, int64_t present,
++                                       unsigned accumulated, int64_t capture,
++                                       int64_t deadline)
++{
++    int64_t values[DDA_PHASE_WINDOW];
++    int64_t delta, nominal, error, tolerance, predicted, shift;
++    int oldest, step, supported_intervals = 0;
++
++    if (!phase->enabled)
++        return 0;
++    if (present <= 0 || present == phase->last_present || !accumulated) {
++        phase->repeats++;
++        phase->locked = 0;
++        if (phase->last_fresh_capture && capture - phase->last_fresh_capture >= 3 * phase->period)
++            dda_phase_reset(phase);
++        return 0;
++    }
++    if (present > capture || present < phase->last_present ||
++        capture - present > 2 * phase->period || capture < deadline ||
++        capture - deadline > phase->period / 4) {
++        phase->rejects++;
++        phase->locked = phase->count = phase->next = 0;
++        return 0;
++    }
++
++    delta = present - phase->last_present;
++    step = delta >= phase->period + phase->period / 2 ? 2 : 1;
++    if (!phase->last_present || !phase->count || accumulated > 2 ||
++        (accumulated > 1 && step == 1) || delta < phase->period / 2 ||
++        delta > 2 * phase->period + phase->period / 2) {
++        if (phase->last_present)
++            phase->rejects++;
++        dda_phase_restart(phase, present, capture);
++        return 0;
++    }
++
++    phase->last_present = present;
++    phase->last_fresh_capture = capture;
++    phase->source_index += step;
++    phase->presents[phase->next] = present;
++    phase->indices[phase->next] = phase->source_index;
++    phase->cadence_evidence[phase->next] = step == 1 || accumulated == 2;
++    phase->next = (phase->next + 1) % DDA_PHASE_WINDOW;
++    if (phase->count < DDA_PHASE_WINDOW)
++        phase->count++;
++    if (phase->count < DDA_PHASE_WINDOW)
++        return 0;
++
++    oldest = phase->next;
++    for (int i = 1; i < DDA_PHASE_WINDOW; i++)
++        supported_intervals += phase->cadence_evidence[(oldest + i) % DDA_PHASE_WINDOW];
++    nominal = (phase->source_index - phase->indices[oldest]) * phase->period;
++    error = present - phase->presents[oldest] - nominal;
++    tolerance = (nominal / 100) * 3 + (nominal % 100) * 3 / 100;
++    if (supported_intervals < DDA_PHASE_WINDOW - 4 || error < -tolerance || error > tolerance) {
++        phase->locked = 0;
++        phase->rejects++;
++        return 0;
++    }
++
++    /* Project each observed present onto the newest frame's nominal slot, then
++     * take the median. This tracks phase drift without copying raw interval
++     * jitter into the capture timer. All samples are QPC values from one output. */
++    for (int i = 0; i < DDA_PHASE_WINDOW; i++) {
++        int64_t value = phase->presents[(oldest + i) % DDA_PHASE_WINDOW] +
++                        (phase->source_index - phase->indices[(oldest + i) % DDA_PHASE_WINDOW]) * phase->period;
++        int j = i;
++        while (j > 0 && values[j - 1] > value) {
++            values[j] = values[j - 1];
++            j--;
++        }
++        values[j] = value;
++    }
++    /* A near-100 average does not establish a useful phase for broad VRR or
++     * irregular bursts. Reject a wide middle half, while ignoring isolated
++     * timestamp outliers at either end of the sorted residual window. */
++    if (values[3 * DDA_PHASE_WINDOW / 4] - values[DDA_PHASE_WINDOW / 4] > phase->period / 4) {
++        phase->locked = 0;
++        phase->rejects++;
++        return 0;
++    }
++    predicted = values[DDA_PHASE_WINDOW / 2 - 1] +
++                (values[DDA_PHASE_WINDOW / 2] - values[DDA_PHASE_WINDOW / 2 - 1]) / 2;
++    error = (predicted + phase->guard - deadline) % phase->period;
++    if (error > phase->period / 2)
++        error -= phase->period;
++    else if (error < -phase->period / 2)
++        error += phase->period;
++
++    phase->locked = 1;
++    shift = error / 8;
++    if (shift > phase->max_slew)
++        shift = phase->max_slew;
++    else if (shift < -phase->max_slew)
++        shift = -phase->max_slew;
++    if (shift) {
++        phase->corrections++;
++        phase->total_slew += shift;
++    }
++    return shift;
++}
++
++#endif
+diff --git a/libavfilter/tests/ddagrab_source_clock.c b/libavfilter/tests/ddagrab_source_clock.c
+new file mode 100644
+--- /dev/null
++++ b/libavfilter/tests/ddagrab_source_clock.c
+@@ -0,0 +1,262 @@
++/* This file is part of FFmpeg, licensed under GNU LGPL version 2.1 or later. */
++/* Integer-time tests of the actual capture clock/phase headers. No waits,
++ * desktop capture, GPU or USB calls are performed. QPC units are microseconds. */
++#include "ddagrab_clock.h"
++#include <assert.h>
++#include <stdio.h>
++#include <stdlib.h>
++
++typedef struct Source {
++    int num, den;
++    int jitter;
++    int availability;
++} Source;
++
++typedef struct Result {
++    int unique, repeats, locks;
++    int64_t min_interval, max_interval, last_age, final_deadline;
++    uint64_t corrections;
++} Result;
++
++static const int jitter_us[] = { -900, 900, -600, 600, -300, 300, 0, 0 };
++
++static int64_t present_at(Source source, int64_t index)
++{
++    return 1000000 + index * 1000000 * source.den / source.num +
++           (source.jitter ? jitter_us[index % 8] : 0);
++}
++
++static DdaFrameClock make_clock(int phase_enabled, int guard)
++{
++    DdaFrameClock clock = { .frequency = 1000000, .origin = 1007000,
++                           .next_slot = 1, .fps_num = 100, .fps_den = 1 };
++    dda_phase_init(&clock.source_phase, clock.frequency, 100, 1, phase_enabled, guard);
++    return clock;
++}
++
++static Result simulate_at_phase(Source source, int guard, int enabled, int count,
++                                int initial_phase)
++{
++    DdaFrameClock clock = make_clock(enabled, guard);
++    clock.origin = 1000000 + initial_phase;
++    Result result = { .min_interval = INT64_MAX };
++    int64_t previous_deadline = 0, previous_index = -1;
++
++    for (int i = 0; i < count; i++) {
++        int64_t expected = clock.origin + clock.next_slot * 10000;
++        int64_t deadline = dda_clock_deadline(&clock, expected);
++        int64_t index = (deadline - source.availability - 1000000) * source.num /
++                        (1000000 * source.den);
++        int64_t present = 0, shift;
++        unsigned accumulated = 0;
++
++        while (present_at(source, index) > deadline - source.availability)
++            index--;
++        while (present_at(source, index + 1) <= deadline - source.availability)
++            index++;
++        assert(index >= previous_index);
++        if (index > previous_index) {
++            present = present_at(source, index);
++            accumulated = previous_index < 0 ? 1 : index - previous_index;
++            previous_index = index;
++            result.unique++;
++        } else {
++            result.repeats++;
++        }
++        if (previous_deadline) {
++            int64_t interval = deadline - previous_deadline;
++            assert(interval >= 9900 && interval <= 10100);
++            if (interval < result.min_interval) result.min_interval = interval;
++            if (interval > result.max_interval) result.max_interval = interval;
++        }
++        previous_deadline = deadline;
++        clock.last_deadline = deadline;
++        clock.next_slot++;
++        shift = dda_phase_observe(&clock.source_phase, present, accumulated, deadline, deadline);
++        assert(llabs(shift) <= 100);
++        if (!present) assert(shift == 0);
++        clock.origin += shift;
++        result.locks += clock.source_phase.locked;
++        result.last_age = deadline - present_at(source, index);
++        result.final_deadline = deadline;
++    }
++    result.corrections = clock.source_phase.corrections;
++    return result;
++}
++
++static Result simulate(Source source, int guard, int enabled, int count)
++{
++    return simulate_at_phase(source, guard, enabled, count, 7000);
++}
++
++static void acquisition_recovery(void)
++{
++    /* The initial 1 ms capture phase is earlier than some DWM copies become
++     * available (up to 1.8 ms). Initial repeated pictures must not permanently
++     * disqualify their following two-update acquisition from the phase fit. */
++    for (int guard = 2000; guard <= 3000; guard += 1000) {
++        Result result = simulate_at_phase((Source){100, 1, 1, 900}, guard, 1, 10000, 1000);
++        fprintf(stdout, "Acquisition recovery guard=%d us: repeats=%d locks=%d corrections=%llu final_age=%lld us\n",
++                guard, result.repeats, result.locks, (unsigned long long)result.corrections,
++                (long long)result.last_age);
++        fflush(stdout);
++        assert(result.locks > 9000 && result.repeats < 100);
++        assert(result.last_age >= guard - 1000 && result.last_age <= guard + 1000);
++    }
++
++    DdaSourcePhase phase;
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    /* Every other acquisition misses, but DXGI counts both actual updates.
++     * The same 20 ms timestamps with only one accumulated image must not lock. */
++    for (int i = 0; i < 100; i++) {
++        int64_t present = 1000000 + i * 20000;
++        dda_phase_observe(&phase, present, 2, present + 3000, present + 3000);
++    }
++    assert(phase.locked && phase.corrections > 0);
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    for (int i = 0; i < 100; i++) {
++        int64_t present = 1000000 + i * 20000;
++        assert(!dda_phase_observe(&phase, present, 1, present + 3000, present + 3000));
++    }
++    assert(!phase.locked && !phase.corrections);
++    puts("PASS: bad startup phase recovers using accumulated-update evidence; 50 Hz with one update stays rejected");
++}
++
++static void valid_rates_and_guards(void)
++{
++    const int guards[] = { 500, 1000, 2000, 3000 };
++    for (unsigned i = 0; i < sizeof(guards)/sizeof(guards[0]); i++) {
++        int guard = guards[i];
++        Result exact = simulate((Source){100, 1, 0, 150}, guard, 1, 10000);
++        Result drift = simulate((Source){9995, 100, 0, 150}, guard, 1, 10000);
++        assert(exact.locks > 9000 && exact.corrections > 0);
++        assert(exact.last_age >= guard - 10 && exact.last_age <= guard + 10);
++        assert(exact.repeats < 3);
++        assert(drift.locks > 9000 && drift.repeats < 5);
++        assert(llabs(drift.last_age - guard) < 200);
++    }
++    Result jitter = simulate((Source){100, 1, 1, 150}, 2000, 1, 10000);
++    assert(jitter.locks > 9000 && jitter.repeats < 5);
++    assert(jitter.last_age >= 1000 && jitter.last_age <= 3000);
++    puts("PASS: exact 100 Hz, 99.95 Hz drift, +/-0.9 ms present jitter, 0.5/1/2/3 ms guards");
++}
++
++static void mismatched_rates(void)
++{
++    const int rates[] = { 50, 60, 75, 90, 240 };
++    for (unsigned i = 0; i < sizeof(rates)/sizeof(rates[0]); i++) {
++        Result result = simulate((Source){rates[i], 1, 0, 150}, 2000, 1, 5000);
++        assert(result.locks == 0 && result.corrections == 0);
++        assert(result.min_interval == 10000 && result.max_interval == 10000);
++    }
++    Result disabled = simulate((Source){100, 1, 1, 150}, 2000, 0, 5000);
++    assert(disabled.locks == 0 && disabled.corrections == 0);
++    puts("PASS: 50/60/75/90/240 Hz remain free running; disabled mode is unchanged");
++}
++
++static void invalid_repeat_and_restart(void)
++{
++    DdaSourcePhase phase;
++    uint64_t corrections;
++    int64_t total;
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    for (int i = 0; i < 40; i++)
++        dda_phase_observe(&phase, 1000000 + i*10000, 1,
++                          1005000+i*10000, 1005000+i*10000);
++    assert(phase.locked);
++    corrections = phase.corrections;
++    total = phase.total_slew;
++    /* Mouse-only and static timeouts must never accumulate corrections. */
++    for (int i = 0; i < 2000; i++)
++        assert(!dda_phase_observe(&phase, 0, 0, 1410000+i*10000, 1410000+i*10000));
++    assert(!phase.locked && phase.count == 0);
++    assert(phase.corrections == corrections && phase.total_slew == total);
++    assert(!dda_phase_observe(&phase, 24000001, 1, 24000000, 24000000));
++    assert(!phase.locked);
++    for (int i = 0; i < 40; i++)
++        dda_phase_observe(&phase, 25000000+i*10000, 1, 25002000+i*10000, 25002000+i*10000);
++    assert(phase.locked);
++    corrections = phase.corrections;
++    assert(!dda_phase_observe(&phase, 25000000, 1, 25410000, 25410000));
++    assert(!phase.locked && phase.corrections == corrections);
++    dda_phase_reset(&phase);
++    assert(!phase.locked && !phase.count && !phase.last_present);
++    puts("PASS: cursor-only, static, future/backward/stale timestamps, reset and requalification");
++}
++
++static void missing_updates_and_outlier(void)
++{
++    DdaSourcePhase phase;
++    int64_t previous_present = 0;
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    for (int i = 0; i < 300; i++) {
++        int64_t present = 1000000+i*10000;
++        int64_t capture = present+2000;
++        int64_t shift;
++        if (i % 17 == 9) {
++            assert(!dda_phase_observe(&phase, 0, 0, capture, capture));
++            continue;
++        }
++        shift = dda_phase_observe(&phase, present,
++            previous_present && present-previous_present==20000 ? 2 : 1, capture, capture);
++        assert(shift == 0);
++        previous_present = present;
++    }
++    assert(phase.locked);
++    /* Isolated large jumps and stalls cannot apply a phase correction. */
++    assert(!dda_phase_observe(&phase, 5000000, 1, 5002000, 5002000));
++    assert(!phase.locked);
++    assert(!dda_phase_observe(&phase, 5010000, 1, 5016000, 5012000));
++    assert(!phase.locked);
++    assert(!dda_phase_observe(&phase, 5020000, 1, 5050000, 5050000));
++    assert(!phase.locked);
++    puts("PASS: occasional real missed slots qualify without treating a 50 Hz source as 100 Hz; spikes do not steer");
++}
++
++static void broad_vrr_and_isolated_jitter(void)
++{
++    DdaSourcePhase phase;
++    dda_phase_init(&phase, 1000000, 100, 1, 1, 2000);
++    /* Same long-term 100 Hz average, but alternating 6/14 ms presents have no
++     * narrow phase. A cumulative-frequency-only test would accept this. */
++    for (int i = 0; i < 100; i++) {
++        int64_t present = 1000000+i*10000+(i%2 ? 4000 : 0);
++        assert(!dda_phase_observe(&phase, present, 1, present+2000, present+2000));
++    }
++    assert(!phase.locked && !phase.corrections);
++    dda_phase_reset(&phase);
++    for (int i = 0; i < 100; i++) {
++        int64_t present = 5000000+i*10000+(i==40 ? 1000 : 0);
++        int64_t capture = 5002000+i*10000;
++        assert(!dda_phase_observe(&phase, present, 1, capture, capture));
++    }
++    assert(phase.locked);
++    puts("PASS: broad 6/14 ms VRR rejected despite 100 Hz average; one present outlier does not steer");
++}
++
++static void deadline_recovery(void)
++{
++    DdaFrameClock clock = make_clock(1, 2000);
++    for (int n = 0; n < 10000; n++) {
++        int64_t expected = clock.origin + clock.next_slot*10000;
++        int64_t late = expected + (n % 3 == 0 ? 2501 : n % 3 == 1 ? 53000 : 5000000);
++        int64_t deadline = dda_clock_deadline(&clock, late);
++        assert(deadline == late && !clock.source_phase.locked);
++        clock.next_slot++;
++        assert(dda_clock_deadline(&clock, late) == late+10000);
++        clock.next_slot++;
++    }
++    puts("PASS: 10,000 late wakes/multi-second gaps emit one current slot then a complete period; no short catch-up");
++}
++
++int main(void)
++{
++    valid_rates_and_guards();
++    acquisition_recovery();
++    mismatched_rates();
++    invalid_repeat_and_restart();
++    missing_updates_and_outlier();
++    broad_vrr_and_isolated_jitter();
++    deadline_recovery();
++    return 0;
++}
+diff --git a/libavutil/g2_delivery.h b/libavutil/g2_delivery.h
+new file mode 100644
+--- /dev/null
++++ b/libavutil/g2_delivery.h
+@@ -0,0 +1,90 @@
++/*
++ * Bounded source-clock delivery policy for the G2 desktop experiment.
++ * SPDX-License-Identifier: LGPL-2.1-or-later
++ * Internal header: no OS calls or FFmpeg state, so policy tests need no GPU.
++ */
++#ifndef AVUTIL_G2_DELIVERY_H
++#define AVUTIL_G2_DELIVERY_H
++
++#include <errno.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++
++#define G2_DELIVERY_METADATA "g2.delivery"
++#define G2_DELIVERY_MAX_US 20000
++
++typedef struct G2DeliveryDeadline {
++    int64_t frequency;
++    int64_t source_deadline;
++    int64_t sample;
++    int64_t period;
++    int64_t delay;
++} G2DeliveryDeadline;
++
++static inline int g2_delivery_valid(const G2DeliveryDeadline *d)
++{
++    /* The frequency ceiling also bounds every multiplication in the waiter. */
++    return d->frequency >= 1000 && d->frequency <= INT64_C(1000000000000) &&
++           d->source_deadline > 0 && d->sample >= d->source_deadline &&
++           d->period > 0 && d->period <= d->frequency &&
++           d->delay > 0 && d->delay <= d->period &&
++           d->delay <= d->frequency / 50 &&
++           d->source_deadline <= INT64_MAX - d->delay;
++}
++
++static inline int g2_delivery_make(G2DeliveryDeadline *d, int64_t frequency,
++                                   int64_t source_deadline, int64_t sample,
++                                   int64_t period, int delay_us)
++{
++    *d = (G2DeliveryDeadline){ 0 };
++    if (frequency < 1000 || frequency > INT64_C(1000000000000) ||
++        delay_us <= 0 || delay_us > G2_DELIVERY_MAX_US)
++        return 0;
++    *d = (G2DeliveryDeadline){ frequency, source_deadline, sample, period,
++                             frequency * delay_us / 1000000 };
++    return g2_delivery_valid(d);
++}
++
++/* Negative means invalid, zero means late/on time, positive is bounded wait.
++ * Never base a deadline on previous delivery: late frames do not cause drift. */
++static inline int64_t g2_delivery_remaining(const G2DeliveryDeadline *d,
++                                           int64_t frequency, int64_t now)
++{
++    int64_t deadline;
++    if (!g2_delivery_valid(d) || frequency != d->frequency || now < d->sample)
++        return -1;
++    deadline = d->source_deadline + d->delay;
++    return now >= deadline ? 0 : deadline - now;
++}
++
++static inline int g2_delivery_parse(G2DeliveryDeadline *d, const char *text)
++{
++    G2DeliveryDeadline value = { 0 };
++    int64_t *fields[] = { &value.frequency, &value.source_deadline,
++                         &value.sample, &value.period, &value.delay };
++    const char *next;
++    *d = (G2DeliveryDeadline){ 0 };
++    if (!text || strncmp(text, "v1,", 3))
++        return 0;
++    next = text + 3;
++    for (unsigned i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
++        char *end;
++        long long number;
++        if (*next < '0' || *next > '9')
++            return 0;
++        errno = 0;
++        number = strtoll(next, &end, 10);
++        if (errno == ERANGE || number < 0 || end == next ||
++            (i < 4 ? *end != ',' : *end != '\0'))
++            return 0;
++        *fields[i] = (int64_t)number;
++        next = end + (i < 4);
++    }
++    if (!g2_delivery_valid(&value))
++        return 0;
++    *d = value;
++    return 1;
++}
++
++#endif
+diff --git a/libavutil/tests/g2_delivery.c b/libavutil/tests/g2_delivery.c
+new file mode 100644
+--- /dev/null
++++ b/libavutil/tests/g2_delivery.c
+@@ -0,0 +1,47 @@
++/* Source-clock delivery policy tests: CPU only. */
++#include <assert.h>
++#include <stdio.h>
++#include "libavutil/g2_delivery.h"
++
++int main(void)
++{
++    G2DeliveryDeadline d, copy;
++    const int64_t f = 10000000, base = 1000000000, period = 100000;
++    assert(g2_delivery_make(&d, f, base, base + 2000, period, 8000));
++    assert(g2_delivery_remaining(&d, f, base + 50000) == 30000);
++    assert(g2_delivery_remaining(&d, f, base + 80000) == 0);
++    assert(g2_delivery_remaining(&d, f, base + 200000) == 0);
++    assert(g2_delivery_remaining(&d, f + 1, base + 50000) == -1);
++    assert(g2_delivery_remaining(&d, f, base - 1) == -1);
++    assert(g2_delivery_parse(&copy, "v1,10000000,1000000000,1000002000,100000,80000"));
++    assert(copy.source_deadline == d.source_deadline && copy.delay == d.delay);
++    assert(!g2_delivery_parse(&copy, "v1,10000000,1000000000,1000002000,100000,80000,0"));
++    assert(!g2_delivery_parse(&copy, "v1,999999999999999999999999999,1,1,1,1"));
++    assert(!g2_delivery_parse(&copy, "v1,10000000,1000000000,1000002000,100000,80000x"));
++    assert(!g2_delivery_parse(&copy, "v1,10000000,1000000000,999999999,100000,80000"));
++    assert(!g2_delivery_make(&d, f, base, base, period, 10001));
++    assert(!g2_delivery_make(&d, f, base, base, period, 20001));
++    assert(!g2_delivery_make(&d, f, INT64_MAX - 10, INT64_MAX - 10, period, 8000));
++    assert(!g2_delivery_make(&d, INT64_MAX, base, base, period, 8000));
++    /* Different source frames and duplicate images must get independent grids.
++     * Prior encoder lateness cannot move a later frame's delivery deadline. */
++    for (int i = 0; i < 10000; i++) {
++        int64_t grid = base + i * period;
++        int64_t sample = grid + (i % 3) * 1000;
++        int64_t ready = sample + (i % 7 == 0 ? 120000 : 40000 + (i % 5) * 5000);
++        int64_t remaining, sent;
++        assert(g2_delivery_make(&d, f, grid, sample, period, 8000));
++        remaining = g2_delivery_remaining(&d, f, ready);
++        assert(remaining >= 0 && remaining <= 80000);
++        sent = ready + remaining;
++        assert(sent == (ready > grid + 80000 ? ready : grid + 80000));
++    }
++    /* Capture phase correction changes the schedule, not the wait budget. */
++    for (int i = -1000; i <= 1000; i += 1000) {
++        assert(g2_delivery_make(&d, f, base + period + i,
++                                base + period + i + 1000, period, 8000));
++        assert(g2_delivery_remaining(&d, f, base + period + i + 50000) == 30000);
++    }
++    puts("g2 delivery policy: all tests passed");
++    return 0;
++}

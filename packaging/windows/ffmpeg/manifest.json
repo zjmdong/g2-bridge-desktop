@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "upstream": {
+    "repository": "https://github.com/FFmpeg/FFmpeg",
+    "tag": "n9.0.2",
+    "commit": "946fcce07b6dcd0331c8cc609192aeff5e1924f8",
+    "source_archive": {
+      "path": "vendor/ffmpeg/source/ffmpeg-upstream-n9.0.2.tar.gz",
+      "bytes": 17441925,
+      "sha256": "c1d85f248a1c5e0a106f501f6893b2cdfe902607446d39df562e5f82eefc910e"
+    }
+  },
+  "toolchain": {
+    "environment": "UCRT64",
+    "gcc": "16.2.0-6",
+    "nasm": "3.02-1",
+    "ffnvcodec_headers": "13.0.19.0-1",
+    "msys2_base": {
+      "url": "https://github.com/msys2/msys2-installer/releases/download/2026-09-27/msys2-base-x86_64-20260927.tar.xz",
+      "sha256": "ea2f31a0b6ade63914ce441ffb022f0f6aa96982bfefa2326460a26d5fb01322"
+    },
+    "packages": [
+      {
+        "name": "diffutils-3.12-1-x86_64.pkg.tar.zst",
+        "bytes": 394515,
+        "sha256": "7902c8ce3d4dd69a0f5e98dc9d5c83c17b23314ba486169db57ef6e2835ce3b6",
+        "url": "https://repo.msys2.org/msys/x86_64/diffutils-3.12-1-x86_64.pkg.tar.zst"
+      },
+      {
+        "name": "make-4.4.1-3-x86_64.pkg.tar.zst",
+        "bytes": 514683,
+        "sha256": "af0bdba17f06fe037f0194069adaa31a8fe45f1a11381501896aea1fae37bd5d",
+        "url": "https://repo.msys2.org/msys/x86_64/make-4.4.1-3-x86_64.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-binutils-2.47-4-any.pkg.tar.zst",
+        "bytes": 6625838,
+        "sha256": "c18a40b871bfddb5da030f015003479ca85625afde1cb89f7313945e6151397d",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-binutils-2.47-4-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-cc-libs-16.2.0-6-any.pkg.tar.zst",
+        "bytes": 2343,
+        "sha256": "d8fff9e62443168bcda8ce746697243519c4f090ea607357ce94feac0bd10a50",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-cc-libs-16.2.0-6-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-crt-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst",
+        "bytes": 4097457,
+        "sha256": "e863d0d1c5cef1269738f23dcc155b9b0d161d198b93d9d5aa481cb3a2f2cf53",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-crt-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-ffnvcodec-headers-13.0.19.0-1-any.pkg.tar.zst",
+        "bytes": 71944,
+        "sha256": "e0bc995b1be487c6288b4d780d3c7e5325d476c8a6c4932ee0210f9177c3f493",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-ffnvcodec-headers-13.0.19.0-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-gcc-16.2.0-6-any.pkg.tar.zst",
+        "bytes": 48529712,
+        "sha256": "0290e91f5a9a8a3699bcea6221a899403bb9bd5d6f7dbd98c883d74e2ef36338",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-gcc-16.2.0-6-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-gettext-runtime-1.0-1-any.pkg.tar.zst",
+        "bytes": 417977,
+        "sha256": "ba693dda4ac375af76ce481ff3a6e7481286546cc7dc6d56c7021dae34084157",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-gettext-runtime-1.0-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-gmp-6.3.0-2-any.pkg.tar.zst",
+        "bytes": 592359,
+        "sha256": "e82a75968a556484a50084578238a84eb60fb93e34986fd6695c537975bd39ea",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-gmp-6.3.0-2-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-headers-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst",
+        "bytes": 6896905,
+        "sha256": "b3cec87298555a7c6694bd4d421d586d08a1cb47bc5bc76e79602cbf4421d3c9",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-headers-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-isl-0.28-1-any.pkg.tar.zst",
+        "bytes": 1540719,
+        "sha256": "8594e01a253d5a72646c586cf5a1626c1b1c2be7c30060fe67abd9bebe3fe223",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-isl-0.28-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-libgcc-16.2.0-6-any.pkg.tar.zst",
+        "bytes": 77191,
+        "sha256": "80b2497f019977dd9528b1abc8621b1328a0115ab1f724047ccbb56bf323f11d",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-libgcc-16.2.0-6-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-libiconv-1.19.1-1-any.pkg.tar.zst",
+        "bytes": 742799,
+        "sha256": "8a45dc317a285a036bddd79e01505d67b79e44ff49fc3f6e7177a5ea98d098cf",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-libiconv-1.19.1-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-libstdc++-16.2.0-6-any.pkg.tar.zst",
+        "bytes": 795910,
+        "sha256": "33c5e58a85a538cf843a8672991cce591f0231d66da3b66a57629712d64be17f",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-libstdc++-16.2.0-6-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-libwinpthread-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst",
+        "bytes": 34470,
+        "sha256": "c35d6be83d141c8cfbb61f1637dd4b53aac8f5562d766aa26d0741c40bad4e4d",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-libwinpthread-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-mpc-1.4.1-1-any.pkg.tar.zst",
+        "bytes": 139585,
+        "sha256": "f06556e811c711ce91609484e31d358e4f495811ba29813bf2284a3b236d82ce",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-mpc-1.4.1-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-mpfr-4.2.2-3-any.pkg.tar.zst",
+        "bytes": 553765,
+        "sha256": "6b70a275d2ec75c70aa50a236c218e6b7ee9a5ab4c6d52cb0b580267b7d200fe",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-mpfr-4.2.2-3-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-nasm-3.02-1-any.pkg.tar.zst",
+        "bytes": 452146,
+        "sha256": "e60cf678bedee3d6c9a9264f8dec5897520e5ff7e3ae80c2b90b2628c5f51d58",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-nasm-3.02-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-pkgconf-1~3.0.10-1-any.pkg.tar.zst",
+        "bytes": 149203,
+        "sha256": "c234b9f8280f1e931efe8e4350085f544e4a6081ffcbd2caa3e81834e72e4688",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-pkgconf-1~3.0.10-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-tzdata-2026f-1-any.pkg.tar.zst",
+        "bytes": 225917,
+        "sha256": "dd8af2f770b3241d8c299343c12cd4d7e3b94c47195608158d28788a01575323",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-tzdata-2026f-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-windows-default-manifest-20260815-1-any.pkg.tar.zst",
+        "bytes": 2652,
+        "sha256": "b39039f754a600cc0dec49df7d675a59a3cb2b63691d91b4ae60735ee7075eca",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-windows-default-manifest-20260815-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-winpthreads-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst",
+        "bytes": 46453,
+        "sha256": "282485a1e453e972b86639cedcf43686e0000dfe5eff0421e47a4405ecdd85ce",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-winpthreads-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-zlib-1.4-2-any.pkg.tar.zst",
+        "bytes": 889083,
+        "sha256": "172541cf5e2391a402f092104988699b0163129d22be1d6b4b201bfb84af6fcf",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-zlib-1.4-2-any.pkg.tar.zst"
+      },
+      {
+        "name": "mingw-w64-ucrt-x86_64-zstd-1.5.7-2-any.pkg.tar.zst",
+        "bytes": 668277,
+        "sha256": "dbdb8427280046a2b41697780aa4c52983b708082b0da4755951dc3bea96ca89",
+        "url": "https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-zstd-1.5.7-2-any.pkg.tar.zst"
+      },
+      {
+        "name": "patch-2.8.1-1-x86_64.pkg.tar.zst",
+        "bytes": 89811,
+        "sha256": "f2cf4b5ad0c87efd42f5c458ec9c1aba573980af4879a485590e153edc4eacf6",
+        "url": "https://repo.msys2.org/msys/x86_64/patch-2.8.1-1-x86_64.pkg.tar.zst"
+      }
+    ]
+  },
+  "patch": {
+    "path": "packaging/windows/ffmpeg/ffmpeg-n9.0.2-goggles.patch",
+    "bytes": 109337,
+    "sha256": "1e0055b6a5190c3cf0879a8052b01110c6d4c74c8c7929546656fdb8cbc90174"
+  },
+  "recipe": {
+    "build_script": "packaging/windows/ffmpeg/build.sh",
+    "clock_test": "packaging/windows/ffmpeg/check_clock.c",
+    "source_date_epoch": 1789687190,
+    "pe_timestamp": 1789687190,
+    "reproducibility_note": "Pinned inputs, remapped source/build __FILE__ macros and disabled PE link timestamps; compare clean-build hashes before claiming bit-for-bit reproducibility.",
+    "build_script_sha256": "c8053776da9f06fbadec4c2935b0442cbddb02c67ff392aa19fc403ffd3e217f",
+    "clock_test_sha256": "b61559673e213710eaab1c8a1da0fd8ebab34328f18526ed4f7069a10bbf99f1",
+    "fresh_wait_test": "packaging/windows/ffmpeg/check_fresh_wait.c",
+    "fresh_wait_runner": "packaging/windows/ffmpeg/check_fresh_wait.py",
+    "fresh_wait_test_sha256": "2905c3f5e09c2036c1e7f076bd584a1fbfadd3257fde04270ac01049cbb890f3",
+    "fresh_wait_runner_sha256": "15dae9db279a0c5d2601b7a62264609326cbe2747d5e4cfd80a763a23d106ff0"
+  },
+  "patched_source_files": {
+    "fftools/ffmpeg.h": "64417753326c0e99552ea1afb29bd400e4936b71908906d2363421b4a83e126e",
+    "fftools/ffmpeg_enc.c": "7a3221bccb5ec50960efd0fc006264afa130a74168fa0aacb655714bb2cd3dd6",
+    "fftools/ffmpeg_filter.c": "999ac7f3e716d1b5a78640e13f4d39502acf289a70a133d61c413fd3f9a92ce6",
+    "fftools/ffmpeg_mux.c": "28e77dc5cd382d4b66d83ca83945c20ee2594cfa57d763d4a6cd13566a6116bc",
+    "fftools/ffmpeg_mux.h": "c064d53d8d81ca209a2cb8e98f10c087caf05aaec13be904c2a925e24f17edba",
+    "fftools/ffmpeg_mux_init.c": "9549f6ef1fef218be356621cfa3e0bd7d3e2d39e8ef7f624cc7be9af150e06ff",
+    "fftools/ffmpeg_opt.c": "d556bd941cbb29f3de8f8aa7772329b6f9007ed4f297ce780d1450e838021052",
+    "fftools/ffmpeg_sched.c": "94422ea5366f41b3c2c1cea8e8d7d4c5bfadc4941618b6b8f8f28f1d69941bc4",
+    "fftools/ffmpeg_sched.h": "5db44f3316f188ea83acd609229d1ec89193f018353094e779b5e45d90cef9ef",
+    "fftools/frame_pacing.h": "076c7e3e3499afac428973ff61c050393739ddaed9cac5f4fa6c06f1e8545639",
+    "fftools/tests/run_mailbox_test.ps1": "2dc723e6288337c87d6173413273411e2b25ef7dc7294ad210d5475e76d43dc2",
+    "fftools/tests/thread_queue_mailbox.c": "9779dc9755770e874fe524aee2b552fddc2350a0d9d74adf85dfa3071f0511b1",
+    "fftools/thread_queue.c": "bb210a79c8944f67f4ba19ffefec07b6e524e7748ac2ae050deb0a32d6c0e286",
+    "fftools/thread_queue.h": "4297583eb352d5617b24cf41eebbb20e633c85a9fc31e83800ad165850984aff",
+    "libavcodec/nvenc.c": "103d96d8e38c2b3f6ad5b518d847136025e45aeed5740c1758c1202f43c4d688",
+    "libavcodec/nvenc.h": "f7eb884b7ec268f62bba0dd490c336fca797866bab98516bea812af2cf335a4b",
+    "libavcodec/nvenc_h264.c": "f0c83c60d7c89b606e1c8c2aa99fcd71a54cb1fcc540a3f78cb9b30c61e5b5b1",
+    "libavfilter/ddagrab_clock.h": "514abc360dbc34d96f511f2a7a2de335a72b2299ca1181163ece6709f03f5489",
+    "libavfilter/ddagrab_phase.h": "04375251e76f3a8daf177e115eb1399cef28fe3c6c8980ea2c5191ab5a29f723",
+    "libavfilter/tests/ddagrab_source_clock.c": "0898a6973890123faba6be8341a9476e4478a43800e7aa1f5c569f9a3b0b9b3a",
+    "libavfilter/vf_scale_d3d11.c": "f42c0f34c122bdca812ee83b3e852c7d6c2e60bf29874dddf40165528323b53a",
+    "libavfilter/vsrc_ddagrab.c": "6e78109bd7ea96e2e534c73e77ca410cc1824b61b1c5fc050dc9583f162b579d",
+    "libavutil/g2_delivery.h": "03621e9d9bd4cd6e2384326f2a1bc885495230c91645ad8731baed180e0841c2",
+    "libavutil/tests/g2_delivery.c": "a4c35b42b0ce9bad573ac2263e4060835f76a0b92432b82adba0280b99f23ef4"
+  },
+  "source_hash_line_endings": "LF",
+  "release_binaries": {
+    "ffmpeg.exe": {
+      "bytes": 5764608,
+      "sha256": "fba9914c3f11cd395449697e986009b396a7b53834bbf4749791782c8e8e31d9"
+    },
+    "ffprobe.exe": {
+      "bytes": 5570048,
+      "sha256": "37ae04f5454e3a38afcb59884bfd9a8773797d0a9a787cc42f4704136d9d7ea1"
+    }
+  },
+  "validated_outputs": {
+    "source": "clean pinned archive plus manifest patch; native tests passed",
+    "binary_hashes": "release_binaries",
+    "optical_latency_measured": false
+  }
+}

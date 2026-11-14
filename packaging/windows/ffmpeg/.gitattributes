@@ -1,0 +1,4 @@
+# Manifest hashes identify the LF source bytes used by the native build.
+* text eol=lf
+*.patch -whitespace
+licenses/** -whitespace

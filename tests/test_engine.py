@@ -161,7 +161,10 @@ class EngineTests(unittest.TestCase):
         if sys.platform != 'win32':
             return
         # The kernel accepts the call only after the process touches the graphics stack, as FFmpeg has by its first frame
-        process = subprocess.Popen([sys.executable, '-c', "import ctypes; ctypes.WinDLL('user32').GetDesktopWindow()"
+        # A Windows venv's python.exe can be a forwarding launcher: its Popen
+        # handle then belongs to a different process from the graphics caller.
+        interpreter = getattr(sys, '_base_executable', sys.executable)
+        process = subprocess.Popen([interpreter, '-c', "import ctypes; ctypes.WinDLL('user32').GetDesktopWindow()"
                                     "; print('ready', flush=True); import time; time.sleep(5)"],
                                    stdout=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
         try:
@@ -170,6 +173,7 @@ class EngineTests(unittest.TestCase):
         finally:
             process.kill()
             process.wait(timeout=5)
+            process.stdout.close()
 
     def test_absent_device_can_be_stopped_while_waiting(self):
         stop = threading.Event()

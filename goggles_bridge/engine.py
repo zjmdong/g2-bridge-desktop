@@ -197,21 +197,36 @@ def check_encoder(settings, run=subprocess.run):
     return f'FFmpeg test encode failed. Check the NVIDIA driver and --display index.\n  {details}'
 
 
-def prioritize_gpu(process):
-    """Give the encoder realtime GPU scheduling so a saturated simulator cannot queue ahead of it.
+def _validate_gpu_priority_class(priority_class):
+    if priority_class is not None and (type(priority_class) is not int or not 0 <= priority_class <= 5):
+        raise ValueError('GPU priority class must be None or an integer from 0 to 5')
 
-    Call it once the process has produced output: the kernel rejects processes that
-    have not yet created a graphics context. Needs no elevation. Under synthetic GPU
-    saturation it cut the capture-to-packet p95 from about 6.7 to 3.5 ms; the HIGH
-    class changed nothing. Returns False where unsupported.
+
+def prioritize_gpu(process, priority_class=5):
+    """Best-effort scheduling for this encoder's existing Windows handle.
+
+    The CLI keeps its realtime default. A desktop compositor sharing the GPU
+    can instead use High (4); None preserves the OS policy. Apply once after
+    first output, when the encoder has created its graphics context.
     """
-    handle = getattr(process, '_handle', None)
-    if handle is None or sys.platform != 'win32':
+    _validate_gpu_priority_class(priority_class)
+    if priority_class is None or sys.platform != 'win32':
         return False
     import ctypes
-    set_class = ctypes.WinDLL('gdi32').D3DKMTSetProcessSchedulingPriorityClass
-    set_class.argtypes = [ctypes.c_void_p, ctypes.c_int]
-    return set_class(int(handle), 5) == 0  # D3DKMT_SCHEDULINGPRIORITYCLASS_REALTIME
+    try:
+        handle = getattr(process, '_handle', None)
+        if handle is None or type(handle) is bool or getattr(handle, 'closed', False):
+            return False
+        handle = int(handle)
+        if not 0 < handle < 1 << (ctypes.sizeof(ctypes.c_void_p)*8-1):
+            return False  # Never target NULL, pseudo handles, or the caller.
+        library = ctypes.WinDLL('gdi32.dll', winmode=0x00000800)
+        set_class = library.D3DKMTSetProcessSchedulingPriorityClass
+        set_class.argtypes = [ctypes.c_void_p, ctypes.c_int32]
+        set_class.restype = ctypes.c_int32
+        return set_class(handle, priority_class) == 0
+    except (OSError, AttributeError, TypeError, ValueError, OverflowError):
+        return False
 
 
 class EventLog:
@@ -235,11 +250,13 @@ class BridgeEngine:
     """Manage the encoder and USB session, reconnecting after link loss."""
     def __init__(self, settings, log_path, *, on_event=None, stop_event=None,
                  stop_file=None, duration=0, reconnect=True, retry_delay=1,
-                 transport_factory=None, process_factory=subprocess.Popen):
+                 transport_factory=None, process_factory=subprocess.Popen,
+                 gpu_priority_class=5):
         if not math.isfinite(duration) or duration < 0:
             raise ValueError('Duration must be nonnegative and finite')
         if not math.isfinite(retry_delay) or retry_delay < 0:
             raise ValueError('Retry delay must be nonnegative and finite')
+        _validate_gpu_priority_class(gpu_priority_class)
         self.settings = settings
         self.log_path = Path(log_path)
         self.on_event = on_event or (lambda event: None)
@@ -251,6 +268,7 @@ class BridgeEngine:
         self.transport_factory = (partial(ControlUsb, write_size=settings.usb_write_size)
                                   if transport_factory is None else transport_factory)
         self.process_factory = process_factory
+        self.gpu_priority_class = gpu_priority_class
         self.log = None
         self.waiting = None
 
@@ -440,7 +458,10 @@ class BridgeEngine:
                         byte_count += len(wire)
                         frame_count += 1
                         if encoder_first_frame:
-                            self.emit('streaming', encoder_pid=process.pid, gpu_realtime=prioritize_gpu(process))
+                            applied = prioritize_gpu(process, self.gpu_priority_class)
+                            self.emit('streaming', encoder_pid=process.pid,
+                                      gpu_realtime=applied and self.gpu_priority_class == 5,
+                                      gpu_priority_class=self.gpu_priority_class, gpu_priority_applied=applied)
                             encoder_first_frame = False
                     else:
                         self.stop_event.wait(.002)
