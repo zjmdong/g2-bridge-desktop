@@ -5,6 +5,21 @@ Goggles Bridge window. The previous Qt window is not included. The CLI and
 macOS capture paths retain their upstream defaults and protocol behavior.
 Upstream's monitor-to-lens latency results are not a measurement of this fork.
 
+Version 0.3.1 restores the upstream advanced controls for physical displays:
+WGC or DDA capture, keyframe interval, H.264 profile, adaptive quantization,
+low-latency delivery and USB write size. WGC uses the same pinned stock FFmpeg
+as upstream; DDA retains the native performance backend. The app-only **On start
+only** keyframe option preserves the previous working configuration; **1 second**
+and **3 seconds** request periodic keyframes. Upgrading 0.3 settings preserves
+their actual startup-only behavior rather than turning the old hidden value
+into a new periodic refresh policy.
+
+The source option **虚拟屏** fixes only its runtime capture/compatibility settings.
+Those controls are hidden for that source; preset and USB write size remain
+available. Switching back to a physical display restores its saved preferences.
+The GPU capture path below describes DDA; selecting WGC uses the upstream
+capture graph with stable monitor identity and borderless capture requested.
+
 ## Source and lifecycle
 
 Choose **Display** to capture a connected screen, or **Separate display** for
