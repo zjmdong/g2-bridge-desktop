@@ -24,12 +24,14 @@ def command_for_target(command, *, target):
     return result
 
 
-def run(settings, options, log, stop, on_event, *, engine_factory=BridgeEngine, check=check_encoder):
+def run(settings, options, log, stop, on_event, *, engine_factory=BridgeEngine, check=check_encoder,
+        native_runtime=None):
     """A stopped or disconnected stream releases only its leased display."""
     if stop.is_set():
         return
     dimensions = (1280, 720) if options['virtual_resolution'] == '720p' else (1920, 1080)
-    settings = replace(settings, capture='gfxcapture', capture_fps=1000)
+    settings = replace(settings, capture='ddagrab' if native_runtime else 'gfxcapture',
+                       capture_fps=settings.fps if native_runtime else 1000)
     cleanup_errors = []
 
     def display_event(event, **values):
@@ -40,6 +42,10 @@ def run(settings, options, log, stop, on_event, *, engine_factory=BridgeEngine, 
     try:
         with lease(*dimensions, settings.fps, display_event) as target:
             if stop.is_set():
+                return
+            if native_runtime is not None:
+                current = select_source(*dimensions, settings.fps, expected=target)
+                native_runtime.run(settings, current['device'], log, stop, on_event, reconnect=False)
                 return
             def adapt(command):
                 current = select_source(*dimensions, settings.fps, expected=target)

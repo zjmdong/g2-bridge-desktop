@@ -1,5 +1,8 @@
 # Package the desktop app
 
+For personal Windows releases, follow [the personal release guide](../docs/PERSONAL-RELEASE.md)
+and pass `--native`. The upstream platform build notes below are retained as reference.
+
 The app is a pywebview window over the stream engine. Its code is in `goggles_bridge/app/`, and its interface is plain HTML, CSS, and JavaScript in `goggles_bridge/app/ui/`.
 
 ## Build on Windows
@@ -11,7 +14,7 @@ python -m pip install -r requirements-app.txt pyinstaller==6.22.3
 python packaging/build_windows.py
 ```
 
-The script writes the app folder to `dist/Goggles Bridge/` and the installer to `dist/GogglesBridge-VERSION-Setup.exe`. Inno Setup is required: it also builds the optional machine-wide display driver component, `dist/GogglesBridgeDisplay-Setup.exe`. Add its compiler (`ISCC.exe`) to PATH when installed outside the standard location.
+The script writes the app folder to `dist/Goggles Bridge Personal/` and the installer to `dist/GogglesBridgePersonal-VERSION-Setup.exe`. Inno Setup is required: it also builds the optional machine-wide display driver component, `dist/GogglesBridgeDisplay-Setup.exe`. Add its compiler (`ISCC.exe`) to PATH when installed outside the standard location.
 
 The build checks that its Python environment can import the app dependencies and pywebview's window API before downloading or packaging files. Use the same Python interpreter to install dependencies and build the app.
 

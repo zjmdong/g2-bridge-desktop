@@ -20,17 +20,17 @@ from .. import __version__
 from . import updates
 from .displays import list_displays
 from ..control import V1Stream
-from ..engine import CHOICES, MAX_FRAME_BYTES, NO_WINDOW, BridgeEngine, BridgeSettings, check_encoder, find_program
+from ..engine import CHOICES, MAX_FRAME_BYTES, NO_WINDOW, BridgeEngine, BridgeSettings, check_encoder, default_windows_encoder, find_program
 from ..session import SIMULATOR_SILENT, ControlSession
 from ..usb_transport import PRODUCT_ID, VENDOR_ID, ControlUsb, find_dll
 
-APP_NAME = 'Goggles Bridge'
+APP_NAME = 'Goggles Bridge Personal'
 UI = Path(__file__).with_name('ui')
 WINDOWS, MAC = sys.platform == 'win32', sys.platform == 'darwin'
 LINKS = {
     'driver': 'https://www.dji.com/downloads/softwares/dji-assistant-2-consumer-drones-series',
-    'github': 'https://github.com/Ammaar-Alam/goggles-bridge',
-    'report': 'https://github.com/Ammaar-Alam/goggles-bridge/issues/new',
+    'github': 'https://github.com/zjmdong/g2-bridge-desktop',
+    'report': 'https://github.com/zjmdong/g2-bridge-desktop/issues/new',
     'screen': 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
     'webview2': 'https://developer.microsoft.com/microsoft-edge/webview2/',
 }
@@ -116,7 +116,8 @@ def screen_access(request=False):
 
 
 def default_options():
-    capture = 'screencapturekit' if MAC else BridgeSettings.capture
+    # encoder stays None, so the engine detects NVENC or AMF; Windows capture follows that encoder
+    capture = 'screencapturekit' if MAC else BridgeSettings(None, None).capture
     return {name: (capture if name == 'capture' else getattr(BridgeSettings, name)) for name in OPTIONS}
 
 
@@ -151,7 +152,17 @@ class Desktop:
         self._checks = (0, None)
         self._displays = []
         self._ffmpeg = find_ffmpeg()
+        self._native_ffmpeg = None
+        self._native_runtime = None
+        if WINDOWS and engine_factory is BridgeEngine and check is check_encoder:
+            from .windows.paths import native_ffmpeg_path
+            from .windows.runtime import WindowsRuntime
+            self._native_ffmpeg = native_ffmpeg_path()
+            if self._native_ffmpeg is not None:
+                self._native_runtime = WindowsRuntime()
         self._options = {**default_options(), **(VIRTUAL_OPTIONS if WINDOWS else {})}
+        if self._native_ffmpeg is not None and default_windows_encoder() == 'nvenc':
+            self._options['capture'] = 'ddagrab'
         self._onboarded = False
         try:
             saved = json.loads(self._settings_path.read_text(encoding='utf-8'))
@@ -167,9 +178,16 @@ class Desktop:
         if WINDOWS and (merged['source'] not in ('display', 'virtual') or
                         merged['virtual_resolution'] not in ('720p', '1080p')):
             raise ValueError('Unsupported display source or virtual display resolution')
-        settings = BridgeSettings(find_dll(), self._ffmpeg, **{k: v for k, v in merged.items() if k in OPTIONS})
+        settings = BridgeSettings(find_dll(), self._selected_ffmpeg(merged), **{k: v for k, v in merged.items() if k in OPTIONS})
         self._options = merged
         return settings
+
+    def _selected_ffmpeg(self, options=None):
+        selected = self._options if options is None else options
+        if (self._native_ffmpeg is not None and (selected['capture'] == 'ddagrab' or selected.get('source') == 'virtual')
+                and (selected['encoder'] or default_windows_encoder()) == 'nvenc'):
+            return self._native_ffmpeg
+        return self._ffmpeg
 
     def _bitrates(self):
         """For each frame rate, the bitrates the engine accepts and the one it picks by default."""
@@ -191,9 +209,10 @@ class Desktop:
         checked, result = self._checks
         if result is None or (not self._running() and time.monotonic()-checked >= 1):
             needs_ffmpeg = self._options['capture'] != 'screencapturekit'
+            ffmpeg = self._selected_ffmpeg()
             result = dict(driver=dict(needed=WINDOWS, ok=not WINDOWS or find_dll().is_file()),
                           screen=dict(needed=MAC, ok=not MAC or screen_access()),
-                          ffmpeg=dict(needed=needs_ffmpeg, ok=not needs_ffmpeg or bool(self._ffmpeg and self._ffmpeg.is_file())),
+                          ffmpeg=dict(needed=needs_ffmpeg, ok=not needs_ffmpeg or bool(ffmpeg and ffmpeg.is_file())),
                           attached=goggles_attached())
             if WINDOWS:
                 from .virtual_display.virtual_driver import status
@@ -218,7 +237,8 @@ class Desktop:
             self._device = False  # goggles that do not answer are identified when a stream starts
 
     def _running(self):
-        return self._thread is not None and self._thread.is_alive()
+        return (self._thread is not None and self._thread.is_alive()
+                or self._native_runtime is not None and self._native_runtime.busy())
 
     def snapshot(self):
         """Return everything the window draws."""
@@ -306,7 +326,7 @@ class Desktop:
 
     def start(self):
         with self._lock:
-            if self._thread and self._thread.is_alive():
+            if self._running():
                 return dict(ok=True)
             if self._updating or self._installing_display:
                 return dict(ok=False)  # the app is about to close
@@ -343,7 +363,14 @@ class Desktop:
             if (options or self._options).get('source') == 'virtual':
                 from .virtual_display.capture import run
                 run(settings, options or self._options, log, self._stop, self._event,
-                    engine_factory=self._engine_factory, check=self._check)
+                    engine_factory=self._engine_factory, check=self._check, native_runtime=self._native_runtime
+                    if settings.ffmpeg == self._native_ffmpeg and settings.encoder == 'nvenc' else None)
+                return
+            if self._native_runtime is not None and settings.capture == 'ddagrab' and settings.encoder == 'nvenc':
+                target = next((d for d in self._displays if d['index'] == settings.display_index), None)
+                if not target or not target.get('device'):
+                    raise RuntimeError('The selected display is no longer available')
+                self._native_runtime.run(settings, target['device'], log, self._stop, self._event)
                 return
             problem = self._check(settings)
             if problem:
@@ -383,12 +410,13 @@ class Desktop:
         """Copy a plain-text report to the clipboard and return it."""
         with self._lock:
             state = dict(self._state)
+        ffmpeg = self._selected_ffmpeg()
         lines = [f'{APP_NAME} {__version__}', f'{platform.platform()} | Python {platform.python_version()}',
-                 f'FFmpeg: {self._ffmpeg}', f'Checks: {json.dumps(self._preflight())}',
+                 f'FFmpeg: {ffmpeg}', f'Checks: {json.dumps(self._preflight())}',
                  f'Options: {json.dumps(self._options)}',
                  f"State: {state['phase']} {json.dumps(state['problem'])} {json.dumps(self._device or None)}"]
-        if self._ffmpeg and self._ffmpeg.is_file():
-            version = subprocess.run([str(self._ffmpeg), '-hide_banner', '-version'], capture_output=True, text=True,
+        if ffmpeg and ffmpeg.is_file():
+            version = subprocess.run([str(ffmpeg), '-hide_banner', '-version'], capture_output=True, text=True,
                                      errors='replace', timeout=10, creationflags=NO_WINDOW).stdout.splitlines()
             lines.append(f'FFmpeg version: {version[0] if version else "unknown"}')
         log = Path(state['log']) if state['log'] else None

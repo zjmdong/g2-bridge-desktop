@@ -6,8 +6,9 @@ open DJI Virtual Flight, and start streaming. Move the game with Win+Shift+Left/
 Stopping, disconnecting, or closing the app releases the virtual screen.
 
 Desktop resolution can be 1280 × 720 or 1920 × 1080, at 60/75/90/100 Hz.
-Both send a **1920 × 1080** picture: Windows Graphics Capture enlarges the 720p
-source on the GPU before NVENC encoding, filling the goggles' panel. The selected
+Both send a **1920 × 1080** picture. The personal NVIDIA build uses native Desktop
+Duplication and GPU scaling to enlarge the 720p source before NVENC encoding,
+filling the goggles' panel. Other configurations retain stock capture. The selected
 rate is requested display timing, not a measured game or headset frame rate.
 A physical primary monitor must remain active. Other encoding settings still apply.
 
@@ -35,7 +36,7 @@ Forced termination cannot run display cleanup. Restarting a virtual stream verif
 the exact owned device before using it again. Setup diagnostics are in
 `Program Files/Goggles Bridge Display/display-install.json`.
 
-Build with `python packaging/build_windows.py` (PyInstaller and Inno Setup required).
+Build this personal edition with `python packaging/build_windows.py --native` (PyInstaller and Inno Setup required).
 Run `python -m unittest discover -s tests -v` and
 `node --test tests/test_virtual_ui.mjs` for offline regressions. Before release,
 check installation, repair, cancellation, uninstall/reinstall, and 720p/1080p

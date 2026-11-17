@@ -9,8 +9,9 @@ import unittest
 from unittest import mock
 
 from goggles_bridge.control import V1Stream
-from goggles_bridge.engine import (BridgeEngine, BridgeSettings, MAX_FRAME_BYTES, MAX_VBV_BITS, check_encoder,
-                                   encoder_command, prioritize_gpu)
+from goggles_bridge.engine import (AMF_QMIN, BridgeEngine, BridgeSettings, MAX_AMF_VBV_BITS, MAX_FRAME_BYTES,
+                                   MAX_VBV_BITS, check_encoder, default_windows_encoder, encoder_command,
+                                   prioritize_gpu)
 from goggles_bridge.mac_capture import helper_path, supported
 from goggles_bridge.session import SessionError
 from goggles_bridge.usb_transport import DeviceNotFoundError, UsbTransportError
@@ -18,6 +19,9 @@ from avi_fixture import stream as avi_stream
 
 
 AUD = b'\0\0\0\1\x09\xf0'
+# defaults follow the host's GPU, so these tests pin detection to NVENC
+DETECTION = mock.patch('goggles_bridge.engine.default_windows_encoder', return_value='nvenc')
+setUpModule, tearDownModule = DETECTION.start, DETECTION.stop
 
 
 class EncoderOutput:
@@ -161,7 +165,9 @@ class EngineTests(unittest.TestCase):
         if sys.platform != 'win32':
             return
         # The kernel accepts the call only after the process touches the graphics stack, as FFmpeg has by its first frame
-        process = subprocess.Popen([sys.executable, '-c', "import ctypes; ctypes.WinDLL('user32').GetDesktopWindow()"
+        # A venv launcher may own a different process handle from its child.
+        interpreter = getattr(sys, '_base_executable', sys.executable)
+        process = subprocess.Popen([interpreter, '-c', "import ctypes; ctypes.WinDLL('user32').GetDesktopWindow()"
                                     "; print('ready', flush=True); import time; time.sleep(5)"],
                                    stdout=subprocess.PIPE, creationflags=subprocess.CREATE_NO_WINDOW)
         try:
@@ -170,6 +176,7 @@ class EngineTests(unittest.TestCase):
         finally:
             process.kill()
             process.wait(timeout=5)
+            process.stdout.close()
 
     def test_absent_device_can_be_stopped_while_waiting(self):
         stop = threading.Event()
@@ -407,3 +414,41 @@ class EngineTests(unittest.TestCase):
         self.assertIn('--capture ddagrab', check_encoder(settings, run('Error opening input files: Filter not found')))
         self.assertIn('NVIDIA encoder', check_encoder(settings, run('Error opening output files: Encoder not found')))
         self.assertIn('OpenEncodeSessionEx failed', check_encoder(settings, run('a\nb\nOpenEncodeSessionEx failed')))
+
+    def test_amf_encoder_contract_and_detection(self):
+        command = encoder_command(self.settings(encoder='amf', capture='gfxcapture', preset='p1',
+                                                h264_profile='baseline', adaptive_quant=True))
+        for key, value in (('-c:v', 'h264_amf'), ('-usage', 'transcoding'), ('-latency', '1'),
+                           ('-quality', 'speed'), ('-bufsize', str(MAX_AMF_VBV_BITS)),
+                           ('-max_au_size', str(MAX_AMF_VBV_BITS)), ('-preencode', '1'), ('-qmin', str(AMF_QMIN)),
+                           ('-vbaq', '1'), ('-g', '300'), ('-header_spacing', '300'),
+                           ('-profile:v', 'constrained_baseline'), ('-level', '5.1'),
+                           ('-aud', '1'), ('-forced_idr', '1')):
+            self.assertEqual(command[command.index(key)+1], value)
+        self.assertTrue(command[command.index('-vf')+1].startswith('hwdownload,format=bgra,format=nv12,select='))
+        # Goggles 2 stayed black with AMF intra refresh, so AMF keeps periodic IDRs
+        self.assertNotIn('-intra_refresh_mb', command)
+        stop = threading.Event()
+        events, _ = self.run_case(lambda _: FakeUsb(stop), stop, settings=self.settings(encoder='amf'))
+        self.assertFalse(events[0]['intra_refresh'])
+        self.assertEqual(events[0]['multipass'], 'disabled')
+        self.assertEqual(events[0]['encoder'], 'amf')
+        with tempfile.TemporaryDirectory() as folder:
+            sys32 = Path(folder) / 'System32'
+            sys32.mkdir()
+            self.assertEqual(default_windows_encoder(folder), 'nvenc')
+            (sys32 / 'amfrt64.dll').write_bytes(b'x')
+            self.assertEqual(default_windows_encoder(folder), 'amf')
+            (sys32 / 'nvEncodeAPI64.dll').write_bytes(b'x')
+            self.assertEqual(default_windows_encoder(folder), 'nvenc')
+        # an AMD-only machine gets AMF with Desktop Duplication unless the capture is chosen
+        with mock.patch('goggles_bridge.engine.default_windows_encoder', return_value='amf'):
+            self.assertEqual((self.settings().encoder, self.settings().capture), ('amf', 'ddagrab'))
+            self.assertEqual(self.settings(capture='gfxcapture').encoder, 'amf')
+            self.assertEqual(self.settings(encoder='nvenc').capture, 'gfxcapture')
+            self.assertEqual(self.settings(capture='screencapturekit').encoder, 'nvenc')
+        self.assertEqual((self.settings().encoder, self.settings().capture), ('nvenc', 'gfxcapture'))
+        amf_settings = self.settings(encoder='amf')
+        fail =lambda stderr: lambda command, **_: subprocess.CompletedProcess(command, 1, '', stderr)
+        self.assertIn('AMD AMF encoder', check_encoder(amf_settings, fail('Encoder not found')))
+        self.assertIn('AMD AMF driver', check_encoder(amf_settings, fail('SubmitInput() failed')))

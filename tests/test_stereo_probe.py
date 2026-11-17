@@ -2,10 +2,15 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 from goggles_bridge.control import V1Packet, heartbeat
 from goggles_bridge.engine import BridgeSettings, encoder_command
 from tools.research import stereo_probe
+
+# defaults follow the host's GPU, so these tests pin detection to NVENC
+DETECTION = mock.patch('goggles_bridge.engine.default_windows_encoder', return_value='nvenc')
+setUpModule, tearDownModule = DETECTION.start, DETECTION.stop
 
 
 class StereoProbeTests(unittest.TestCase):

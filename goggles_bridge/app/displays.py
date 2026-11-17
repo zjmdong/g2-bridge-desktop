@@ -41,6 +41,7 @@ def list_displays():
         if user32.GetMonitorInfoW(monitor, C.byref(info)) and user32.EnumDisplaySettingsW(
                 info.szDevice, 0xFFFFFFFF, C.byref(mode)):  # ENUM_CURRENT_SETTINGS
             displays.append(dict(index=len(displays), name=f'Display {len(displays)+1}',
+                                 device=info.szDevice,
                                  x=mode.dmPositionX, y=mode.dmPositionY,
                                  width=mode.dmPelsWidth, height=mode.dmPelsHeight,
                                  hz=mode.dmDisplayFrequency, primary=bool(info.dwFlags & 1)))

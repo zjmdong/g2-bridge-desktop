@@ -1,189 +1,23 @@
-name: Release
+name: Personal release checks
 
-# run from the Actions page with a version: opens the pull request that sets it in the code, and merges it
-# when the ruleset lets GitHub Actions bypass review. merging that pull request, or running again with the
-# version the code has, builds the Windows installer and the signed, notarized Mac disk image, and opens
-# a draft release to finish by hand
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Version (e.g. 1.2.3)
-        required: true
-  push:
-    branches: [main]
-    paths: [goggles_bridge/__init__.py]
 
 permissions:
-  contents: write
-
-# one build at a time, so a merge and a manual run for the same version don't both draft it
-concurrency: release
+  contents: read
 
 jobs:
-  version:
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-    outputs:
-      # empty when this run only opened the version pull request, so nothing is built
-      version: ${{ steps.version.outputs.version }}
-    env:
-      GH_TOKEN: ${{ github.token }}
-      VERSION: ${{ inputs.version }}
-      NAME: ${{ github.actor }}
-      EMAIL: ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
-    steps:
-      - uses: actions/checkout@v4
-      - name: Open the version pull request, or check that the version in the code is new
-        id: version
-        run: |
-          set -euo pipefail
-          version="$(python3 -c 'import goggles_bridge; print(goggles_bridge.__version__)')"
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$VERSION" != "$version" ]; then
-            # the app compares versions as three numbers
-            if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::Enter the version as three numbers, for example 1.2.3."
-              exit 1
-            fi
-            sed -i "s/^__version__ = .*/__version__ = '$VERSION'/" goggles_bridge/__init__.py
-            git switch -c "release/$VERSION"
-            git -c user.name="$NAME" -c user.email="$EMAIL" commit -am "chore(release): $VERSION"
-            git push origin "release/$VERSION"
-            gh pr create --base main --title "chore(release): $VERSION" \
-              --body "Merging this pull request builds the Windows installer and the Mac disk image for $VERSION, and drafts the release."
-            # the merge succeeds only when GitHub Actions is on the bypass list of the ruleset for main
-            if gh pr merge "release/$VERSION" --merge --admin; then
-              gh workflow run release.yml --ref "$GITHUB_REF_NAME" -f version="$VERSION"
-            else
-              echo "::notice::To start the build, merge the pull request chore(release): $VERSION."
-            fi
-            exit 0
-          fi
-          if gh release list --limit 200 --json tagName -q '.[].tagName' | grep -qx "$version"; then
-            # a second run for the commit that already has its draft
-            if [ "$(gh release view "$version" --json isDraft,targetCommitish -q '"\(.isDraft) \(.targetCommitish)"')" = "true $GITHUB_SHA" ]; then
-              echo "::notice::The draft release for $version already exists."
-              exit 0
-            fi
-            echo "::error::Release $version already exists. Run the workflow with a new version."
-            exit 1
-          fi
-          # an existing tag must be the commit being built, or the installers and the tagged source would differ
-          tagged="$(git ls-remote origin "refs/tags/$version" "refs/tags/$version^{}" | tail -n 1 | cut -f 1)"
-          if [ -n "$tagged" ] && [ "$tagged" != "$GITHUB_SHA" ]; then
-            echo "::error::Tag $version exists at another commit. Run the workflow with a new version, or delete the tag."
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-  windows:
-    needs: version
-    if: needs.version.outputs.version
+  checks:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r requirements-app.txt pyinstaller==6.22.3
-      - run: python -m unittest discover -s tests
-      - name: Install Inno Setup if the runner lacks it
-        shell: bash
-        run: test -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" || choco install innosetup --yes --no-progress
-      - run: python packaging/build_windows.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: windows
-          path: dist/GogglesBridge-${{ needs.version.outputs.version }}-Setup.exe
-          if-no-files-found: error
-
-  macos:
-    needs: version
-    if: needs.version.outputs.version
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: python -m pip install -r requirements-app.txt pyinstaller==6.22.3
-      - run: python -m unittest discover -s tests
-      - name: Load the signing certificate and notary key into a temporary keychain
-        env:
-          CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
-          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
-          NOTARY_KEY: ${{ secrets.NOTARY_KEY }}
-          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
-          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
-        run: |
-          set -euo pipefail
-          keychain="$RUNNER_TEMP/signing.keychain-db"
-          password="$(openssl rand -hex 16)"
-          security create-keychain -p "$password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$password" "$keychain"
-          printf '%s' "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
-          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain"
-          security list-keychains -d user -s "$keychain"
-          security default-keychain -s "$keychain"
-          # the certificate chains to Apple's first Developer ID intermediate, and the runner image has only G2
-          curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDCA.cer -o "$RUNNER_TEMP/DeveloperIDCA.cer"
-          security import "$RUNNER_TEMP/DeveloperIDCA.cer" -k "$keychain"
-          # any other certificate leaves the app signed ad hoc and not notarized, and Gatekeeper blocks it
-          identities="$(security find-identity -v -p codesigning "$keychain")"
-          if [[ "$identities" != *'"Developer ID Application: '* ]]; then
-            echo "::error::MACOS_CERTIFICATE must hold a valid Developer ID Application certificate and its private key."
-            security find-identity -p codesigning "$keychain"
-            exit 1
-          fi
-          printf '%s' "$NOTARY_KEY" > "$RUNNER_TEMP/notary.p8"
-          xcrun notarytool store-credentials goggles-bridge-notary --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_KEY_ID" \
-            --issuer "$NOTARY_ISSUER_ID"
-          rm "$RUNNER_TEMP/certificate.p12" "$RUNNER_TEMP/notary.p8"
-      - run: python packaging/build_macos.py
-        env:
-          GOGGLES_NOTARY_PROFILE: goggles-bridge-notary
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos
-          path: dist/GogglesBridge-${{ needs.version.outputs.version }}.dmg
-          if-no-files-found: error
-
-  draft:
-    needs: [version, windows, macos]
-    runs-on: ubuntu-latest
-    env:
-      GH_TOKEN: ${{ github.token }}
-      TAG: ${{ needs.version.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - name: Draft the release
-        run: |
-          set -euo pipefail
-          installer="dist/GogglesBridge-$TAG-Setup.exe"
-          image="dist/GogglesBridge-$TAG.dmg"
-          previous="$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagName // ""')"
-          changelog="First release."
-          if [ -n "$previous" ]; then
-            # the merged pull requests since the last release, as "- [#12](link) title @author"
-            pulls="$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" \
-              -f previous_tag_name="$previous" -q .body \
-              | sed -nE '/^\* chore\(release\): [0-9.]+ by @/d; s|^\* (.*) by @([^ ]+) in (https://[^ ]+/pull/([0-9]+))$|- [#\4](\3) \1 @\2|p')"
-            changelog="Full Changelog: https://github.com/$GITHUB_REPOSITORY/compare/$previous...$TAG"$'\n\n'"$pulls"
-          fi
-          notes="$(cat .github/RELEASE_TEMPLATE.md)"
-          notes="${notes//'{{VERSION}}'/$TAG}"
-          notes="${notes//'{{SHA256}}'/$(sha256sum "$installer" | cut -d ' ' -f 1)}"
-          notes="${notes//'{{MAC_SHA256}}'/$(sha256sum "$image" | cut -d ' ' -f 1)}"
-          notes="${notes//'{{CHANGELOG}}'/$changelog}"
-          printf '%s\n' "$notes" > notes.md
-          # pre-release until a stable version is declared; publishing the draft creates the tag
-          gh release create "$TAG" "$installer" "$image" --draft --prerelease --target "$GITHUB_SHA" --title "$TAG: " --notes-file notes.md
+          node-version: '22'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m unittest discover -s tests -v
+      - run: node --test tests/test_virtual_ui.mjs
+      - run: Write-Output 'Build and publish the verified native Windows release following docs/PERSONAL-RELEASE.md.'

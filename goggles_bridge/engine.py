@@ -28,15 +28,31 @@ NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 WINGET_LINKS = Path(os.environ.get('LOCALAPPDATA', ''), 'Microsoft', 'WinGet', 'Links')
 CHOICES = dict(fps=(60, 75, 90, 100), bitrate_mbps=(8, 10, 12, 16, 20, 24, 30, 32, 40),
                capture=('gfxcapture', 'ddagrab', 'avfoundation', 'screencapturekit'), preset=('p1', 'p4'),
+               encoder=('nvenc', 'amf'),
                keyframe_seconds=(1, 3), h264_profile=('baseline', 'high'), usb_write_size=USB_WRITE_SIZES)
 # Goggles 2 displayed frames up to 49 KB, but keyframes of about 65 KB froze it or left it
 # black until a power cycle. The encoder buffer is capped at this size, and larger frames aren't sent
 MAX_FRAME_BYTES = 56_000
 MAX_VBV_BITS = MAX_FRAME_BYTES * 8
+# AMF treats max_au_size as a soft limit, so scene cuts passed the goggles limit at QP floors below 29.
+# The cap also holds picture data near 6 Mbps whatever the bitrate setting
+MAX_AMF_VBV_BITS = 160_000
+AMF_QMIN = 29
+WINDOWS_CAPTURES = ('gfxcapture', 'ddagrab')
 # Largest tested average frame, 40 Mbps at 100 fps
 MAX_AVERAGE_FRAME_BYTES = 50_000
 # seconds without a picture before the encoder restarts
 SILENT_SECONDS = 5
+
+
+def default_windows_encoder(system_root=None):
+    """Detect the default Windows hardware H.264 encoder ('nvenc' or 'amf')."""
+    sys32 = Path(system_root or os.environ.get('SystemRoot', r'C:\Windows'), 'System32')
+    if (sys32 / 'nvEncodeAPI64.dll').is_file():
+        return 'nvenc'
+    if (sys32 / 'amfrt64.dll').is_file():
+        return 'amf'
+    return 'nvenc'
 
 
 def find_program(name):
@@ -49,7 +65,9 @@ class BridgeSettings:
     ffmpeg: Path
     fps: int = 100
     bitrate_mbps: int | None = None
-    capture: str = 'gfxcapture'
+    # None picks Desktop Duplication for AMF (about 75 fps at 100, against 61-66 for Graphics Capture)
+    # and Graphics Capture otherwise
+    capture: str | None = None
     capture_fps: int | None = None
     display_index: int = 0
     show_cursor: bool = True
@@ -58,15 +76,23 @@ class BridgeSettings:
     low_latency: bool = True
     usb_write_size: int = 16384
     h264_profile: str = 'high'
-    # NVENC spatial and temporal adaptive quantization, off until its goggles latency is measured
+    # NVENC spatial and temporal or AMF variance-based adaptive quantization, off until its goggles latency is measured
     adaptive_quant: bool = False
+    # None detects the installed Windows encoder
+    encoder: str | None = None
 
     @property
-    def nvenc(self):
-        """Windows captures encode with NVENC, the only encoder whose frame-size cap is verified on goggles."""
-        return self.capture in ('gfxcapture', 'ddagrab')
+    def windows(self):
+        """Windows captures encode with NVENC or AMF and skip frames over the goggles' size limit."""
+        return self.capture in WINDOWS_CAPTURES
 
     def __post_init__(self):
+        if self.encoder is None:
+            object.__setattr__(self, 'encoder', default_windows_encoder()
+                               if self.capture in (None, *WINDOWS_CAPTURES) else 'nvenc')
+        if self.capture is None:
+            object.__setattr__(self, 'capture', 'ddagrab' if self.encoder == 'amf' else 'gfxcapture')
+
         def check(name):
             value, choices = getattr(self, name), CHOICES[name]
             if type(value) is not type(choices[0]) or value not in choices:
@@ -76,17 +102,17 @@ class BridgeSettings:
         check('fps')
         if self.bitrate_mbps is None:
             object.__setattr__(self, 'bitrate_mbps',
-                               min(32, self.fps*8*MAX_AVERAGE_FRAME_BYTES//1_000_000) if self.nvenc else 20)
+                               min(32, self.fps*8*MAX_AVERAGE_FRAME_BYTES//1_000_000) if self.windows else 20)
         for name in ('low_latency', 'adaptive_quant'):
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f'{name} must be a boolean')
         for name in CHOICES:
             check(name)
-        if self.adaptive_quant and not self.nvenc:
-            raise ValueError('Adaptive quantization needs the Windows NVENC encoder')
+        if self.adaptive_quant and not self.windows:
+            raise ValueError('Adaptive quantization needs a Windows encoder (NVENC or AMF)')
         # shortcut: only the NVENC buffer cap is verified on goggles, so macOS keeps the earlier
         # 24 Mbps ceiling and its frames are never skipped; lift both once a Mac cap is verified
-        if not self.nvenc and self.bitrate_mbps > 24:
+        if not self.windows and self.bitrate_mbps > 24:
             raise ValueError('macOS capture supports at most 24 Mbps')
         # The buffer cap bounds keyframes, but in CBR every frame averages bitrate/fps
         if self.bitrate_mbps * 1_000_000 // (8 * self.fps) > MAX_AVERAGE_FRAME_BYTES:
@@ -112,7 +138,7 @@ def encoder_command(settings, frames=0):
         return (command + ([] if settings.show_cursor else ['--hide-cursor'])
                 + (['--frames', str(frames)] if frames else []))
     # More NVENC bitrate must not enlarge the previous 20 Mbps buffer budget
-    vbv = min(min(bitrate, 20_000_000)*2//settings.fps, MAX_VBV_BITS) if settings.nvenc else bitrate*2//settings.fps
+    vbv = min(min(bitrate, 20_000_000)*2//settings.fps, MAX_VBV_BITS) if settings.windows else bitrate*2//settings.fps
     period = settings.fps*settings.keyframe_seconds
     rate = ['-b:v', str(bitrate), '-maxrate', str(bitrate), '-bufsize', str(vbv), '-bf', '0',
             '-g', str(period), '-level:v', '4.2' if settings.fps == 60 else '5.1',
@@ -143,7 +169,9 @@ def encoder_command(settings, frames=0):
                       f"st(0,max(ld(0)+1/{settings.fps},pts*TB));1,0))',"
                       # Compact capture gaps so CFR does not replay stale pictures to catch up
                       f'setpts=N/({settings.fps}*TB):strip_fps=1')
-            command += ['-f', 'lavfi', '-i', source, '-vf', pacing,
+            # h264_amf rejects D3D11 capture frames, and downloading before pacing used less CPU than after
+            vf = f'hwdownload,format=bgra,format=nv12,{pacing}' if settings.encoder == 'amf' else pacing
+            command += ['-f', 'lavfi', '-i', source, '-vf', vf,
                         '-r', str(settings.fps), '-fps_mode', 'cfr']
         else:
             source = (f'ddagrab=output_idx={settings.display_index}:framerate={settings.fps}'
@@ -152,17 +180,36 @@ def encoder_command(settings, frames=0):
                         f'hwdownload,format=bgra,scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=decrease:'
                         f'flags=fast_bilinear:out_color_matrix=bt601,'
                         f'pad={WIDTH}:{HEIGHT}:(ow-iw)/2:(oh-ih)/2,format=nv12']
-        command += ['-an', '-c:v', 'h264_nvenc', '-preset', settings.preset, '-tune', 'ull', '-rc', 'cbr',
-                    '-zerolatency', '1', '-delay', '0', '-profile:v', settings.h264_profile, *rate,
-                    '-aud', '1', '-forced-idr', '1',
-                    '-multipass', 'qres', '-intra-refresh', '1',
-                    # single-slice refresh can exceed the receiver's picture-size limit
-                    '-single-slice-intra-refresh', '0',
-                    # refresh alone sends one IDR, and goggles that miss it stay black. The first
-                    # interval repeats it often, because a still screen can deliver only a few frames a second
-                    '-force_key_frames', f'expr:not(mod(n,{period}))+lt(n,{period})*not(mod(n,{settings.fps//10}))']
-        if settings.adaptive_quant:
-            command += ['-spatial-aq', '1', '-temporal-aq', '1']
+        if settings.encoder == 'amf':
+            # Periodic IDRs, not intra refresh: with -intra_refresh_mb, AMF sends only the first IDR and
+            # Goggles 2 (firmware 01.14) stayed black, though FFmpeg decodes that stream correctly
+            gop = str(settings.fps * settings.keyframe_seconds)
+            bufsize = str(min(bitrate * 2 // settings.fps, MAX_AMF_VBV_BITS))
+            profile = 'constrained_baseline' if settings.h264_profile == 'baseline' else 'high'
+            quality = 'speed' if settings.preset == 'p1' else 'balanced'
+            level = '4.2' if settings.fps == 60 else '5.1'
+            command += ['-an', '-c:v', 'h264_amf', '-usage', 'transcoding', '-latency', '1',
+                        '-quality', quality, '-rc', 'cbr', '-b:v', str(bitrate), '-maxrate', str(bitrate),
+                        '-bufsize', bufsize, '-max_au_size', bufsize, '-preencode', '1', '-qmin', str(AMF_QMIN),
+                        '-enforce_hrd', '1', '-filler_data', '0', '-async_depth', '1']
+            if settings.adaptive_quant:
+                command += ['-vbaq', '1']
+            command += ['-bf', '0', '-g', gop, '-header_spacing', gop,
+                        '-profile:v', profile, '-level', level,
+                        '-aud', '1', '-forced_idr', '1', '-flush_packets', '1']
+        else:
+            command += ['-an', '-c:v', 'h264_nvenc', '-preset', settings.preset, '-tune', 'ull', '-rc', 'cbr',
+                        '-zerolatency', '1', '-delay', '0', '-profile:v', settings.h264_profile, *rate,
+                        '-aud', '1', '-forced-idr', '1',
+                        '-multipass', 'qres', '-intra-refresh', '1',
+                        # single-slice refresh can exceed the receiver's picture-size limit
+                        '-single-slice-intra-refresh', '0',
+                        # refresh alone sends one IDR, and goggles that miss it stay black. The first interval
+                        # repeats it often, because a still screen can deliver only a few frames a second
+                        '-force_key_frames',
+                        f'expr:not(mod(n,{period}))+lt(n,{period})*not(mod(n,{settings.fps//10}))']
+            if settings.adaptive_quant:
+                command += ['-spatial-aq', '1', '-temporal-aq', '1']
         if settings.low_latency:
             command += ['-bsf:v', 'filter_units=remove_types=12']
     if settings.low_latency:
@@ -192,26 +239,42 @@ def check_encoder(settings, run=subprocess.run):
     if 'Filter not found' in result.stderr:
         return (f'This FFmpeg build has no {settings.capture} capture. '
                 'Update it with "winget upgrade Gyan.FFmpeg", or try --capture ddagrab')
+    vendor = 'AMD AMF' if settings.encoder == 'amf' else 'NVIDIA'
     if 'Encoder not found' in result.stderr:
-        return 'This FFmpeg build has no NVIDIA encoder. Install it with "winget install Gyan.FFmpeg"'
-    return f'FFmpeg test encode failed. Check the NVIDIA driver and --display index.\n  {details}'
+        return f'This FFmpeg build has no {vendor} encoder. Install it with "winget install Gyan.FFmpeg"'
+    return f'FFmpeg test encode failed. Check the {vendor} driver and --display index.\n  {details}'
 
 
-def prioritize_gpu(process):
-    """Give the encoder realtime GPU scheduling so a saturated simulator cannot queue ahead of it.
+def _validate_gpu_priority_class(priority_class):
+    if priority_class is not None and (type(priority_class) is not int or not 0 <= priority_class <= 5):
+        raise ValueError('GPU priority class must be None or an integer from 0 to 5')
 
-    Call it once the process has produced output: the kernel rejects processes that
-    have not yet created a graphics context. Needs no elevation. Under synthetic GPU
-    saturation it cut the capture-to-packet p95 from about 6.7 to 3.5 ms; the HIGH
-    class changed nothing. Returns False where unsupported.
+
+def prioritize_gpu(process, priority_class=5):
+    """Best-effort scheduling for this encoder's existing Windows handle.
+
+    The CLI keeps its realtime default. A desktop compositor sharing the GPU
+    can instead use High (4); None preserves the OS policy. Apply once after
+    first output, when the encoder has created its graphics context.
     """
-    handle = getattr(process, '_handle', None)
-    if handle is None or sys.platform != 'win32':
+    _validate_gpu_priority_class(priority_class)
+    if priority_class is None or sys.platform != 'win32':
         return False
     import ctypes
-    set_class = ctypes.WinDLL('gdi32').D3DKMTSetProcessSchedulingPriorityClass
-    set_class.argtypes = [ctypes.c_void_p, ctypes.c_int]
-    return set_class(int(handle), 5) == 0  # D3DKMT_SCHEDULINGPRIORITYCLASS_REALTIME
+    try:
+        handle = getattr(process, '_handle', None)
+        if handle is None or type(handle) is bool or getattr(handle, 'closed', False):
+            return False
+        handle = int(handle)
+        if not 0 < handle < 1 << (ctypes.sizeof(ctypes.c_void_p)*8-1):
+            return False  # Never target NULL, pseudo handles, or the caller.
+        library = ctypes.WinDLL('gdi32.dll', winmode=0x00000800)
+        set_class = library.D3DKMTSetProcessSchedulingPriorityClass
+        set_class.argtypes = [ctypes.c_void_p, ctypes.c_int32]
+        set_class.restype = ctypes.c_int32
+        return set_class(handle, priority_class) == 0
+    except (OSError, AttributeError, TypeError, ValueError, OverflowError):
+        return False
 
 
 class EventLog:
@@ -235,11 +298,13 @@ class BridgeEngine:
     """Manage the encoder and USB session, reconnecting after link loss."""
     def __init__(self, settings, log_path, *, on_event=None, stop_event=None,
                  stop_file=None, duration=0, reconnect=True, retry_delay=1,
-                 transport_factory=None, process_factory=subprocess.Popen):
+                 transport_factory=None, process_factory=subprocess.Popen,
+                 gpu_priority_class=5):
         if not math.isfinite(duration) or duration < 0:
             raise ValueError('Duration must be nonnegative and finite')
         if not math.isfinite(retry_delay) or retry_delay < 0:
             raise ValueError('Retry delay must be nonnegative and finite')
+        _validate_gpu_priority_class(gpu_priority_class)
         self.settings = settings
         self.log_path = Path(log_path)
         self.on_event = on_event or (lambda event: None)
@@ -251,6 +316,7 @@ class BridgeEngine:
         self.transport_factory = (partial(ControlUsb, write_size=settings.usb_write_size)
                                   if transport_factory is None else transport_factory)
         self.process_factory = process_factory
+        self.gpu_priority_class = gpu_priority_class
         self.log = None
         self.waiting = None
 
@@ -264,8 +330,9 @@ class BridgeEngine:
     def run(self):
         with closing(EventLog(self.log_path)) as self.log:
             settings = {name: value for name, value in asdict(self.settings).items() if name not in ('dll', 'ffmpeg')}
-            self.emit('starting', resolution=f'{WIDTH}x{HEIGHT}', intra_refresh=self.settings.nvenc,
-                      multipass='qres' if self.settings.nvenc else 'disabled', **settings)
+            nvenc = self.settings.windows and self.settings.encoder == 'nvenc'
+            self.emit('starting', resolution=f'{WIDTH}x{HEIGHT}', intra_refresh=nvenc,
+                      multipass='qres' if nvenc else 'disabled', **settings)
             try:
                 attempt = 0
                 while not self.stopping():
@@ -411,7 +478,7 @@ class BridgeEngine:
                                 self.emit('capture_restart')
                             continue
                         last_frame = time.perf_counter()
-                        oversize = self.settings.nvenc and len(frame) > MAX_FRAME_BYTES
+                        oversize = self.settings.windows and len(frame) > MAX_FRAME_BYTES
                         if oversize:
                             oversize_count += 1
                             self.emit('oversize_frame', bytes=len(frame), limit=MAX_FRAME_BYTES)
@@ -440,7 +507,10 @@ class BridgeEngine:
                         byte_count += len(wire)
                         frame_count += 1
                         if encoder_first_frame:
-                            self.emit('streaming', encoder_pid=process.pid, gpu_realtime=prioritize_gpu(process))
+                            applied = prioritize_gpu(process, self.gpu_priority_class)
+                            self.emit('streaming', encoder_pid=process.pid,
+                                      gpu_realtime=applied and self.gpu_priority_class == 5,
+                                      gpu_priority_class=self.gpu_priority_class, gpu_priority_applied=applied)
                             encoder_first_frame = False
                     else:
                         self.stop_event.wait(.002)

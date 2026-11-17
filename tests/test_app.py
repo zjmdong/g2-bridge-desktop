@@ -169,10 +169,21 @@ class AppTests(unittest.TestCase):
         self.settings_path.write_text('{"fps": 61}', encoding='utf-8')
         self.assertEqual(self.app()._options['fps'], 100)
 
+    @unittest.skipIf(sys.platform == 'darwin', 'Windows encoders')
+    def test_amd_machines_default_to_amf(self):
+        for detected, capture in (('amf', 'ddagrab'), ('nvenc', 'gfxcapture')):
+            with mock.patch('goggles_bridge.engine.default_windows_encoder', return_value=detected):
+                options = backend.default_options()
+                # the saved option stays automatic, and the engine resolves it on every start
+                self.assertEqual((options['encoder'], options['capture']), (None, capture))
+                self.settings_path.unlink(missing_ok=True)
+                app = self.app()
+                self.assertEqual(app._settings({}).encoder, detected)
+
     def test_update_runs_the_verified_installer_and_closes_the_app(self):
         installer = b'installer'
-        url = updates.DOWNLOADS+f'0.2.0/GogglesBridge-0.2.0{updates.ASSET}'
-        asset = dict(name=f'GogglesBridge-0.2.0{updates.ASSET}', browser_download_url=url,
+        url = updates.DOWNLOADS+f'0.2.0/GogglesBridgePersonal-0.2.0{updates.ASSET}'
+        asset = dict(name=f'GogglesBridgePersonal-0.2.0{updates.ASSET}', browser_download_url=url,
                      digest='sha256:'+hashlib.sha256(installer).hexdigest())
 
         def site(release):
@@ -202,7 +213,7 @@ class AppTests(unittest.TestCase):
                 return download(update, folder)
             with mock.patch.object(updates, 'download', while_downloading):
                 self.assertEqual(app.install_update(), dict(ok=True))
-            path = Path(self.folder.name)/'updates'/f'GogglesBridge{updates.ASSET}'
+            path = Path(self.folder.name)/'updates'/f'GogglesBridgePersonal{updates.ASSET}'
             if backend.MAC:
                 self.assertEqual(started[0][4], str(path))
             else:

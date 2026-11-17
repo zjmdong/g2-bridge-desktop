@@ -1,0 +1,65 @@
+{
+  "before": [
+    {
+      "device": "\\\\.\\DISPLAY2",
+      "adapter": 0,
+      "output": 0,
+      "vendor_id": 4318,
+      "width": 3440,
+      "height": 1440
+    }
+  ],
+  "after": [
+    {
+      "device": "\\\\.\\DISPLAY2",
+      "adapter": 0,
+      "output": 0,
+      "vendor_id": 4318,
+      "width": 3440,
+      "height": 1440
+    }
+  ],
+  "restored": true,
+  "checks": [
+    {
+      "label": "physical-100fps",
+      "returncode": 0,
+      "adapter": {
+        "device": "\\\\.\\DISPLAY2",
+        "adapter": 0,
+        "output": 0,
+        "vendor_id": 4318,
+        "width": 3440,
+        "height": 1440
+      },
+      "frames": 100
+    },
+    {
+      "label": "virtual-720p-100fps",
+      "returncode": 0,
+      "adapter": {
+        "device": "\\\\.\\DISPLAY10",
+        "adapter": 0,
+        "output": 1,
+        "vendor_id": 4318,
+        "width": 1280,
+        "height": 720
+      },
+      "frames": 100
+    },
+    {
+      "label": "virtual-1080p-100fps",
+      "returncode": 0,
+      "adapter": {
+        "device": "\\\\.\\DISPLAY10",
+        "adapter": 0,
+        "output": 1,
+        "vendor_id": 4318,
+        "width": 1920,
+        "height": 1080
+      },
+      "frames": 100
+    }
+  ],
+  "goggles_streaming_tested": false
+}

@@ -1,15 +1,15 @@
 ; Inno Setup script for the Goggles Bridge installer. packaging/build_windows.py passes /DVersion
-#define Name "Goggles Bridge"
+#define Name "Goggles Bridge Personal"
 #ifndef Version
   #define Version "0.0.0"
 #endif
 
 [Setup]
-AppId={{4BEF1AEE-4D83-4F9B-9B91-C31BE10F9FB1}
+AppId={{C4A17041-C777-4F12-9D54-403E784A964D}
 AppName={#Name}
 AppVersion={#Version}
-AppPublisher=Goggles Bridge contributors
-AppPublisherURL=https://github.com/Ammaar-Alam/goggles-bridge
+AppPublisher=zjmdong and Goggles Bridge contributors
+AppPublisherURL=https://github.com/zjmdong/g2-bridge-desktop
 ; installs for the current user, so no administrator prompt
 PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Programs\{#Name}
@@ -17,7 +17,7 @@ DefaultGroupName={#Name}
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
 OutputDir=..\dist
-OutputBaseFilename=GogglesBridge-{#Version}-Setup
+OutputBaseFilename=GogglesBridgePersonal-{#Version}-Setup
 SetupIconFile=goggles-bridge.ico
 UninstallDisplayIcon={app}\{#Name}.exe
 WizardStyle=modern
@@ -43,6 +43,7 @@ Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\_display_setup_internal"
 Type: filesandordirs; Name: "{app}\ffmpeg"
 Type: filesandordirs; Name: "{app}\ffmpeg-stock"
+Type: filesandordirs; Name: "{app}\ffmpeg-native"
 Type: filesandordirs; Name: "{app}\licenses"
 Type: files; Name: "{app}\GogglesBridgeWorker.exe"
 Type: files; Name: "{app}\GogglesBridgeDisplaySetup.exe"
@@ -172,7 +173,7 @@ begin
       SuppressibleMsgBox('Repair the virtual display component from the setup guide before uninstalling the app.', mbError, MB_OK, IDOK);
       Abort;
     end;
-    DataFolder := ExpandConstant('{localappdata}\Goggles Bridge');
+    DataFolder := ExpandConstant('{localappdata}\Goggles Bridge Personal');
     if DirExists(DataFolder) and not DelTree(DataFolder, True, True, True) then begin
       SuppressibleMsgBox('App data could not be removed. Close programs using the logs or settings and retry uninstalling.', mbError, MB_OK, IDOK);
       Abort;

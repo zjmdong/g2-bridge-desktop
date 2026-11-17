@@ -2,15 +2,25 @@
   <img src="goggles_bridge/app/ui/icon.svg" width="96" alt="">
 </p>
 
-<h1 align="center">Goggles Bridge</h1>
+<h1 align="center">Goggles Bridge Personal</h1>
 
 <p align="center">Your screen, in your DJI goggles.</p>
 
 <p align="center">
-  <a href="https://github.com/Ammaar-Alam/goggles-bridge/releases/latest">Download</a> Â·
+  <a href="https://github.com/zjmdong/g2-bridge-desktop/releases/latest">Download</a> Â·
   <a href="docs/LATENCY.md">Latency</a> Â·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
+
+**Personal edition 0.0.1 ¡ª Windows x64, maintained on `dev`.** This fork brings the
+full application-managed virtual display through `6abd2b3` together with native
+Windows capture, NVIDIA NVENC and the later worker/latency improvements. It retains
+the upstream app and advanced controls, with separate app settings and fork updates.
+See [features, build instructions and release validation](docs/PERSONAL-RELEASE.md).
+The virtual-display reductions after that cutoff are intentionally excluded.
+
+The original project and documentation follow below. Its published optical latency
+measurements are not measurements of this personal release.
 
 https://github.com/user-attachments/assets/273c06b9-3275-4446-9f38-1e03a633cfc1
 
@@ -34,11 +44,13 @@ The bridge detects the model when it connects:
 On Windows, you need the following hardware and software:
 
 - 64-bit Windows and Python 3.10 or later.
-- An NVIDIA GPU with NVENC support.
-- FFmpeg with `gfxcapture` and `h264_nvenc`. To install it, run `winget install Gyan.FFmpeg`.
+- An NVIDIA GPU with NVENC support, or an AMD GPU with AMF support.
+- FFmpeg with `gfxcapture` and `h264_nvenc`, or `ddagrab` and `h264_amf` for AMD. To install it, run `winget install Gyan.FFmpeg`.
 - [DJI Assistant 2 (Consumer Drones Series)](https://www.dji.com/downloads/softwares/dji-assistant-2-consumer-drones-series), which installs the DJI USB driver 5.0.0.7. See [USB and driver requirements](docs/PROTOCOL.md#usb-and-session).
 
-Tests used FFmpeg build `2026-11-05-git-0893feba65` and NVIDIA driver 610.74.
+Tests used FFmpeg build `2026-11-05-git-0893feba65`, NVIDIA driver 610.74, and AMD driver 32.0.21045.16010 on a Radeon RX 6700 XT.
+
+If only the AMD driver is installed, the bridge uses AMF with Desktop Duplication (`ddagrab`). Otherwise, it uses NVENC with Graphics Capture (`gfxcapture`). To choose a different encoder or capture method, pass `--encoder` or `--capture`.
 
 On macOS, you need the following:
 
@@ -57,7 +69,7 @@ To stream from Windows without installing Python or FFmpeg, use the Goggles Brid
 2. Download `GogglesBridge-VERSION-Setup.exe` from [Releases](https://github.com/Ammaar-Alam/goggles-bridge/releases), and then run it. The installer isn't signed, so Windows might show a SmartScreen warning.
 3. Open Goggles Bridge, and then follow the setup guide.
 
-The app requires 64-bit Windows 10 or 11, an NVIDIA GPU, and the Microsoft Edge WebView2 Runtime, which Windows 11 includes.
+The app requires 64-bit Windows 10 or 11, an NVIDIA or AMD GPU, and the Microsoft Edge WebView2 Runtime, which Windows 11 includes.
 
 On a Mac with Apple silicon and macOS 12.3 or later, download `GogglesBridge-VERSION.dmg` from [Releases](https://github.com/Ammaar-Alam/goggles-bridge/releases), and then drag Goggles Bridge to Applications. The setup guide asks for screen recording permission. Connect the goggles with a USB-A-to-USB-C cable.
 
@@ -123,6 +135,7 @@ Use these options to adjust the stream:
 | `--display` | Monitor index, starting at `0` |
 | `--hide-cursor` | Hide the mouse pointer |
 | `--capture` | Windows: `gfxcapture` or `ddagrab`. macOS: `screencapturekit` or `avfoundation` |
+| `--encoder` | Windows: `nvenc` or `amf`. The default depends on the installed GPU driver |
 
 Run `python scripts/stream_desktop.py --help` for all options.
 
