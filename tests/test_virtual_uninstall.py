@@ -105,8 +105,12 @@ class WindowsLifetimeTests(unittest.TestCase):
 
     def test_multiple_guis_share_marker_until_last_process_exits(self):
         self.assertRegex(self.name, r'^Global\\GogglesBridge\.S-1-')
-        first, second = self.launch(), self.launch()
+        # Startup takes the same short-lived gate as uninstall. Complete each
+        # launch before starting another; this test checks the shared lifetime
+        # marker, not which simultaneous launch wins that gate.
+        first = self.launch()
         self.ready(first)
+        second = self.launch()
         self.ready(second)
         self.assertTrue(self.marker_exists())
         self.stop(first)
