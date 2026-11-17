@@ -21,8 +21,9 @@ stock FFmpeg for WGC, and the native sources and licenses. The normal build
 command remains stock and overwrites the build-mode marker so leftover native
 files cannot activate this backend after a stock upgrade.
 
-The 3 ms source guard, 2 ms acquisition budget and capture-slot-plus-8 ms
-delivery deadline are scheduling policies, not optical latency measurements.
+The 3 ms source guard, 2 ms acquisition budget and capture-slot delivery offset
+(6 ms at 100 fps on NVIDIA displays, otherwise 8 ms) are scheduling policies,
+not optical latency measurements.
 Late encoded frames are sent immediately and remain ordered. A non-NVIDIA
 capture adapter needs a CPU transfer to NVENC. Diagnostics may lose old events
 if storage or the UI stalls. Test streaming changes on goggles and record a

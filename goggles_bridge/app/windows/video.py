@@ -15,10 +15,11 @@ def compatible_command(command, *, output):
             or result[result.index('-c:v')+1] != 'h264_nvenc'):
         raise ValueError('Native capture requires Desktop Duplication and NVIDIA NVENC')
     fps = re.search(r'framerate=(\d+)', source).group(1)
+    delivery_us = 6000 if fps == '100' and output['vendor_id'] == 0x10de else 8000
     source = re.sub(r'output_idx=\d+', f"output_idx={output['output']}", source)
     source += (':output_fmt=bgra:dup_frames=1:precise_clock=1:acquire_timeout=0:'
                'clock_spin_us=500:source_clock=1:source_guard_us=3000:'
-               'fresh_wait_us=2000:delivery_delay_us=8000')
+               f'fresh_wait_us=2000:delivery_delay_us={delivery_us}')
     devices = ['-init_hw_device', f"d3d11va=cap:{output['adapter']}", '-filter_hw_device', 'cap']
     if output['vendor_id'] == 0x10de:
         filters = f'scale_d3d11=width={WIDTH}:height={HEIGHT}:format=nv12:desktop_sdr=1'
