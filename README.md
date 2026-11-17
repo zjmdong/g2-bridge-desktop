@@ -66,12 +66,12 @@ The stream script offers to install whatever is missing. Tests used an M2 Pro Ma
 To stream from Windows without installing Python or FFmpeg, use the Goggles Bridge app:
 
 1. Install [DJI Assistant 2 (Consumer Drones Series)](https://www.dji.com/downloads/softwares/dji-assistant-2-consumer-drones-series) for its USB driver.
-2. Download `GogglesBridge-VERSION-Setup.exe` from [Releases](https://github.com/Ammaar-Alam/goggles-bridge/releases), and then run it. The installer isn't signed, so Windows might show a SmartScreen warning.
+2. Download `GogglesBridgePersonal-VERSION-Setup.exe` from [Releases](https://github.com/zjmdong/g2-bridge-desktop/releases), and then run it. The installer isn't signed, so Windows might show a SmartScreen warning.
 3. Open Goggles Bridge, and then follow the setup guide.
 
 The app requires 64-bit Windows 10 or 11, an NVIDIA or AMD GPU, and the Microsoft Edge WebView2 Runtime, which Windows 11 includes.
 
-On a Mac with Apple silicon and macOS 12.3 or later, download `GogglesBridge-VERSION.dmg` from [Releases](https://github.com/Ammaar-Alam/goggles-bridge/releases), and then drag Goggles Bridge to Applications. The setup guide asks for screen recording permission. Connect the goggles with a USB-A-to-USB-C cable.
+This personal release does not include a Mac build. For the original upstream app on a Mac with Apple silicon and macOS 12.3 or later, download `GogglesBridge-VERSION.dmg` from [Releases](https://github.com/Ammaar-Alam/goggles-bridge/releases), and then drag Goggles Bridge to Applications. The setup guide asks for screen recording permission. Connect the goggles with a USB-A-to-USB-C cable.
 
 ![The Goggles Bridge window on a Mac, asking for screen recording permission. The numbers are simulated.](docs/images/app-window-mac.png)
 
